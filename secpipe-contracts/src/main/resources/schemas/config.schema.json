@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://secpipe.dev/schemas/config.schema.json",
+  "title": "SecPipe secpipe.yml (contract v1)",
+  "$comment": "Keys = `secpipe scan` long option names (PLAN 4.3). No API keys (ADR-10). See ConfigResolver.",
+  "type": ["object", "null"],
+  "additionalProperties": false,
+  "properties": {
+    "target": { "$ref": "#/$defs/text" },
+    "out": { "$ref": "#/$defs/text" },
+    "profile": { "enum": ["quick", "standard", "deep"] },
+    "scope": { "enum": ["diff", "full"] },
+    "base-ref": { "$ref": "#/$defs/text" },
+    "head-ref": { "$ref": "#/$defs/text" },
+    "llm-provider": { "enum": ["none", "copilot", "anthropic", "openai", "openai-compatible", "ollama", "fake"] },
+    "model": { "$ref": "#/$defs/text" },
+    "model-for": {
+      "oneOf": [
+        {
+          "type": "object",
+          "propertyNames": { "$ref": "#/$defs/roleName" },
+          "additionalProperties": { "$ref": "#/$defs/text" }
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^(recon[_-]summary|hunter|critic|testgen|disprover|record[_-]verifier|remediation)=\\S+$"
+          }
+        }
+      ]
+    },
+    "model-tier": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/tier" }
+        },
+        {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^\\S+=(strong|standard|small)$" }
+        }
+      ]
+    },
+    "llm-base-url": { "type": "string", "pattern": "^https?://\\S+$" },
+    "tools": { "$ref": "#/$defs/idList" },
+    "exclude-tools": { "$ref": "#/$defs/idList" },
+    "max-agent-calls": { "type": "integer", "minimum": 0 },
+    "max-fix-attempts": { "type": "integer", "minimum": 0 },
+    "max-sandbox-runs": { "type": "integer", "minimum": 0 },
+    "enable-fixes": {
+      "oneOf": [
+        { "type": "boolean" },
+        { "enum": ["false", "true", "suggest", "pr"] }
+      ]
+    },
+    "no-sandbox": { "type": "boolean" },
+    "offline": { "type": "boolean" },
+    "no-ai": { "type": "boolean" },
+    "fail-on": { "enum": ["critical", "high", "medium", "low", "informational", "none"] },
+    "fail-on-needs-validation": { "type": "boolean" },
+    "fail-on-incomplete": { "type": "boolean" },
+    "format": {
+      "oneOf": [
+        { "type": "string", "pattern": "^(json|sarif|html|markdown|metrics)(,(json|sarif|html|markdown|metrics))*$" },
+        {
+          "type": "array",
+          "minItems": 1,
+          "items": { "enum": ["json", "sarif", "html", "markdown", "metrics"] }
+        }
+      ]
+    },
+    "prior-run": { "$ref": "#/$defs/text" },
+    "print-prompts": { "type": "boolean" },
+    "deny-path": {
+      "oneOf": [
+        { "$ref": "#/$defs/text" },
+        { "type": "array", "items": { "$ref": "#/$defs/text" } }
+      ]
+    },
+    "max-snippet-lines": { "type": "integer", "minimum": 1 },
+    "max-files-per-call": { "type": "integer", "minimum": 1 },
+    "disable-node": { "$ref": "#/$defs/idList" },
+    "include-tests": { "type": "boolean" },
+    "allow-build-extensions": { "type": "boolean" },
+    "accept-codeql-terms": { "type": "boolean" },
+    "engine": { "enum": ["plain", "langgraph4j"] },
+    "tool-timeout": {
+      "oneOf": [
+        { "type": "integer", "minimum": 1 },
+        { "type": "string", "pattern": "^([0-9]+(ms|s|m|h)?|[Pp][Tt][0-9A-Za-z.]+)$" }
+      ]
+    },
+    "quiet": { "type": "boolean" },
+    "verbose": { "type": "boolean" }
+  },
+  "$defs": {
+    "text": { "type": "string", "minLength": 1, "pattern": "\\S" },
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$" },
+    "idList": {
+      "oneOf": [
+        { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*(,[A-Za-z0-9][A-Za-z0-9._-]*)*$" },
+        { "type": "array", "items": { "$ref": "#/$defs/id" } }
+      ]
+    },
+    "roleName": {
+      "type": "string",
+      "pattern": "^(recon[_-]summary|hunter|critic|testgen|disprover|record[_-]verifier|remediation)$"
+    },
+    "tier": { "enum": ["strong", "standard", "small"] }
+  }
+}
