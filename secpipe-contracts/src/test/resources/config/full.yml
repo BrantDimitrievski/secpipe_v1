@@ -1,0 +1,40 @@
+# Every list/map form the schema allows, used by ConfigResolverYamlTest.
+target: services/api
+out: build/secpipe
+profile: deep
+scope: diff
+base-ref: origin/main
+head-ref: feature/x
+llm-provider: anthropic
+model: claude-sonnet-5
+model-for:
+  disprover: claude-opus-5
+  record-verifier: claude-opus-5
+model-tier:
+  local-llama: small
+llm-base-url: https://llm.example.test/v1
+tools: [semgrep, pmd]
+exclude-tools: trivy,grype
+max-agent-calls: 123
+max-fix-attempts: 2
+max-sandbox-runs: 9
+enable-fixes: pr
+no-sandbox: true
+fail-on: medium
+fail-on-needs-validation: true
+fail-on-incomplete: true
+format: [json, sarif]
+prior-run: previous-run
+print-prompts: true
+deny-path:
+  - "**/fixtures/{a,b}/**"
+  - "**/*.secret.txt"
+max-snippet-lines: 40
+max-files-per-call: 3
+disable-node: [disprove]
+include-tests: true
+allow-build-extensions: true
+accept-codeql-terms: true
+engine: langgraph4j
+tool-timeout: 2m
+verbose: true

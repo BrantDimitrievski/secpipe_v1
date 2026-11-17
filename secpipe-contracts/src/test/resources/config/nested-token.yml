@@ -1,0 +1,3 @@
+# A secret-looking key nested under a map value is refused too.
+model-tier:
+  github_token: small
