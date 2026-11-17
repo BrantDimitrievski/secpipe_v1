@@ -1,0 +1,11 @@
+{
+  "missing_units": [],
+  "reassign_ids": [
+    {
+      "coverage_id": "cov:XYZ",
+      "reason": "Hunter output cited files outside the unit"
+    }
+  ],
+  "stop": false,
+  "rationale": "One unit needs a fresh hunter"
+}

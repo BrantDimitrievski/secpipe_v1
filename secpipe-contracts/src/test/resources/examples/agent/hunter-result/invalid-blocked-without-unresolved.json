@@ -1,0 +1,13 @@
+{
+  "coverage_id": "cov:fedcba9876543210fedcba9876543210",
+  "status": "blocked",
+  "reviewed_paths": [
+    "src/main/java/com/shop/app/ReportJob.java"
+  ],
+  "local_checks": [
+    "Located the report entrypoint"
+  ],
+  "candidates": [],
+  "unresolved": [],
+  "hardening_notes": []
+}

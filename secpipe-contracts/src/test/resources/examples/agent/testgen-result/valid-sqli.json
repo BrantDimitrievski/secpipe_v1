@@ -1,0 +1,14 @@
+{
+  "fingerprint": "code:CWE-89:0f0e0d0c0b0a090807060504",
+  "package_name": "secpipe.generated.orders",
+  "class_name": "OrderSqlInjectionSecurityTest",
+  "source": "package secpipe.generated.orders;\n\nimport org.junit.jupiter.api.Test;\n\nclass OrderSqlInjectionSecurityTest {\n    @Test\n    void quoteInIdDoesNotWidenQuery() {\n    }\n}\n",
+  "target_symbols": [
+    "com.shop.app.OrderRepository#byId(String)"
+  ],
+  "payloads": [
+    "' OR '1'='1"
+  ],
+  "expected_failure": "More than one order is returned for a single id",
+  "rationale": "The payload widens the WHERE clause on vulnerable code"
+}
