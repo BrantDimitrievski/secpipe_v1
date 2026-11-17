@@ -2,6 +2,7 @@
 # Two auth paths, one job each: (a) workflow GITHUB_TOKEN + copilot-requests: write, (b) COPILOT_GITHUB_TOKEN PAT.
 # Never pull_request_target. Fork PRs get the plain pull_request trigger: no secrets, read-only token.
 # Results land in ::notice annotations (check-runs API) and the job summary. See docs/spikes/S2-copilot.md.
+# Each authenticated run spends ~15 Copilot requests of the billed seat/org, so doc-only edits do not trigger it.
 name: spike-copilot
 on:
   workflow_dispatch:
@@ -9,13 +10,11 @@ on:
     paths:
       - .github/workflows/spike-copilot.yml
       - scripts/spike/copilot-probe.sh
-      - docs/spikes/S2-copilot.md
   push:
     branches: [main]
     paths:
       - .github/workflows/spike-copilot.yml
       - scripts/spike/copilot-probe.sh
-      - docs/spikes/S2-copilot.md
 permissions: {}
 concurrency:
   group: spike-copilot-${{ github.ref }}
@@ -64,11 +63,20 @@ jobs:
         run: |
           npm install -g "@github/copilot@${COPILOT_CLI_VERSION}"
           copilot --version
-      - name: Probe with the workflow token
+      - name: Probe with the workflow token (auth, flags, sizes, output shape)
         env:
           GITHUB_TOKEN: ${{ github.token }}
           PROBE_LABEL: "(a) GITHUB_TOKEN ${{ github.event_name }}"
           PROBE_INSTALL: "0"
+          PROBE_SECTIONS: core
+          PROBE_OUT: ${{ runner.temp }}/probe-a
+        run: bash scripts/spike/copilot-probe.sh
+      - name: Probe with the workflow token (no-tools guarantee)
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PROBE_LABEL: "(a) GITHUB_TOKEN ${{ github.event_name }}"
+          PROBE_INSTALL: "0"
+          PROBE_SECTIONS: tools
           PROBE_OUT: ${{ runner.temp }}/probe-a
         run: bash scripts/spike/copilot-probe.sh
       - name: Upload probe output
@@ -107,13 +115,23 @@ jobs:
         run: |
           npm install -g "@github/copilot@${COPILOT_CLI_VERSION}"
           copilot --version
-      - name: Probe with the PAT
+      - name: Probe with the PAT (auth, flags, sizes, output shape)
         if: steps.gate.outputs.has_pat == 'true'
         env:
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
           PROBE_LABEL: "(b) PAT ${{ github.event_name }}"
           PROBE_INSTALL: "0"
           PROBE_MODELS_CHECK: "0"
+          PROBE_SECTIONS: core
+          PROBE_OUT: ${{ runner.temp }}/probe-b
+        run: bash scripts/spike/copilot-probe.sh
+      - name: Probe with the PAT (no-tools guarantee)
+        if: steps.gate.outputs.has_pat == 'true'
+        env:
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          PROBE_LABEL: "(b) PAT ${{ github.event_name }}"
+          PROBE_INSTALL: "0"
+          PROBE_SECTIONS: tools
           PROBE_OUT: ${{ runner.temp }}/probe-b
         run: bash scripts/spike/copilot-probe.sh
       - name: Upload probe output
