@@ -3,7 +3,7 @@
 Re-check of the `docs/PLAN.md` Part 3 port map against `capstone-mvp-1`.
 
 - MVP commit: `2905635` (`git log -1` on `capstone-mvp-1` HEAD at the time of the check, the same as the pin). No drift in the commit itself.
-- Main sources: 73 Java files under `src/main/java/ca/carleton/secpipe/`, 5 resource files, `bin/secpipe(.cmd)`.
+- Main sources: 75 Java files under `src/main/java/ca/carleton/secpipe/`, 5 resource files, `bin/secpipe(.cmd)`.
 - Tests: 8 test classes, 43 `@Test` methods, 2 OSV JSON resources. This agrees with the port map ("43 tests").
 - Result of the check: every class named in the port map exists. The classes marked `changed:` below are
   **not covered by the port map**. The decision given for each is a proposal, and the plan owner should confirm it.
