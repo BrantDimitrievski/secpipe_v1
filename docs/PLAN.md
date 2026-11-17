@@ -256,6 +256,15 @@ Each license must be re-verified when its adapter work order starts.
 | OWASP ZAP | Apache-2.0 | stretch | DAST |
 
 ### ADR-10 — AI provider strategy
+> **Retirement note (WO-CC.1, 2026-11-17).** The `copilot` mode in this ADR is **retired**. Spike S.2 measured
+> NO-GO ([`docs/spikes/S2-copilot.md`](spikes/S2-copilot.md)): with no tools allowed, the Copilot CLI still read a
+> file outside its working directory and ran shell commands. Every `copilot` provision below (the mode, the
+> `secpipe-llm-copilot` factory, the `copilot` fallback step, the Copilot quick-start lines, model ids, data-use
+> and token-count notes, and the evaluation's `copilot` arm) is void. The modes are `none | anthropic | openai |
+> openai-compatible | ollama` (+ CI-only `fake`). There is no zero-setup GitHub-native provider: the Action
+> defaults to `none` unless the user supplies a key, the fallback chain is configured provider → `none`, and
+> fork PRs stay at `none`. See "Appendix — Migration notes".
+
 - **Context.** §2.7 of the brief made GitHub Models (`GITHUB_TOKEN` + `models: read`) the zero-setup Action
   default. **That service was retired on 2026-07-30.** `models.github.ai` no longer serves inference, and
   `actions/ai-inference` v3 removed it. GitHub's stated replacement for AI inside Actions is the **Copilot
@@ -546,12 +555,12 @@ secpipe --version | --help
 | `--profile` | `quick\|standard\|deep` / `standard` (CLI), `quick` (Action) | `profile` |
 | `--scope` | `diff\|full` / `full` | `scope` |
 | `--base-ref`, `--head-ref` | git refs / auto from `GITHUB_BASE_REF` or `origin/HEAD` | diff scope |
-| `--llm-provider` | `none\|copilot\|anthropic\|openai\|openai-compatible\|ollama` / `none` | `llmProvider` |
+| `--llm-provider` | `none\|anthropic\|openai\|openai-compatible\|ollama` / `none` (`copilot` removed by WO-CC.1) | `llmProvider` |
 | `--model` | id | `defaultModel` |
 | `--model-for ROLE=ID` | repeatable | `modelForRole` |
 | `--model-tier ID=TIER` | repeatable; `strong\|standard\|small` | `tierOverrides` |
 | `--llm-base-url` | URL | `llmBaseUrl` |
-| *(API key)* | **env only**: `SECPIPE_API_KEY` (aliases `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `SECPIPE_LLM_KEY`); `COPILOT_GITHUB_TOKEN` (or `GITHUB_TOKEN` with `copilot-requests: write`) for copilot | never a flag |
+| *(API key)* | **env only**: `SECPIPE_API_KEY` (aliases `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `SECPIPE_LLM_KEY`) | never a flag |
 | `--tools`, `--exclude-tools` | comma ids | tools |
 | `--max-agent-calls` | int / quick 40, standard 200, deep 800 | budget |
 | `--max-fix-attempts` | int / 3 | FR-14 |
@@ -3615,3 +3624,25 @@ sources. Its `SkeletonTest` loads `PipelineGraph` and `schemas/findings.schema.j
 **Bootstrap CLI.** `SecPipeCli` (WO-0.1) supports only `--version` and `--help`. The version comes from the
 filtered resource `secpipe-cli/src/main/resources/ca/carleton/secpipe/cli/secpipe-version.properties`. Any
 other argument prints `error:` and `hint:` lines and exits 2. WO-K.13 replaces this class.
+
+---
+
+## Appendix — Migration notes
+
+### 2026-11-17 — WO-CC.1: `copilot` provider mode removed
+- **Reason.** Spike S.2 decided NO-GO ([`docs/spikes/S2-copilot.md`](spikes/S2-copilot.md)): the Copilot CLI's
+  no-tools guarantee does not hold (with no `--allow-tool` it read a file outside its empty working directory and
+  ran `uname -r`), and fork PRs get no Copilot auth.
+- **Removed.** `ProviderMode.COPILOT`; `"copilot"` from the `llm-provider` enum in `config.schema.json` and the
+  `providerMode` enum in `run-metadata.schema.json`; the Copilot wording in `action.yml`'s `llm-provider`,
+  `api-key` and `github-token` descriptions (input names, defaults and outputs unchanged); `COPILOT_GITHUB_TOKEN`
+  from the key-environment hints (the `SECPIPE_LLM_KEY` alias was added there); the `copilot` provisions in ADR-10,
+  §4.3 and WO-H.1, WO-H.3, WO-H.6, WO-L.7, WO-E.10. WO-L.5 (`secpipe-llm-copilot`) is closed as not needed.
+- **Remaining set.** `none`, `anthropic`, `openai`, `openai-compatible`, `ollama` (+ CI-only `fake`). The Action
+  defaults to `none` unless a key is supplied; fork PRs stay at `none`.
+- **Old configs.** `llm-provider: copilot` in an old `secpipe.yml` (or `--llm-provider copilot`, or
+  `SECPIPE_LLM_PROVIDER=copilot`) now fails with the usual problem line plus
+  `hint: copilot was removed after spike S.2 (no-tools guarantee does not hold); use anthropic, openai,
+  openai-compatible, ollama or none`. An old `run-metadata.json` with `providerMode` `copilot` no longer validates.
+- **Not edited.** The embedded copies of these contract files in Part 4 §4.4 still show `copilot`; WO-CC.1 did
+  not own them. The files in the repository are authoritative.

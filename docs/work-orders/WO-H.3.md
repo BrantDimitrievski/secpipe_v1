@@ -6,8 +6,8 @@ Suggested human owner: Clinton Odinamadu (reviewer: Elaine Huang)
 Size: S
 
 Goal (2–3 sentences): In `run-scan.sh` and the `none` fallback path, detect fork PRs and missing secrets.
-Use `copilot` (or the configured key provider) only when credentials are actually present and the probe
-succeeds. On fork PRs, follow the S.2 fork result (expected: no secrets and a read-only token → `none`).
+Use the configured key provider only when its key is actually present and the probe succeeds. Fork PRs
+always run at AI mode `none` (S.2: no secrets and a read-only token on fork PRs).
 Record the reason. Document and ship the safe two-workflow pattern (`pull_request` scan → artifact →
 `workflow_run` publisher with write permissions that never checks out or executes PR code).
 
@@ -30,7 +30,7 @@ Implementation notes:
   is regenerated from `findings.json` by `secpipe report --from --format markdown`, after
   `secpipe validate findings`. Never post a raw `pr-comment.md` that came from the untrusted run.
 
-Tests to write: the provider selection matrix (fork × key present × copilot-requests granted × probe result);
+Tests to write: the provider selection matrix (fork × key present × probe result);
 `actionlint` on the examples.
 
 Acceptance criteria (all must pass):

@@ -5,8 +5,9 @@ Traces: FR-2, NFR-4, NFR-5 · O, (evaluation §2.8 items 10 and 11)
 Suggested human owner: Clinton Odinamadu (reviewer: Elaine Huang)
 Size: M
 
-Goal (2–3 sentences): On the same 400-case sample and remediation cases, run `none`, `copilot` (Copilot Pro via the
-Student Developer Pack; replaces the retired GitHub Models free tier), a frontier model (own key), and `ollama` (local GPU or laptop). Report TPR, FPR, fix success rate,
+Goal (2–3 sentences): On the same 400-case sample and remediation cases, run `none`, a frontier model (own
+key), and `ollama` (local GPU or laptop). There is no free-tier arm: GitHub Models was retired and the Copilot
+provider was removed after S.2 (WO-CC.1). Report TPR, FPR, fix success rate,
 runtime, tokens, agent calls, estimated cost, fallbacks, and guardrail downgrades. Add a cost-per-run table
 by profile (quick/standard/deep) on the MVP sample and a mid-size app.
 
@@ -21,7 +22,7 @@ Interfaces consumed: `run-metadata.json`   Interfaces produced: the provider tab
 
 Implementation notes:
 - The price table per model is a dated JSON in the eval module (cost = tokens × price).
-- Copilot premium-request quotas may force sampling; record the effective sample size and whether the
+- Provider quotas or rate limits may force sampling; record the effective sample size and whether the
   tokens were estimated.
 
 Tests to write: cost computation; aggregation across modes.

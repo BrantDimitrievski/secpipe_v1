@@ -39,7 +39,7 @@ class ConfigResolverImplicationsTest {
     void offlineFromYamlAppliesToAProviderFromTheCli() throws IOException {
         Path yaml = writeYaml(dir, "offline: true\n");
 
-        assertThat(resolve(map("llm-provider", "copilot"), map(), yaml).llmProvider()).isEqualTo(ProviderMode.NONE);
+        assertThat(resolve(map("llm-provider", "anthropic"), map(), yaml).llmProvider()).isEqualTo(ProviderMode.NONE);
     }
 
     @Test

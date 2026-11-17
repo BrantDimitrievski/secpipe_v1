@@ -5,10 +5,10 @@ Traces: FR-2, NFR-5 · O, (§2.7 item 3)
 Suggested human owner: Elodie Abdo (reviewer: Clinton Odinamadu)
 Size: M
 
-Goal (2–3 sentences): Extend `RoutingLlmClient` with the provider fallback chain (configured →
-copilot if running in GitHub Actions with `copilot-requests` granted or `COPILOT_GITHUB_TOKEN` set, and the
-probe is ok → none). It adds exponential backoff with jitter on rate limits
-(honouring `Retry-After`) and counts **every** attempt against the budget. Each fallback is recorded
+Goal (2–3 sentences): Extend `RoutingLlmClient` with the provider fallback chain (configured provider,
+if its probe is ok → none). There is no auto-detected GitHub-native provider (WO-CC.1). It adds
+exponential backoff with jitter on rate limits (honouring `Retry-After`) and counts **every** attempt against
+the budget. Each fallback is recorded
 (`from`, `to`, `reason`), so a scan never fails because a provider did.
 
 Context to read first (exact paths only): `secpipe-llm/src/main/java/ca/carleton/secpipe/llm/RoutingLlmClient.java`,

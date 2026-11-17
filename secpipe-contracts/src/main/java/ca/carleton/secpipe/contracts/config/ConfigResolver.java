@@ -92,7 +92,15 @@ public final class ConfigResolver {
     private static final Pattern SECRET_KEY = Pattern.compile("(?i)(api[-_]?key|token|secret)");
 
     private static final String ENV_KEY_HINT = "set SECPIPE_API_KEY (or ANTHROPIC_API_KEY, OPENAI_API_KEY, "
-            + "COPILOT_GITHUB_TOKEN) in the environment instead; API keys are never read from files or flags";
+            + "SECPIPE_LLM_KEY) in the environment instead; API keys are never read from files or flags";
+
+    private static final String PROVIDER_HINT = "use one of none, anthropic, openai, openai-compatible, ollama";
+
+    /** A provider removed by WO-CC.1. It is still recognised so that old configs get a pointed hint. */
+    private static final String REMOVED_PROVIDER = "copilot";
+
+    private static final String REMOVED_PROVIDER_HINT = "copilot was removed after spike S.2 (no-tools guarantee "
+            + "does not hold); use anthropic, openai, openai-compatible, ollama or none";
 
     private static final String DEFAULT_TARGET = ".";
     private static final String DEFAULT_OUT = "secpipe-out";
@@ -206,6 +214,11 @@ public final class ConfigResolver {
                 throw new ConfigException(where + ": unknown key '" + key + "'" + suggestion(key),
                         "keys are the kebab-case 'secpipe scan' option names (see schemas/config.schema.json)");
             }
+        }
+        JsonNode provider = root.get("llm-provider");
+        if (provider != null && provider.isString() && isRemovedProvider(provider.asString())) {
+            throw new ConfigException(where + " key 'llm-provider': expected an LLM provider, got '"
+                    + oneLine(provider.asString()) + "'", REMOVED_PROVIDER_HINT);
         }
         List<String> errors = new ArrayList<>();
         for (com.networknt.schema.Error error : SchemaHolder.SCHEMA.validate(root)) {
@@ -332,8 +345,8 @@ public final class ConfigResolver {
                 try {
                     requested = ProviderMode.fromCli(v.raw().strip().toLowerCase(Locale.ROOT));
                 } catch (IllegalArgumentException e) {
-                    throw invalid(v, "an LLM provider", "use one of none, copilot, anthropic, openai, "
-                            + "openai-compatible, ollama");
+                    throw invalid(v, "an LLM provider",
+                            isRemovedProvider(v.raw()) ? REMOVED_PROVIDER_HINT : PROVIDER_HINT);
                 }
             }
             if (requested == ProviderMode.FAKE && !"1".equals(env.get(ALLOW_FAKE_LLM_ENV))) {
@@ -615,6 +628,10 @@ public final class ConfigResolver {
     }
 
     // ------------------------------------------------------------------ helpers
+
+    private static boolean isRemovedProvider(String raw) {
+        return REMOVED_PROVIDER.equals(raw.strip().toLowerCase(Locale.ROOT));
+    }
 
     private static String suggestion(String key) {
         String best = null;

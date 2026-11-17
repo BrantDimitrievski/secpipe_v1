@@ -37,8 +37,6 @@ Implementation notes:
   `secpipe github --help` exit code).
 - **Example PR workflow:** `on: pull_request`; `permissions: {contents: read, security-events: write,
   pull-requests: write}`; `uses: <owner>/secpipe@v1`; default `llm-provider: none`.
-  - A commented variant enables `llm-provider: copilot` with `copilot-requests: write` (org repos) or
-    `api-key: ${{ secrets.COPILOT_GITHUB_TOKEN }}`.
   - The nightly example is `profile: standard`, `scope: full`, `llm-provider: anthropic`, with the key from
     secrets.
 - Use `bats` tests if available; otherwise shell tests run by `scripts/action/test/run.sh` (stub `java`
