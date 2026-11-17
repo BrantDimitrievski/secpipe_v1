@@ -24,6 +24,10 @@
       <artifactId>secpipe-sarif</artifactId>
     </dependency>
     <dependency>
+      <groupId>ca.carleton.secpipe</groupId>
+      <artifactId>secpipe-sandbox</artifactId>
+    </dependency>
+    <dependency>
       <groupId>tools.jackson.core</groupId>
       <artifactId>jackson-databind</artifactId>
     </dependency>

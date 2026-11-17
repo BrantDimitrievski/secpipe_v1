@@ -3502,7 +3502,8 @@ on a laptop with no network dependency, plus the video.
 ## Appendix — Pinned versions
 
 Written by `WO-0.1` on 2026-11-17 (bootstrap day). The parent `pom.xml` is the source of truth: versions are
-`<version.*>` properties used by `<dependencyManagement>` and `<pluginManagement>`. Module POMs carry no
+`<version.*>` properties used by `<dependencyManagement>` and `<pluginManagement>`. The one exception is
+`langgraph4j.version`, named so because WO-S.1 owns exactly that line. Module POMs carry no
 versions. After wave 1, a version changes only in a work order that owns the parent POM.
 
 **How the versions were chosen.** Maven Central was not reachable from the bootstrap machine. Each version is
@@ -3523,16 +3524,17 @@ The first green `ci` run on `main` (which resolves everything from Maven Central
 | Area | Coordinates | Version | Declared in |
 |---|---|---|---|
 | CLI | `info.picocli:picocli` | 4.7.7 | cli |
-| Serialization | `tools.jackson.core:jackson-databind` | 3.3.0 | validators, sarif, core, llm, llm-copilot, agents, sandbox, adapter-{semgrep,spotbugs,joern,codeql,osv,grype,trivy}, report, github, cli, eval |
-| Serialization | `tools.jackson.dataformat:jackson-dataformat-yaml` | 3.3.0 | core, cli |
-| Validation | `com.networknt:json-schema-validator` | 3.0.9 | validators |
-| Parsing / analysis | `com.github.javaparser:javaparser-core` | 3.28.2 | core, adapter-builtin |
+| Serialization | `tools.jackson:jackson-bom` (import; manages core, databind, dataformat-yaml, annotations) | 3.3.0 | parent `dependencyManagement` only |
+| Serialization | `tools.jackson.core:jackson-databind` | 3.3.0 (from the BOM) | contracts, validators, sarif, core, llm, llm-copilot, agents, sandbox, adapter-{semgrep,spotbugs,joern,codeql,osv,grype,trivy}, report, github, cli, eval |
+| Serialization | `tools.jackson.dataformat:jackson-dataformat-yaml` | 3.3.0 (from the BOM) | contracts, core, cli |
+| Validation | `com.networknt:json-schema-validator` | 3.0.9 | contracts, validators |
+| Parsing / analysis | `com.github.javaparser:javaparser-core` | 3.28.2 | core, adapter-builtin, validators (WO-V.3), agents (WO-G.5), eval (WO-E.5) |
 | Parsing / analysis | `net.sourceforge.pmd:pmd-java` | 7.29.0 | adapter-pmd |
 | LLM | `dev.langchain4j:langchain4j` | 1.23.0 | llm |
 | LLM | `dev.langchain4j:langchain4j-open-ai` | 1.23.0 | llm-openai |
 | LLM | `dev.langchain4j:langchain4j-anthropic` | 1.23.0 | llm-anthropic |
 | LLM | `dev.langchain4j:langchain4j-ollama` | 1.23.0 | llm-ollama |
-| Graph | `org.bsc.langgraph4j:langgraph4j-core` | 1.9.9 | graph-langgraph4j only |
+| Graph | `org.bsc.langgraph4j:langgraph4j-core` | 1.9.9 (property `langgraph4j.version`) | graph-langgraph4j only |
 | Reports / data | `org.apache.commons:commons-csv` | 1.14.1 | report, eval |
 | Logging | `org.slf4j:slf4j-nop` | 2.0.20 | cli (runtime) |
 | Testing | `org.junit:junit-bom` (import) / `org.junit.jupiter:junit-jupiter` | 6.1.3 | every module (test) |
@@ -3542,7 +3544,9 @@ The first green `ci` run on `main` (which resolves everything from Maven Central
 Notes:
 - **Jackson 3.x (`tools.jackson.*`).** `json-schema-validator` 3.x is built on Jackson 3, so SecPipe uses the
   Jackson 3 line throughout. Packages are `tools.jackson.databind.*`. Annotations stay in
-  `com.fasterxml.jackson.annotation`, which comes in transitively. LangChain4j brings Jackson 2 transitively for
+  `com.fasterxml.jackson.annotation`, which comes in transitively. The imported `jackson-bom` keeps
+  core, databind, dataformat-yaml and the Jackson that json-schema-validator brings transitively on one
+  version, so module POMs and the parent declare no explicit Jackson versions. LangChain4j brings Jackson 2 transitively for
   its own use. The two lines live in different packages and do not conflict.
 - **LangGraph4j 1.9.9, not 1.9.10.** `v1.9.10` was tagged on bootstrap day and may not have reached Maven
   Central yet. WO-S.1 may bump it.
@@ -3556,8 +3560,8 @@ Notes:
 |---|---|
 | maven-enforcer-plugin | 3.7.0 |
 | maven-compiler-plugin | 3.16.0 (adds `-Xpkginfo:always -parameters`) |
-| maven-surefire-plugin / maven-failsafe-plugin | 3.6.1 (`excludedGroups=network,sandbox`; the `sandbox` profile includes the `sandbox` tag again) |
-| maven-shade-plugin | 3.6.2 (cli: `ServicesResourceTransformer`, main class `ca.carleton.secpipe.cli.SecPipeCli`, final name `secpipe`) |
+| maven-surefire-plugin / maven-failsafe-plugin | 3.6.1 (`excludedGroups=network,sandbox`; the `sandbox` profile includes the `sandbox` tag again; surefire `failIfNoTests=${secpipe.failIfNoTests}`, default `true`, so a module that runs no tests fails the build) |
+| maven-shade-plugin | 3.6.2 (cli: `ServicesResourceTransformer`, main class `ca.carleton.secpipe.cli.SecPipeCli`, final name `secpipe`; eval: `ServicesResourceTransformer`, no main class, final name `secpipe-eval`) |
 | maven-jar-plugin | 3.5.1 |
 | maven-resources-plugin | 3.5.0 |
 | maven-clean-plugin | 3.5.0 |
@@ -3566,7 +3570,7 @@ Notes:
 
 **Module list (reactor order, 25 modules).** `secpipe-contracts`, `secpipe-validators`, `secpipe-sarif`,
 `secpipe-core`, `secpipe-graph-langgraph4j`, `secpipe-llm`, `secpipe-llm-openai`, `secpipe-llm-anthropic`,
-`secpipe-llm-ollama`, `secpipe-llm-copilot`, `secpipe-agents`, `secpipe-sandbox`, `secpipe-adapter-builtin`,
+`secpipe-llm-ollama`, `secpipe-llm-copilot`, `secpipe-sandbox`, `secpipe-agents`, `secpipe-adapter-builtin`,
 `secpipe-adapter-pmd`, `secpipe-adapter-semgrep`, `secpipe-adapter-spotbugs`, `secpipe-adapter-joern`,
 `secpipe-adapter-codeql`, `secpipe-adapter-osv`, `secpipe-adapter-grype`, `secpipe-adapter-trivy`,
 `secpipe-report`, `secpipe-github`, `secpipe-cli`, `secpipe-eval`.
@@ -3575,8 +3579,33 @@ Module-to-module edges follow the Part 3 dependency rule. Edges that the rule le
 - `graph-langgraph4j` → contracts and core;
 - `llm` → contracts;
 - `agents` gets `secpipe-llm` at **test** scope only, for `FakeLlmClient`;
-- `eval` → contracts and validators;
+- `agents` → sandbox, `adapter-spotbugs` → sandbox, `adapter-osv` → sandbox (see Deviations);
+- `eval` → contracts, validators and sandbox;
 - `cli` → every module except `eval` ("everything above" in the Part 3 layout).
+
+`sandbox` depends only on `contracts`, so these edges add no cycle; `sandbox` sits before `agents` and the
+adapters in the reactor order.
+
+**Deviations from the Part 3 dependency rule (review fixes, 2026-11-17).**
+- **Sandbox edges** (owner-approved 2026-11-17): `agents`, `adapter-spotbugs`, `adapter-osv` and `eval`
+  depend on `secpipe-sandbox`, because WO-G.7, WO-M.1, WO-A.1, WO-A.4 and WO-E.5 consume `MavenWorkspace`,
+  `SandboxRunner` and `ArtifactPromoter`. Part 3 lists only `contracts`/`validators`/`sarif` for them.
+- **Contracts codec dependencies:** `secpipe-contracts` declares `jackson-databind`, `jackson-dataformat-yaml`
+  and `json-schema-validator` at compile scope, for `ContractJson` (WO-C.1), `LedgerCodec`/`RunMetadataCodec`
+  (WO-C.2) and `ConfigResolver` (WO-C.4). None of those work orders owns the POM.
+- **Eval shading:** `secpipe-eval` builds a shaded `secpipe-eval.jar` so WO-E.1's `java -cp secpipe-eval.jar ...`
+  works.
+
+**Jackson 3 notes for later work orders** (affects WO-C.1, WO-C.2, WO-V.3, WO-K.7, WO-P.4; checked against the
+`jackson-databind-3.3.0` and `jackson-core-3.3.0` tags):
+- There is no separate `Jdk8Module`: `Optional` support is built into databind (`tools.jackson.databind.ext.jdk8`).
+  WO-C.1's "`Jdk8Module` for `Optional`" needs no extra module or dependency.
+- The module type is `tools.jackson.databind.JacksonModule`, not `com.fasterxml.jackson.databind.Module`
+  (WO-C.2's `ContractJson.mapper(Module... extra)` becomes `JacksonModule... extra`).
+- `tools.jackson.core.JacksonException` extends `RuntimeException` (unchecked; in 2.x it was an `IOException`).
+- Mappers are immutable: build them with `JsonMapper.builder()...build()` (or `rebuild()`), not setters.
+- Packages are `tools.jackson.*`. Annotations stay in `com.fasterxml.jackson.annotation` (databind 3.3.0 still
+  imports them from there; the BOM pins `jackson-annotations` 2.23).
 
 **Contracts.** All Part 4 contract files are committed as the split produced them. They compile with
 `javac --release 21` (warnings only, for `serialVersionUID`). The build therefore does not use `-Werror`.

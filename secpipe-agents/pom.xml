@@ -24,8 +24,16 @@
       <artifactId>secpipe-validators</artifactId>
     </dependency>
     <dependency>
+      <groupId>ca.carleton.secpipe</groupId>
+      <artifactId>secpipe-sandbox</artifactId>
+    </dependency>
+    <dependency>
       <groupId>tools.jackson.core</groupId>
       <artifactId>jackson-databind</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.github.javaparser</groupId>
+      <artifactId>javaparser-core</artifactId>
     </dependency>
     <dependency>
       <groupId>ca.carleton.secpipe</groupId>
