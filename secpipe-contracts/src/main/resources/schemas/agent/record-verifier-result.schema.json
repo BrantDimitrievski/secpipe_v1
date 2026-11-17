@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://secpipe.dev/schemas/agent/record-verifier-result.schema.json",
+  "title": "Independent record verifier result (Phase 5)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["fingerprint", "outcome", "checked_citations", "reason"],
+  "properties": {
+    "fingerprint": { "$ref": "_common.schema.json#/$defs/fingerprint" },
+    "outcome": { "enum": ["verified", "replace"] },
+    "checked_citations": { "type": "integer", "minimum": 0 },
+    "material": { "type": "boolean" },
+    "changed_fields": { "type": "array", "uniqueItems": true, "items": { "enum": ["verdict", "root_cause", "trace", "execution", "severity", "confidence", "remediation", "title", "description", "evidence", "conditions", "blockers", "validation_plan", "reason"] } },
+    "replacement": { "type": "object", "description": "A complete record that must itself validate against findings.schema.json items" },
+    "reason": { "$ref": "_common.schema.json#/$defs/text" }
+  },
+  "allOf": [
+    { "if": { "properties": { "outcome": { "const": "replace" } } }, "then": { "required": ["material", "changed_fields", "replacement"], "properties": { "changed_fields": { "minItems": 1 } } } },
+    { "if": { "properties": { "outcome": { "const": "verified" } } }, "then": { "not": { "anyOf": [ { "required": ["replacement"] }, { "required": ["changed_fields"] } ] } } }
+  ]
+}

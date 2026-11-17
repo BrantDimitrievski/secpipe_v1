@@ -1,0 +1,280 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://secpipe.dev/schemas/findings.schema.json",
+  "title": "SecPipe findings.json (contract v1)",
+  "$comment": "Verdict branches adapted from cloudflare/security-audit-skill report-schema.json (MIT). SecPipe adds the required 'secpipe' extension object. Deterministic rules the schema cannot express live in FindingsValidator (WO-V.1).",
+  "type": "array",
+  "items": {
+    "oneOf": [
+      { "$ref": "#/$defs/confirmed" },
+      { "$ref": "#/$defs/needsValidation" },
+      { "$ref": "#/$defs/rejected" }
+    ]
+  },
+  "$defs": {
+    "text": { "type": "string", "minLength": 1, "pattern": "\\S" },
+    "fingerprint": { "type": "string", "minLength": 1, "maxLength": 512, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@+-]*$" },
+    "relPath": { "type": "string", "minLength": 1, "pattern": "^(?![/\\\\])(?!.*(^|/)\\.\\.(/|$))[^\\u0000]+$" },
+    "score5": { "enum": ["informational", "low", "medium", "high", "critical"] },
+    "traceStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "file", "line", "scope", "description"],
+      "properties": {
+        "kind": { "enum": ["entrypoint", "propagation", "sink"] },
+        "file": { "$ref": "#/$defs/relPath" },
+        "line": { "type": "integer", "minimum": 1 },
+        "scope": { "$ref": "#/$defs/text" },
+        "description": { "$ref": "#/$defs/text" }
+      }
+    },
+    "trace": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/traceStep" } },
+    "evidenceItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file", "line", "description"],
+      "properties": {
+        "file": { "$ref": "#/$defs/relPath" },
+        "line": { "type": "integer", "minimum": 1 },
+        "description": { "$ref": "#/$defs/text" }
+      }
+    },
+    "evidence": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/evidenceItem" } },
+    "condition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "description"],
+      "properties": {
+        "kind": { "enum": ["authentication_level", "authorization_role", "user_interaction", "system_configuration", "network_routing", "environmental_dependency", "data_state", "timing_dependency", "third_party_dependency"] },
+        "description": { "$ref": "#/$defs/text" }
+      }
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["attacker_perspective", "payloads", "instructions", "observed_result"],
+      "properties": {
+        "attacker_perspective": { "$ref": "#/$defs/text" },
+        "payloads": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string" } },
+        "instructions": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/text" } },
+        "observed_result": { "$ref": "#/$defs/text" }
+      }
+    },
+    "remediation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["strategy"],
+      "properties": {
+        "strategy": { "$ref": "#/$defs/text" },
+        "code_changes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["file_name", "fixed_code"],
+            "properties": { "file_name": { "$ref": "#/$defs/relPath" }, "fixed_code": { "type": "string" } }
+          }
+        }
+      }
+    },
+    "scored": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["score", "reason"],
+      "properties": { "score": { "$ref": "#/$defs/score5" }, "reason": { "$ref": "#/$defs/text" } }
+    },
+    "severity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["likelihood", "impact", "overall_severity"],
+      "properties": {
+        "likelihood": { "$ref": "#/$defs/scored" },
+        "impact": { "$ref": "#/$defs/scored" },
+        "overall_severity": { "$ref": "#/$defs/score5" }
+      }
+    },
+    "confidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["score", "reason"],
+      "properties": { "score": { "enum": ["low", "medium", "high"] }, "reason": { "$ref": "#/$defs/text" } }
+    },
+    "toolSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tool", "rule_id"],
+      "properties": {
+        "tool": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+        "rule_id": { "$ref": "#/$defs/text" },
+        "tool_severity": { "$ref": "#/$defs/score5" },
+        "file": { "$ref": "#/$defs/relPath" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "dependency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["purl", "group", "artifact", "version"],
+      "properties": {
+        "purl": { "type": "string", "pattern": "^pkg:maven/" },
+        "group": { "$ref": "#/$defs/text" },
+        "artifact": { "$ref": "#/$defs/text" },
+        "version": { "$ref": "#/$defs/text" },
+        "fixed_version": { "type": "string" },
+        "scope": { "type": "string" },
+        "dependency_path": { "type": "array", "items": { "type": "string" } },
+        "reachable": { "enum": ["yes", "no", "unknown"] }
+      }
+    },
+    "testEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "phase", "outcome", "runs"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^te-[0-9a-f]{12}$" },
+        "phase": { "enum": ["pre_fix", "post_fix", "adequacy"] },
+        "test_file": { "$ref": "#/$defs/relPath" },
+        "test_class": { "type": "string" },
+        "outcome": { "enum": ["failed_as_expected", "passed", "compile_error", "error", "flaky", "timeout", "not_run"] },
+        "runs": { "type": "integer", "minimum": 0 },
+        "observed_result": { "type": "string" },
+        "blocker": { "type": "string" },
+        "log_artifact": { "type": "string" }
+      }
+    },
+    "fixAttempt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["attempt", "outcome"],
+      "properties": {
+        "attempt": { "type": "integer", "minimum": 1 },
+        "patch_artifact": { "type": "string" },
+        "strategy": { "type": "string" },
+        "outcome": { "enum": ["fixed", "still_present", "newly_introduced_findings", "build_broken", "tests_broken", "refused", "sandbox_unavailable"] },
+        "regression_test_passed": { "type": "boolean" },
+        "suite_passed": { "type": "boolean" },
+        "rescan_clean": { "type": "boolean" },
+        "new_fingerprints": { "type": "array", "items": { "$ref": "#/$defs/fingerprint" } },
+        "adequacy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["changed_lines_total", "changed_lines_covered", "adequate"],
+          "properties": {
+            "changed_lines_total": { "type": "integer", "minimum": 0 },
+            "changed_lines_covered": { "type": "integer", "minimum": 0 },
+            "adequate": { "type": "boolean" },
+            "note": { "type": "string" }
+          }
+        }
+      }
+    },
+    "verifierRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": { "enum": ["deterministic", "llm"] },
+        "agent_id": { "type": "string" },
+        "provider": { "type": "string" },
+        "model": { "type": "string" },
+        "tier": { "enum": ["strong", "standard", "small"] },
+        "rule": { "type": "string" }
+      }
+    },
+    "secpipe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["category", "origin", "tool_sources", "cwe"],
+      "properties": {
+        "category": { "enum": ["code", "dependency"] },
+        "origin": { "enum": ["tool", "hunter", "carried_forward"] },
+        "tool_sources": { "type": "array", "items": { "$ref": "#/$defs/toolSource" } },
+        "cwe": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^CWE-[0-9]+$" } },
+        "cve": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^[A-Z][A-Z0-9]*-[A-Za-z0-9-]+$" } },
+        "owasp": { "type": "string" },
+        "dependency": { "$ref": "#/$defs/dependency" },
+        "tool_severity_hint": { "$ref": "#/$defs/score5" },
+        "confidence_hint": { "enum": ["low", "medium", "high"] },
+        "test_evidence": { "type": "array", "items": { "$ref": "#/$defs/testEvidence" } },
+        "fix_attempts": { "type": "array", "items": { "$ref": "#/$defs/fixAttempt" } },
+        "remediation_status": { "enum": ["fixed", "still_present", "newly_introduced", "not_attempted"] },
+        "recommended_remediation": { "type": "string" },
+        "verification": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "disprover": { "$ref": "#/$defs/verifierRef" },
+            "record_verifier": { "$ref": "#/$defs/verifierRef" },
+            "second_verifier": { "$ref": "#/$defs/verifierRef" },
+            "guardrail_applied": { "type": "boolean" }
+          }
+        },
+        "ledger_units": { "type": "array", "items": { "type": "string", "pattern": "^cov:[0-9a-f]{32}$" } },
+        "first_seen_run": { "type": "string" },
+        "carried_forward_from": { "type": "string" }
+      }
+    },
+    "confirmed": {
+      "type": "object",
+      "description": "A source-grounded vulnerability with a bounded local observed result.",
+      "additionalProperties": false,
+      "required": ["verdict", "fingerprint", "title", "description", "root_cause", "intended_behavior", "trace", "evidence", "conditions", "execution", "remediation", "severity", "confidence", "secpipe"],
+      "properties": {
+        "verdict": { "const": "confirmed" },
+        "fingerprint": { "$ref": "#/$defs/fingerprint" },
+        "title": { "$ref": "#/$defs/text" },
+        "description": { "$ref": "#/$defs/text" },
+        "root_cause": { "$ref": "#/$defs/text" },
+        "intended_behavior": { "$ref": "#/$defs/text" },
+        "trace": { "$ref": "#/$defs/trace" },
+        "evidence": { "$ref": "#/$defs/evidence" },
+        "conditions": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/condition" } },
+        "execution": { "$ref": "#/$defs/execution" },
+        "remediation": { "$ref": "#/$defs/remediation" },
+        "severity": { "$ref": "#/$defs/severity" },
+        "confidence": { "$ref": "#/$defs/confidence" },
+        "secpipe": { "$ref": "#/$defs/secpipe" }
+      }
+    },
+    "needsValidation": {
+      "type": "object",
+      "description": "A source-grounded candidate whose decisive validation is blocked. Never carries severity.",
+      "additionalProperties": false,
+      "required": ["verdict", "fingerprint", "title", "description", "claimed_root_cause", "trace", "evidence", "blockers", "validation_plan", "secpipe"],
+      "properties": {
+        "verdict": { "const": "needs_validation" },
+        "fingerprint": { "$ref": "#/$defs/fingerprint" },
+        "title": { "$ref": "#/$defs/text" },
+        "description": { "$ref": "#/$defs/text" },
+        "claimed_root_cause": { "$ref": "#/$defs/text" },
+        "trace": { "$ref": "#/$defs/trace" },
+        "evidence": { "$ref": "#/$defs/evidence" },
+        "blockers": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/text" } },
+        "validation_plan": {
+          "type": "object",
+          "additionalProperties": false,
+          "minProperties": 1,
+          "properties": { "local": { "$ref": "#/$defs/text" }, "deployment": { "$ref": "#/$defs/text" } }
+        },
+        "secpipe": { "$ref": "#/$defs/secpipe" }
+      }
+    },
+    "rejected": {
+      "type": "object",
+      "description": "A source-grounded candidate refuted during validation. Kept to suppress unchanged re-reports.",
+      "additionalProperties": false,
+      "required": ["verdict", "fingerprint", "title", "description", "claimed_root_cause", "trace", "evidence", "reason", "secpipe"],
+      "properties": {
+        "verdict": { "const": "rejected" },
+        "fingerprint": { "$ref": "#/$defs/fingerprint" },
+        "title": { "$ref": "#/$defs/text" },
+        "description": { "$ref": "#/$defs/text" },
+        "claimed_root_cause": { "$ref": "#/$defs/text" },
+        "trace": { "$ref": "#/$defs/trace" },
+        "evidence": { "$ref": "#/$defs/evidence" },
+        "reason": { "$ref": "#/$defs/text" },
+        "secpipe": { "$ref": "#/$defs/secpipe" }
+      }
+    }
+  }
+}

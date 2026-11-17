@@ -1,0 +1,28 @@
+# Build output
+target/
+*.class
+dependency-reduced-pom.xml
+
+# Maven wrapper download (only-script keeps Maven in ~/.m2/wrapper, never here)
+.mvn/wrapper/maven-wrapper.jar
+
+# SecPipe run output
+secpipe-out/
+secpipe-out-*/
+
+# CI lint helper downloaded by ci.yml
+/actionlint
+changed-files.txt
+
+# IDEs and OS
+.idea/
+*.iml
+.vscode/
+.classpath
+.project
+.settings/
+.DS_Store
+
+# Local secrets (fixtures that need such files live under fixtures/ and are not ignored)
+/.env
+.claude/settings.local.json

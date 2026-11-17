@@ -1,0 +1,174 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://secpipe.dev/schemas/run-metadata.schema.json",
+  "title": "SecPipe run-metadata.json (contract v1)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "run_id", "secpipe_version", "started_at", "finished_at", "terminal_state", "profile", "scope", "target", "ai", "budget", "tools", "stage_timings_ms", "sandbox", "counts", "validators"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "run_id": { "type": "string", "pattern": "^run-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{6}$" },
+    "secpipe_version": { "type": "string" },
+    "started_at": { "type": "string", "format": "date-time" },
+    "finished_at": { "type": "string", "format": "date-time" },
+    "terminal_state": { "enum": ["complete", "incomplete"] },
+    "incomplete_reason": { "type": "string", "minLength": 1 },
+    "profile": { "enum": ["quick", "standard", "deep"] },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode"],
+      "properties": {
+        "mode": { "enum": ["diff", "full"] },
+        "base_ref": { "type": "string" },
+        "head_ref": { "type": "string" },
+        "changed_files": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "build_tool", "loc", "source_files"],
+      "properties": {
+        "name": { "type": "string" },
+        "build_tool": { "enum": ["maven_wrapper", "maven", "gradle_wrapper", "gradle", "none"] },
+        "jdk": { "type": "string" },
+        "maven_version": { "type": "string" },
+        "loc": { "type": "integer", "minimum": 0 },
+        "source_files": { "type": "integer", "minimum": 0 },
+        "frameworks": { "type": "array", "items": { "type": "string" } },
+        "git_commit": { "type": "string" }
+      }
+    },
+    "ai": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requested_mode", "effective_mode", "fallbacks", "models", "usage"],
+      "properties": {
+        "requested_mode": { "$ref": "#/$defs/providerMode" },
+        "effective_mode": { "$ref": "#/$defs/providerMode" },
+        "fallbacks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["from", "to", "reason"],
+            "properties": { "from": { "$ref": "#/$defs/providerMode" }, "to": { "$ref": "#/$defs/providerMode" }, "reason": { "type": "string", "minLength": 1 } }
+          }
+        },
+        "models": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["role", "provider", "model", "tier"],
+            "properties": {
+              "role": { "$ref": "#/$defs/role" },
+              "provider": { "$ref": "#/$defs/providerMode" },
+              "model": { "type": "string" },
+              "tier": { "enum": ["strong", "standard", "small"] }
+            }
+          }
+        },
+        "usage": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["role", "calls", "retries", "input_tokens", "output_tokens"],
+            "properties": {
+              "role": { "$ref": "#/$defs/role" },
+              "calls": { "type": "integer", "minimum": 0 },
+              "retries": { "type": "integer", "minimum": 0 },
+              "discarded_outputs": { "type": "integer", "minimum": 0 },
+              "input_tokens": { "type": "integer", "minimum": 0 },
+              "output_tokens": { "type": "integer", "minimum": 0 },
+              "estimated_cost_usd": { "type": "number", "minimum": 0 }
+            }
+          }
+        },
+        "guardrail_downgrades": { "type": "integer", "minimum": 0 },
+        "prompts_hash": { "type": "string" }
+      }
+    },
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max_agent_calls", "used", "reserved", "exhausted"],
+      "properties": {
+        "max_agent_calls": { "type": "integer", "minimum": 0 },
+        "used": { "type": "integer", "minimum": 0 },
+        "reserved": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
+        "exhausted": { "type": "boolean" },
+        "max_sandbox_runs": { "type": "integer", "minimum": 0 },
+        "sandbox_runs_used": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "tools": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "status", "duration_ms", "candidates"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+          "version": { "type": "string" },
+          "status": { "enum": ["ok", "skipped", "failed", "timeout"] },
+          "reason": { "type": "string" },
+          "duration_ms": { "type": "integer", "minimum": 0 },
+          "candidates": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "stage_timings_ms": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
+    "sandbox": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["available"],
+      "properties": {
+        "available": { "type": "boolean" },
+        "image": { "type": "string" },
+        "enforced_controls": { "type": "array", "items": { "type": "string" } },
+        "unenforceable_controls": { "type": "array", "items": { "type": "string" } },
+        "reason": { "type": "string" }
+      }
+    },
+    "prior_run": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "run_id": { "type": "string" },
+        "carried_forward": { "type": "integer", "minimum": 0 },
+        "revalidated": { "type": "integer", "minimum": 0 },
+        "suppressed_rejections": { "type": "integer", "minimum": 0 },
+        "incompatible_reason": { "type": "string" }
+      }
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["confirmed", "needs_validation", "rejected", "ledger_units"],
+      "properties": {
+        "confirmed": { "type": "integer", "minimum": 0 },
+        "needs_validation": { "type": "integer", "minimum": 0 },
+        "rejected": { "type": "integer", "minimum": 0 },
+        "ledger_units": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
+        "by_severity": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } }
+      }
+    },
+    "validators": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["findings", "ledger"],
+      "properties": { "findings": { "enum": ["pass", "fail", "not_run"] }, "ledger": { "enum": ["pass", "fail", "not_run"] } }
+    }
+  },
+  "allOf": [
+    { "if": { "properties": { "terminal_state": { "const": "incomplete" } } }, "then": { "required": ["incomplete_reason"] } },
+    { "if": { "properties": { "terminal_state": { "const": "complete" } } }, "then": { "not": { "required": ["incomplete_reason"] }, "properties": { "validators": { "properties": { "findings": { "const": "pass" }, "ledger": { "const": "pass" } } } } } }
+  ],
+  "$defs": {
+    "providerMode": { "enum": ["none", "copilot", "anthropic", "openai", "openai-compatible", "ollama", "fake"] },
+    "role": { "enum": ["recon_summary", "hunter", "critic", "disprover", "testgen", "record_verifier", "remediation"] }
+  }
+}

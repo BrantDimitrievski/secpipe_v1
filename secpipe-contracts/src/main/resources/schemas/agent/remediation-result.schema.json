@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://secpipe.dev/schemas/agent/remediation-result.schema.json",
+  "title": "Remediation result: smallest effective fix as a unified diff",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["fingerprint", "invariant", "decision_point", "strategy", "patch", "files_changed", "risk_notes"],
+  "properties": {
+    "fingerprint": { "$ref": "_common.schema.json#/$defs/fingerprint" },
+    "invariant": { "$ref": "_common.schema.json#/$defs/text" },
+    "decision_point": { "$ref": "_common.schema.json#/$defs/citation" },
+    "strategy": { "$ref": "_common.schema.json#/$defs/text" },
+    "patch": { "type": "string", "minLength": 1, "maxLength": 30000, "pattern": "^--- " },
+    "files_changed": { "type": "array", "minItems": 1, "maxItems": 5, "items": { "$ref": "_common.schema.json#/$defs/relPath" } },
+    "dependency_change": {
+      "type": "object", "additionalProperties": false, "required": ["purl", "to_version"],
+      "properties": { "purl": { "type": "string", "pattern": "^pkg:maven/" }, "to_version": { "type": "string", "minLength": 1 } }
+    },
+    "risk_notes": { "type": "array", "items": { "$ref": "_common.schema.json#/$defs/text" } }
+  }
+}

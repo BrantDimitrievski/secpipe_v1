@@ -1,0 +1,1 @@
+{ "coverage_id": "cov:0123456789abcdef0123456789abcdef", "status": "covered", "reviewed_paths": ["src/main/java/A.java"], "local_checks": ["Traced id param to repository; ownership check at A.java:40 applies to all three handlers"], "candidates": [], "unresolved": [], "hardening_notes": [] }

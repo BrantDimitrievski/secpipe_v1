@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://secpipe.dev/schemas/ledger.schema.json",
+  "title": "SecPipe coverage-ledger.json (contract v1)",
+  "$comment": "Unit shape adapted from cloudflare/security-audit-skill RECONNAISSANCE.md (MIT). coverage_id = 'cov:' + first 32 hex of SHA-256(canonical refs) (ADR-06). State invariants that JSON Schema cannot express are enforced by LedgerValidator (WO-V.2).",
+  "type": "array",
+  "maxItems": 10000,
+  "items": { "$ref": "#/$defs/unit" },
+  "$defs": {
+    "text": { "type": "string", "minLength": 1, "pattern": "\\S" },
+    "relPath": { "type": "string", "minLength": 1, "pattern": "^(?![/\\\\])(?!.*(^|/)\\.\\.(/|$))[^\\u0000]+$" },
+    "fingerprint": { "type": "string", "minLength": 1, "maxLength": 512, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@+-]*$" },
+    "agentId": { "type": "string", "pattern": "^[a-z][a-z0-9_-]*-[0-9a-f]{8}$" },
+    "status": { "enum": ["planned", "in_progress", "covered", "candidate", "blocked", "deferred", "out_of_scope", "not_applicable"] },
+    "attempt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["agent_id", "wave", "status", "reviewed_paths", "local_checks", "result_fingerprints", "unresolved"],
+      "properties": {
+        "agent_id": { "$ref": "#/$defs/agentId" },
+        "wave": { "type": "integer", "minimum": 0 },
+        "status": { "enum": ["covered", "candidate", "blocked"] },
+        "reviewed_paths": { "type": "array", "items": { "$ref": "#/$defs/relPath" } },
+        "local_checks": { "type": "array", "items": { "$ref": "#/$defs/text" } },
+        "result_fingerprints": { "type": "array", "items": { "$ref": "#/$defs/fingerprint" } },
+        "unresolved": { "type": "array", "items": { "$ref": "#/$defs/text" } },
+        "archived_reason": { "type": "string" }
+      }
+    },
+    "unit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["coverage_id", "canonical_refs", "surface", "boundary", "subsystem", "attack_class", "cwe", "starting_paths", "ordinary_attack_class_block", "selected_companion_blocks", "excluded_blocks", "prior_status", "attempts", "wave", "status", "agent_id", "reviewed_paths", "local_checks", "result_fingerprints", "unresolved"],
+      "properties": {
+        "coverage_id": { "type": "string", "pattern": "^cov:[0-9a-f]{32}$" },
+        "canonical_refs": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["surface", "boundary", "subsystem", "attack_class"],
+          "properties": {
+            "surface": { "$ref": "#/$defs/text" },
+            "boundary": { "$ref": "#/$defs/text" },
+            "subsystem": { "$ref": "#/$defs/text" },
+            "attack_class": { "$ref": "#/$defs/text" },
+            "lifecycle": { "$ref": "#/$defs/text" }
+          }
+        },
+        "surface": { "$ref": "#/$defs/text" },
+        "boundary": { "$ref": "#/$defs/text" },
+        "subsystem": { "$ref": "#/$defs/text" },
+        "attack_class": { "$ref": "#/$defs/text" },
+        "cwe": { "type": ["string", "null"], "pattern": "^CWE-[0-9]+$" },
+        "starting_paths": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/relPath" } },
+        "ordinary_attack_class_block": { "type": "string", "pattern": "^[A-Z0-9-]+\\.md#.+$" },
+        "selected_companion_blocks": { "type": "array", "items": { "type": "string", "pattern": "^[A-Z0-9-]+\\.md#.+$" } },
+        "excluded_blocks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["block", "reason"],
+            "properties": { "block": { "type": "string" }, "reason": { "$ref": "#/$defs/text" } }
+          }
+        },
+        "prior_status": { "enum": ["new", "prior_confirmed_same_source", "prior_confirmed_changed_source", "prior_needs_validation", "prior_deferred", "prior_blocked", "prior_out_of_scope", "prior_covered_same_source", "prior_covered_changed_source", "prior_rejected_claim_changed", "none"] },
+        "attempts": { "type": "array", "items": { "$ref": "#/$defs/attempt" } },
+        "wave": { "type": "integer", "minimum": 0 },
+        "status": { "$ref": "#/$defs/status" },
+        "agent_id": { "oneOf": [ { "type": "null" }, { "$ref": "#/$defs/agentId" } ] },
+        "reviewed_paths": { "type": "array", "items": { "$ref": "#/$defs/relPath" } },
+        "local_checks": { "type": "array", "items": { "$ref": "#/$defs/text" } },
+        "result_fingerprints": { "type": "array", "items": { "$ref": "#/$defs/fingerprint" } },
+        "unresolved": { "type": "array", "items": { "$ref": "#/$defs/text" } },
+        "settled_by": { "type": "array", "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" } }
+      }
+    }
+  }
+}

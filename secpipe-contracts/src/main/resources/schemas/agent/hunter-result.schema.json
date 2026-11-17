@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://secpipe.dev/schemas/agent/hunter-result.schema.json",
+  "title": "Hunter result: exactly one JSON object per assigned ledger unit",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["coverage_id", "status", "reviewed_paths", "local_checks", "candidates", "unresolved", "hardening_notes"],
+  "properties": {
+    "coverage_id": { "$ref": "_common.schema.json#/$defs/coverageId" },
+    "status": { "enum": ["covered", "candidate", "blocked"] },
+    "reviewed_paths": { "type": "array", "minItems": 1, "items": { "$ref": "_common.schema.json#/$defs/relPath" } },
+    "local_checks": { "type": "array", "minItems": 1, "items": { "$ref": "_common.schema.json#/$defs/text" } },
+    "candidates": {
+      "type": "array", "maxItems": 10,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["title", "cwe", "principal", "accepted_input", "strongest_control", "claimed_root_cause", "trace", "evidence", "smallest_fix", "regression_case"],
+        "properties": {
+          "title": { "$ref": "_common.schema.json#/$defs/text" },
+          "cwe": { "$ref": "_common.schema.json#/$defs/cwe" },
+          "principal": { "$ref": "_common.schema.json#/$defs/text" },
+          "accepted_input": { "$ref": "_common.schema.json#/$defs/text" },
+          "strongest_control": { "$ref": "_common.schema.json#/$defs/text" },
+          "claimed_root_cause": { "$ref": "_common.schema.json#/$defs/text" },
+          "trace": { "$ref": "_common.schema.json#/$defs/trace" },
+          "evidence": { "type": "array", "minItems": 1, "items": { "$ref": "_common.schema.json#/$defs/citation" } },
+          "smallest_fix": { "$ref": "_common.schema.json#/$defs/text" },
+          "regression_case": { "$ref": "_common.schema.json#/$defs/text" }
+        }
+      }
+    },
+    "unresolved": { "type": "array", "items": { "$ref": "_common.schema.json#/$defs/text" } },
+    "hardening_notes": { "type": "array", "items": { "$ref": "_common.schema.json#/$defs/text" } }
+  },
+  "allOf": [
+    { "if": { "properties": { "status": { "const": "covered" } } }, "then": { "properties": { "candidates": { "maxItems": 0 }, "unresolved": { "maxItems": 0 } } } },
+    { "if": { "properties": { "status": { "const": "candidate" } } }, "then": { "properties": { "candidates": { "minItems": 1 } } } },
+    { "if": { "properties": { "status": { "const": "blocked" } } }, "then": { "properties": { "candidates": { "maxItems": 0 }, "unresolved": { "minItems": 1 } } } }
+  ]
+}

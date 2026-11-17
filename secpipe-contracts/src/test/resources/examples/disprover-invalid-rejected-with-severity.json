@@ -1,0 +1,4 @@
+{ "fingerprint": "f:1", "verdict": "rejected", "entrypoint_valid": true, "sink_valid": true, "controls_examined": [], "refutation_pattern": "other",
+  "trace": [ { "kind": "sink", "file": "A.java", "line": 1, "scope": "A#m()", "description": "s" } ],
+  "evidence": [ { "file": "A.java", "line": 1, "description": "e", "quote": "q" } ], "reason": "r",
+  "proposed_severity": { "likelihood": "low", "impact": "low", "likelihood_reason": "r", "impact_reason": "r" } }

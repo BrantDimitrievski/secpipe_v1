@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://secpipe.dev/schemas/agent/_common.schema.json",
+  "title": "Shared definitions for agent outputs",
+  "$defs": {
+    "text": { "type": "string", "minLength": 1, "maxLength": 4000, "pattern": "\\S" },
+    "relPath": { "type": "string", "minLength": 1, "pattern": "^(?![/\\\\])(?!.*(^|/)\\.\\.(/|$))[^\\u0000]+$" },
+    "fingerprint": { "type": "string", "minLength": 1, "maxLength": 512, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@+-]*$" },
+    "coverageId": { "type": "string", "pattern": "^cov:[0-9a-f]{32}$" },
+    "cwe": { "type": "string", "pattern": "^CWE-[0-9]+$" },
+    "score5": { "enum": ["informational", "low", "medium", "high", "critical"] },
+    "traceStep": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "file", "line", "scope", "description"],
+      "properties": {
+        "kind": { "enum": ["entrypoint", "propagation", "sink"] },
+        "file": { "$ref": "#/$defs/relPath" },
+        "line": { "type": "integer", "minimum": 1 },
+        "scope": { "$ref": "#/$defs/text" },
+        "description": { "$ref": "#/$defs/text" },
+        "quote": { "type": "string", "maxLength": 400 }
+      }
+    },
+    "trace": { "type": "array", "minItems": 1, "maxItems": 40, "items": { "$ref": "#/$defs/traceStep" } },
+    "citation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["file", "line", "description", "quote"],
+      "properties": {
+        "file": { "$ref": "#/$defs/relPath" },
+        "line": { "type": "integer", "minimum": 1 },
+        "description": { "$ref": "#/$defs/text" },
+        "quote": { "type": "string", "minLength": 1, "maxLength": 400 }
+      }
+    },
+    "condition": {
+      "type": "object", "additionalProperties": false, "required": ["kind", "description"],
+      "properties": {
+        "kind": { "enum": ["authentication_level", "authorization_role", "user_interaction", "system_configuration", "network_routing", "environmental_dependency", "data_state", "timing_dependency", "third_party_dependency"] },
+        "description": { "$ref": "#/$defs/text" }
+      }
+    }
+  }
+}

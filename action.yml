@@ -1,0 +1,114 @@
+# SecPipe GitHub Action — CONTRACT (Part 4). Composite action wrapping the CLI (ADR-01).
+# Changing an input/output name, default, or semantics requires a contract-change work order.
+name: SecPipe
+description: Multi-agent defensive security analysis for Java/Maven (detect → verify → test → fix → retest).
+author: SecPipe team (Carleton SYSC 4907)
+branding: { icon: shield, color: blue }
+
+inputs:
+  profile:          { description: "quick | standard | deep", required: false, default: quick }
+  scope:            { description: "diff | full (diff falls back to full outside pull_request events)", required: false, default: diff }
+  llm-provider:     { description: "none | copilot | anthropic | openai | openai-compatible | ollama. copilot needs `permissions: copilot-requests: write` (org policy) or a COPILOT_GITHUB_TOKEN passed as api-key. GitHub Models was retired 2026-07-30, so there is no keyless AI default", required: false, default: none }
+  model:            { description: "Default model id for all roles (provider default if empty)", required: false, default: "" }
+  models:           { description: "Per-role overrides, comma-separated role=model (roles: hunter, critic, disprover, testgen, record_verifier, remediation, recon_summary)", required: false, default: "" }
+  api-key:          { description: "Provider API key (or a Copilot fine-grained PAT with Copilot Requests permission for llm-provider=copilot); pass a secret. Never logged; masked with ::add-mask::", required: false, default: "" }
+  llm-base-url:     { description: "Base URL for openai-compatible or ollama", required: false, default: "" }
+  max-agent-calls:  { description: "Hard cap on LLM calls (all retries count). Empty = profile default (quick 40, standard 200, deep 800)", required: false, default: "" }
+  max-fix-attempts: { description: "Remediation retries per confirmed finding", required: false, default: "3" }
+  fail-on-severity: { description: "critical | high | medium | low | informational | none — fail the job if a confirmed finding is at or above this", required: false, default: high }
+  enable-fixes:     { description: "false | suggest | pr — pr opens a draft PR against the PR head branch (never a protected/base branch; never on forks)", required: false, default: suggest }
+  tools:            { description: "Comma-separated analyzer ids; empty = profile defaults", required: false, default: "" }
+  comment:          { description: "Post/update the idempotent PR summary comment", required: false, default: "true" }
+  upload-sarif:     { description: "Upload SARIF to GitHub code scanning", required: false, default: "true" }
+  sarif-category:   { description: "Code-scanning category", required: false, default: secpipe }
+  incremental:      { description: "Restore the previous run's ledger/findings for carry-forward", required: false, default: "true" }
+  github-token:     { description: "Token for comments, suggestions, cache, and Copilot inference when the workflow grants copilot-requests: write", required: false, default: "${{ github.token }}" }
+  secpipe-jar:      { description: "Path to a prebuilt secpipe.jar (self-test only); empty = build from the action source", required: false, default: "" }
+
+outputs:
+  sarif-path:       { description: "Path to secpipe.sarif",          value: "${{ steps.scan.outputs.sarif_path }}" }
+  findings-path:    { description: "Path to findings.json",          value: "${{ steps.scan.outputs.findings_path }}" }
+  report-path:      { description: "Path to report.html",            value: "${{ steps.scan.outputs.report_path }}" }
+  run-status:       { description: "complete | incomplete",          value: "${{ steps.scan.outputs.run_status }}" }
+  confirmed:        { description: "Count of confirmed findings",    value: "${{ steps.scan.outputs.confirmed }}" }
+  needs-validation: { description: "Count of needs_validation",      value: "${{ steps.scan.outputs.needs_validation }}" }
+  rejected:         { description: "Count of rejected claims",       value: "${{ steps.scan.outputs.rejected }}" }
+  ai-mode:          { description: "Effective provider after fallback", value: "${{ steps.scan.outputs.ai_mode }}" }
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-java@v4
+      with: { distribution: temurin, java-version: "21", cache: maven, cache-dependency-path: "${{ github.action_path }}/pom.xml" }
+    - name: Mask secrets
+      shell: bash
+      env: { SECPIPE_API_KEY: "${{ inputs.api-key }}" }
+      run: '[ -n "$SECPIPE_API_KEY" ] && echo "::add-mask::$SECPIPE_API_KEY" || true'
+    - name: Build or locate secpipe.jar
+      id: jar
+      shell: bash
+      env: { SECPIPE_JAR: "${{ inputs.secpipe-jar }}", ACTION_PATH: "${{ github.action_path }}" }
+      run: bash "$ACTION_PATH/scripts/action/build-jar.sh"
+    - name: Install analyzers (pinned + checksummed)
+      shell: bash
+      env: { ACTION_PATH: "${{ github.action_path }}", SECPIPE_TOOLS: "${{ inputs.tools }}", SECPIPE_PROFILE: "${{ inputs.profile }}" }
+      run: bash "$ACTION_PATH/scripts/action/install-tools.sh"
+    - name: Restore previous run state
+      if: inputs.incremental == 'true'
+      uses: actions/cache/restore@v4
+      with:
+        path: .secpipe-state
+        key: secpipe-state-${{ github.repository }}-${{ github.head_ref || github.ref_name }}-${{ github.sha }}
+        restore-keys: |
+          secpipe-state-${{ github.repository }}-${{ github.head_ref || github.ref_name }}-
+          secpipe-state-${{ github.repository }}-${{ github.base_ref || github.event.repository.default_branch }}-
+    - name: Scan
+      id: scan
+      shell: bash
+      env:
+        ACTION_PATH: "${{ github.action_path }}"
+        SECPIPE_JAR_PATH: "${{ steps.jar.outputs.jar }}"
+        SECPIPE_API_KEY: "${{ inputs.api-key }}"
+        GITHUB_TOKEN: "${{ inputs.github-token }}"
+        IN_PROFILE: "${{ inputs.profile }}"
+        IN_SCOPE: "${{ inputs.scope }}"
+        IN_PROVIDER: "${{ inputs.llm-provider }}"
+        IN_MODEL: "${{ inputs.model }}"
+        IN_MODELS: "${{ inputs.models }}"
+        IN_BASE_URL: "${{ inputs.llm-base-url }}"
+        IN_MAX_CALLS: "${{ inputs.max-agent-calls }}"
+        IN_MAX_FIX: "${{ inputs.max-fix-attempts }}"
+        IN_FAIL_ON: "${{ inputs.fail-on-severity }}"
+        IN_FIXES: "${{ inputs.enable-fixes }}"
+        IN_TOOLS: "${{ inputs.tools }}"
+        IN_INCREMENTAL: "${{ inputs.incremental }}"
+      run: bash "$ACTION_PATH/scripts/action/run-scan.sh"
+    - name: Save run state
+      if: always() && inputs.incremental == 'true' && steps.scan.outputs.state_dir != ''
+      uses: actions/cache/save@v4
+      with:
+        path: .secpipe-state
+        key: secpipe-state-${{ github.repository }}-${{ github.head_ref || github.ref_name }}-${{ github.sha }}
+    - name: Upload SARIF
+      if: always() && inputs.upload-sarif == 'true' && steps.scan.outputs.sarif_path != '' && steps.scan.outputs.can_upload_sarif == 'true'
+      uses: github/codeql-action/upload-sarif@v3
+      with: { sarif_file: "${{ steps.scan.outputs.sarif_path }}", category: "${{ inputs.sarif-category }}" }
+    - name: PR comment and fix suggestions
+      if: always() && steps.scan.outputs.findings_path != '' && github.event_name == 'pull_request'
+      shell: bash
+      env:
+        ACTION_PATH: "${{ github.action_path }}"
+        SECPIPE_JAR_PATH: "${{ steps.jar.outputs.jar }}"
+        GITHUB_TOKEN: "${{ inputs.github-token }}"
+        IN_COMMENT: "${{ inputs.comment }}"
+        IN_FIXES: "${{ inputs.enable-fixes }}"
+        OUT_DIR: "${{ steps.scan.outputs.out_dir }}"
+      run: bash "$ACTION_PATH/scripts/action/post-results.sh"
+    - name: Upload report artifacts
+      if: always() && steps.scan.outputs.out_dir != ''
+      uses: actions/upload-artifact@v4
+      with: { name: "secpipe-report-${{ github.run_id }}-${{ github.run_attempt }}", path: "${{ steps.scan.outputs.out_dir }}", retention-days: 14 }
+    - name: Apply fail-on policy
+      shell: bash
+      env: { SCAN_EXIT: "${{ steps.scan.outputs.exit_code }}" }
+      run: exit "${SCAN_EXIT:-2}"

@@ -1,0 +1,93 @@
+# End-of-wave integration check (§3A step 4). Manual. Runs the e2e slice, the no-AI OWASP Benchmark scorecard and the
+# A0/A1 ablation; compares against the previous successful run and the Oct-2026 baseline; uploads metrics.
+name: wave-integration
+on:
+  workflow_dispatch:
+    inputs:
+      wave: { description: "Wave number just completed", required: true }
+      max_fpr_regression_pp: { description: "Allowed FPR increase vs previous run (percentage points)", required: false, default: "2" }
+      max_tpr_regression_pp: { description: "Allowed TPR decrease vs previous run (percentage points)", required: false, default: "2" }
+permissions:
+  contents: read
+  actions: read          # download the previous run's metrics artifact
+jobs:
+  integrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      WAVE: ${{ inputs.wave }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "21", cache: maven }
+      - name: Build
+        run: ./mvnw -B -q verify
+      - name: E2E slice
+        run: bash scripts/ci-fixture-scan.sh | tee e2e.txt
+      - name: NFR-2 timing smoke (no AI, < 10k LOC target 10 s)
+        run: |
+          if java -jar secpipe-cli/target/secpipe.jar scan --help >/dev/null 2>&1; then
+            java -jar secpipe-cli/target/secpipe.jar scan fixtures/mvp-samples/vulnerable-java-app --no-ai --no-sandbox -o perf-out -q || true
+            t=$(jq '[.stage_timings_ms[]]|add // 0' perf-out/run-metadata.json 2>/dev/null || echo 0)
+            echo "nfr2_small_ms=$t (target <= 10000)" | tee -a e2e.txt
+          fi
+      - name: Install default analyzers
+        run: |
+          if [ -f scripts/action/install-tools.sh ]; then SECPIPE_PROFILE=standard bash scripts/action/install-tools.sh; else echo "install-tools.sh not present yet (WO-H.1)"; fi
+      - name: Benchmark scorecard (no AI) and ablation A0/A1
+        run: |
+          mkdir -p metrics
+          if [ -f scripts/eval/ablation.sh ]; then
+            bash scripts/eval/ablation.sh --arms A0,A1 --out metrics/ablation
+          elif [ -f scripts/eval/benchmark.sh ]; then
+            bash scripts/eval/benchmark.sh --no-ai --out metrics/benchmark
+          else
+            echo '{"note":"benchmark scripts not present yet (WO-E.1/E.2)"}' > metrics/none.json
+          fi
+          cp e2e.txt metrics/
+      - name: Fetch previous metrics
+        continue-on-error: true
+        run: |
+          prev=$(gh run list --workflow wave-integration.yml --status success --limit 1 --json databaseId --jq '.[0].databaseId')
+          if [ -n "$prev" ]; then gh run download "$prev" -n wave-metrics -D previous || true; fi
+      - name: Compare against previous run and Oct-2026 baseline
+        env:
+          MAX_FPR: ${{ inputs.max_fpr_regression_pp }}
+          MAX_TPR: ${{ inputs.max_tpr_regression_pp }}
+        run: |
+          python3 - <<'PY'
+          import json, os, glob, sys
+          def load(pattern):
+              for p in sorted(glob.glob(pattern, recursive=True)):
+                  try:
+                      d = json.load(open(p))
+                      if "average" in d: return d
+                  except Exception: pass
+              return None
+          cur = load("metrics/**/scorecard.json") or load("metrics/**/A1/scorecard.json")
+          prev = load("previous/**/scorecard.json")
+          base = {"average": {"tpr": 82.4, "fpr": 46.0, "score": 23.8}}
+          if os.path.exists("docs/eval/baseline-2026-10.json"): base = json.load(open("docs/eval/baseline-2026-10.json"))
+          lines = [f"## Wave {os.environ['WAVE']} integration", "", open("metrics/e2e.txt").read().strip(), ""]
+          fail = False
+          if cur:
+              c = cur["average"]
+              lines += ["| run | TPR | FPR | score |", "|---|---|---|---|",
+                        f"| Oct-2026 baseline | {base['average']['tpr']} | {base['average']['fpr']} | {base['average']['score']} |"]
+              if prev:
+                  p = prev["average"]
+                  lines.append(f"| previous | {p['tpr']} | {p['fpr']} | {p['score']} |")
+                  if c["fpr"] - p["fpr"] > float(os.environ["MAX_FPR"]): fail = True; lines.append("**FPR regression vs previous run**")
+                  if p["tpr"] - c["tpr"] > float(os.environ["MAX_TPR"]): fail = True; lines.append("**TPR regression vs previous run**")
+              lines.append(f"| this wave | {c['tpr']} | {c['fpr']} | {c['score']} |")
+              lines.append(f"NFR-4 target: TPR ≥ 80, FPR ≤ 25 → {'MET' if c['tpr'] >= 80 and c['fpr'] <= 25 else 'not yet'}")
+          else:
+              lines.append("No scorecard yet (benchmark scripts arrive with WO-E.1).")
+          open(os.environ["GITHUB_STEP_SUMMARY"], "a").write("\n".join(lines) + "\n")
+          sys.exit(1 if fail else 0)
+          PY
+      - name: Upload metrics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with: { name: wave-metrics, path: metrics, retention-days: 90 }

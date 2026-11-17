@@ -1,0 +1,465 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>ca.carleton.secpipe</groupId>
+  <artifactId>secpipe-parent</artifactId>
+  <version>0.2.0-SNAPSHOT</version>
+  <packaging>pom</packaging>
+
+  <name>SecPipe</name>
+  <description>Multi-agent defensive security analysis pipeline for Java/Maven projects (SYSC 4907).</description>
+  <url>https://github.com/BrantDimitrievski/secpipe_v1</url>
+  <inceptionYear>2026</inceptionYear>
+
+  <licenses>
+    <license>
+      <name>MIT License</name>
+      <url>https://opensource.org/licenses/MIT</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+
+  <!-- All 25 modules from docs/PLAN.md Part 3, in dependency order (WO-0.1). Do not add modules (CLAUDE.md §3). -->
+  <modules>
+    <module>secpipe-contracts</module>
+    <module>secpipe-validators</module>
+    <module>secpipe-sarif</module>
+    <module>secpipe-core</module>
+    <module>secpipe-graph-langgraph4j</module>
+    <module>secpipe-llm</module>
+    <module>secpipe-llm-openai</module>
+    <module>secpipe-llm-anthropic</module>
+    <module>secpipe-llm-ollama</module>
+    <module>secpipe-llm-copilot</module>
+    <module>secpipe-agents</module>
+    <module>secpipe-sandbox</module>
+    <module>secpipe-adapter-builtin</module>
+    <module>secpipe-adapter-pmd</module>
+    <module>secpipe-adapter-semgrep</module>
+    <module>secpipe-adapter-spotbugs</module>
+    <module>secpipe-adapter-joern</module>
+    <module>secpipe-adapter-codeql</module>
+    <module>secpipe-adapter-osv</module>
+    <module>secpipe-adapter-grype</module>
+    <module>secpipe-adapter-trivy</module>
+    <module>secpipe-report</module>
+    <module>secpipe-github</module>
+    <module>secpipe-cli</module>
+    <module>secpipe-eval</module>
+  </modules>
+
+  <properties>
+    <maven.compiler.release>21</maven.compiler.release>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+    <!-- Reproducible archives (CLAUDE.md §8: byte-stable outputs). -->
+    <project.build.outputTimestamp>2026-11-17T00:00:00Z</project.build.outputTimestamp>
+
+    <!-- Test tag filters (CLAUDE.md §2): network and sandbox tests are excluded by default. -->
+    <secpipe.excludedGroups>network,sandbox</secpipe.excludedGroups>
+
+    <!-- Third-party dependency versions: docs/PLAN.md Appendix "Pinned versions" (WO-0.1, 2026-11-17). -->
+    <version.picocli>4.7.7</version.picocli>
+    <version.jackson>3.3.0</version.jackson>
+    <version.json-schema-validator>3.0.9</version.json-schema-validator>
+    <version.javaparser>3.28.2</version.javaparser>
+    <version.pmd>7.29.0</version.pmd>
+    <version.langchain4j>1.23.0</version.langchain4j>
+    <version.langgraph4j>1.9.9</version.langgraph4j>
+    <version.commons-csv>1.14.1</version.commons-csv>
+    <version.slf4j>2.0.20</version.slf4j>
+    <version.junit>6.1.3</version.junit>
+    <version.assertj>3.27.7</version.assertj>
+    <version.wiremock>3.13.2</version.wiremock>
+
+    <!-- Plugin versions. -->
+    <version.maven-clean-plugin>3.5.0</version.maven-clean-plugin>
+    <version.maven-resources-plugin>3.5.0</version.maven-resources-plugin>
+    <version.maven-compiler-plugin>3.16.0</version.maven-compiler-plugin>
+    <version.maven-surefire-plugin>3.6.1</version.maven-surefire-plugin>
+    <version.maven-failsafe-plugin>3.6.1</version.maven-failsafe-plugin>
+    <version.maven-jar-plugin>3.5.1</version.maven-jar-plugin>
+    <version.maven-shade-plugin>3.6.2</version.maven-shade-plugin>
+    <version.maven-install-plugin>3.2.0</version.maven-install-plugin>
+    <version.maven-deploy-plugin>3.2.0</version.maven-deploy-plugin>
+    <version.maven-site-plugin>3.22.0</version.maven-site-plugin>
+    <version.maven-enforcer-plugin>3.7.0</version.maven-enforcer-plugin>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <!-- SecPipe modules -->
+      <dependency>
+        <groupId>ca.carleton.secpipe</groupId>
+        <artifactId>secpipe-contracts</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>ca.carleton.secpipe</groupId>
+        <artifactId>secpipe-validators</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>ca.carleton.secpipe</groupId>
+        <artifactId>secpipe-sarif</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>ca.carleton.secpipe</groupId>
+        <artifactId>secpipe-core</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>ca.carleton.secpipe</groupId>
+        <artifactId>secpipe-graph-langgraph4j</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>ca.carleton.secpipe</groupId>
+        <artifactId>secpipe-llm</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>ca.carleton.secpipe</groupId>
+        <artifactId>secpipe-llm-openai</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>ca.carleton.secpipe</groupId>
+        <artifactId>secpipe-llm-anthropic</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>ca.carleton.secpipe</groupId>
+        <artifactId>secpipe-llm-ollama</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>ca.carleton.secpipe</groupId>
+        <artifactId>secpipe-llm-copilot</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>ca.carleton.secpipe</groupId>
+        <artifactId>secpipe-agents</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>ca.carleton.secpipe</groupId>
+        <artifactId>secpipe-sandbox</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>ca.carleton.secpipe</groupId>
+        <artifactId>secpipe-adapter-builtin</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>ca.carleton.secpipe</groupId>
+        <artifactId>secpipe-adapter-pmd</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>ca.carleton.secpipe</groupId>
+        <artifactId>secpipe-adapter-semgrep</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>ca.carleton.secpipe</groupId>
+        <artifactId>secpipe-adapter-spotbugs</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>ca.carleton.secpipe</groupId>
+        <artifactId>secpipe-adapter-joern</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>ca.carleton.secpipe</groupId>
+        <artifactId>secpipe-adapter-codeql</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>ca.carleton.secpipe</groupId>
+        <artifactId>secpipe-adapter-osv</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>ca.carleton.secpipe</groupId>
+        <artifactId>secpipe-adapter-grype</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>ca.carleton.secpipe</groupId>
+        <artifactId>secpipe-adapter-trivy</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>ca.carleton.secpipe</groupId>
+        <artifactId>secpipe-report</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>ca.carleton.secpipe</groupId>
+        <artifactId>secpipe-github</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>ca.carleton.secpipe</groupId>
+        <artifactId>secpipe-cli</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>ca.carleton.secpipe</groupId>
+        <artifactId>secpipe-eval</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+
+      <!-- CLI -->
+      <dependency>
+        <groupId>info.picocli</groupId>
+        <artifactId>picocli</artifactId>
+        <version>${version.picocli}</version>
+      </dependency>
+
+      <!-- Serialization (Jackson 3.x line; json-schema-validator 3.x is built on it) -->
+      <dependency>
+        <groupId>tools.jackson.core</groupId>
+        <artifactId>jackson-databind</artifactId>
+        <version>${version.jackson}</version>
+      </dependency>
+      <dependency>
+        <groupId>tools.jackson.dataformat</groupId>
+        <artifactId>jackson-dataformat-yaml</artifactId>
+        <version>${version.jackson}</version>
+      </dependency>
+
+      <!-- Validation -->
+      <dependency>
+        <groupId>com.networknt</groupId>
+        <artifactId>json-schema-validator</artifactId>
+        <version>${version.json-schema-validator}</version>
+      </dependency>
+
+      <!-- Parsing / analysis -->
+      <dependency>
+        <groupId>com.github.javaparser</groupId>
+        <artifactId>javaparser-core</artifactId>
+        <version>${version.javaparser}</version>
+      </dependency>
+      <dependency>
+        <groupId>net.sourceforge.pmd</groupId>
+        <artifactId>pmd-java</artifactId>
+        <version>${version.pmd}</version>
+      </dependency>
+
+      <!-- LLM -->
+      <dependency>
+        <groupId>dev.langchain4j</groupId>
+        <artifactId>langchain4j</artifactId>
+        <version>${version.langchain4j}</version>
+      </dependency>
+      <dependency>
+        <groupId>dev.langchain4j</groupId>
+        <artifactId>langchain4j-open-ai</artifactId>
+        <version>${version.langchain4j}</version>
+      </dependency>
+      <dependency>
+        <groupId>dev.langchain4j</groupId>
+        <artifactId>langchain4j-anthropic</artifactId>
+        <version>${version.langchain4j}</version>
+      </dependency>
+      <dependency>
+        <groupId>dev.langchain4j</groupId>
+        <artifactId>langchain4j-ollama</artifactId>
+        <version>${version.langchain4j}</version>
+      </dependency>
+
+      <!-- Graph (only in secpipe-graph-langgraph4j) -->
+      <dependency>
+        <groupId>org.bsc.langgraph4j</groupId>
+        <artifactId>langgraph4j-core</artifactId>
+        <version>${version.langgraph4j}</version>
+      </dependency>
+
+      <!-- Reports / data -->
+      <dependency>
+        <groupId>org.apache.commons</groupId>
+        <artifactId>commons-csv</artifactId>
+        <version>${version.commons-csv}</version>
+      </dependency>
+
+      <!-- Logging -->
+      <dependency>
+        <groupId>org.slf4j</groupId>
+        <artifactId>slf4j-nop</artifactId>
+        <version>${version.slf4j}</version>
+      </dependency>
+
+      <!-- Testing -->
+      <dependency>
+        <groupId>org.junit</groupId>
+        <artifactId>junit-bom</artifactId>
+        <version>${version.junit}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.junit.jupiter</groupId>
+        <artifactId>junit-jupiter</artifactId>
+        <version>${version.junit}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.assertj</groupId>
+        <artifactId>assertj-core</artifactId>
+        <version>${version.assertj}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.wiremock</groupId>
+        <artifactId>wiremock-standalone</artifactId>
+        <version>${version.wiremock}</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <build>
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-clean-plugin</artifactId>
+          <version>${version.maven-clean-plugin}</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-resources-plugin</artifactId>
+          <version>${version.maven-resources-plugin}</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-compiler-plugin</artifactId>
+          <version>${version.maven-compiler-plugin}</version>
+          <configuration>
+            <release>${maven.compiler.release}</release>
+            <compilerArgs>
+              <!-- Emit package-info.class even without annotations: SkeletonTests load it. -->
+              <arg>-Xpkginfo:always</arg>
+              <arg>-parameters</arg>
+            </compilerArgs>
+          </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-surefire-plugin</artifactId>
+          <version>${version.maven-surefire-plugin}</version>
+          <configuration>
+            <excludedGroups>${secpipe.excludedGroups}</excludedGroups>
+          </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-failsafe-plugin</artifactId>
+          <version>${version.maven-failsafe-plugin}</version>
+          <configuration>
+            <excludedGroups>${secpipe.excludedGroups}</excludedGroups>
+          </configuration>
+          <executions>
+            <execution>
+              <goals>
+                <goal>integration-test</goal>
+                <goal>verify</goal>
+              </goals>
+            </execution>
+          </executions>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-jar-plugin</artifactId>
+          <version>${version.maven-jar-plugin}</version>
+          <configuration>
+            <archive>
+              <manifest>
+                <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
+              </manifest>
+            </archive>
+          </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-shade-plugin</artifactId>
+          <version>${version.maven-shade-plugin}</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-install-plugin</artifactId>
+          <version>${version.maven-install-plugin}</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-deploy-plugin</artifactId>
+          <version>${version.maven-deploy-plugin}</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-site-plugin</artifactId>
+          <version>${version.maven-site-plugin}</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-enforcer-plugin</artifactId>
+          <version>${version.maven-enforcer-plugin}</version>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>enforce-build-environment</id>
+            <goals>
+              <goal>enforce</goal>
+            </goals>
+            <configuration>
+              <rules>
+                <requireJavaVersion>
+                  <version>[21,)</version>
+                  <message>SecPipe needs JDK 21 or newer.
+hint: install Temurin 21 and point JAVA_HOME at it.</message>
+                </requireJavaVersion>
+                <requireMavenVersion>
+                  <version>[3.9,)</version>
+                  <message>SecPipe needs Maven 3.9 or newer.
+hint: build with ./mvnw (it downloads Maven 3.9.x).</message>
+                </requireMavenVersion>
+              </rules>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-failsafe-plugin</artifactId>
+      </plugin>
+    </plugins>
+  </build>
+
+  <profiles>
+    <!-- E2E fixture scan (fake LLM, no Docker). Filled in by later work orders. -->
+    <profile>
+      <id>e2e</id>
+    </profile>
+    <!-- Docker-backed tests: only here are @Tag("sandbox") tests included (CLAUDE.md §2). -->
+    <profile>
+      <id>sandbox</id>
+      <properties>
+        <secpipe.excludedGroups>network</secpipe.excludedGroups>
+      </properties>
+    </profile>
+  </profiles>
+</project>

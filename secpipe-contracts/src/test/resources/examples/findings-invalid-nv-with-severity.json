@@ -1,0 +1,5 @@
+[ { "verdict": "needs_validation", "fingerprint": "x:1", "title": "t", "description": "d", "claimed_root_cause": "c",
+    "trace": [ { "kind": "sink", "file": "A.java", "line": 1, "scope": "A#m()", "description": "s" } ],
+    "evidence": [ { "file": "A.java", "line": 1, "description": "e" } ], "blockers": ["b"], "validation_plan": { "local": "l" },
+    "severity": { "likelihood": { "score": "low", "reason": "r" }, "impact": { "score": "low", "reason": "r" }, "overall_severity": "low" },
+    "secpipe": { "category": "code", "origin": "tool", "tool_sources": [], "cwe": ["CWE-89"] } } ]

@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://secpipe.dev/schemas/agent/critic-result.schema.json",
+  "title": "Coverage critic result: proposes coverage, never findings",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["missing_units", "reassign_ids", "stop", "rationale"],
+  "properties": {
+    "missing_units": {
+      "type": "array", "maxItems": 50,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["surface_ref", "boundary_ref", "subsystem_ref", "attack_class_block", "cwe", "starting_paths", "reason"],
+        "properties": {
+          "surface_ref": { "$ref": "_common.schema.json#/$defs/text" },
+          "boundary_ref": { "$ref": "_common.schema.json#/$defs/text" },
+          "subsystem_ref": { "$ref": "_common.schema.json#/$defs/text" },
+          "attack_class_block": { "type": "string", "pattern": "^[A-Z0-9-]+\\.md#.+$" },
+          "cwe": { "oneOf": [ { "type": "null" }, { "$ref": "_common.schema.json#/$defs/cwe" } ] },
+          "starting_paths": { "type": "array", "minItems": 1, "items": { "$ref": "_common.schema.json#/$defs/relPath" } },
+          "reason": { "$ref": "_common.schema.json#/$defs/text" }
+        }
+      }
+    },
+    "reassign_ids": {
+      "type": "array", "maxItems": 50,
+      "items": {
+        "type": "object", "additionalProperties": false, "required": ["coverage_id", "reason"],
+        "properties": { "coverage_id": { "$ref": "_common.schema.json#/$defs/coverageId" }, "reason": { "$ref": "_common.schema.json#/$defs/text" } }
+      }
+    },
+    "stop": { "type": "boolean" },
+    "rationale": { "$ref": "_common.schema.json#/$defs/text" }
+  }
+}

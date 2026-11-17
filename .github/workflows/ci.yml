@@ -1,0 +1,72 @@
+# Per-PR pipeline (§3A step 4). Required status check: "ci". No secrets; least privilege.
+name: ci
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  ci:
+    name: ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "21", cache: maven }
+      - name: Contract guard (contracts change only in WO-C.* / WO-CC.* branches)
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          changed="$(git diff --name-only "$BASE_SHA"...HEAD)"
+          echo "$changed" > changed-files.txt
+          if grep -E '^(secpipe-contracts/|action\.yml$)' changed-files.txt >/dev/null; then
+            case "$HEAD_REF" in
+              wo-c.*|wo-cc.*|wo-0.1-*) echo "contract change allowed on $HEAD_REF" ;;
+              *) echo "::error::Contract files changed on branch '$HEAD_REF'. Only WO-C.*/WO-CC.* branches may modify secpipe-contracts/** or action.yml (CLAUDE.md §4)."
+                 grep -E '^(secpipe-contracts/|action\.yml$)' changed-files.txt; exit 1 ;;
+            esac
+          fi
+      - name: Build, unit tests, validators (schema + ledger tests run inside verify)
+        run: ./mvnw -B -q verify
+      - name: E2E fixture scan (fake LLM)
+        run: bash scripts/ci-fixture-scan.sh
+      - name: Lint workflows and scripts
+        run: |
+          bash <(curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.7/scripts/download-actionlint.bash) 1.7.7 >/dev/null
+          ./actionlint -color
+          find scripts -name '*.sh' -print0 | xargs -0 -r shellcheck -S warning
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports-${{ github.run_id }}
+          path: |
+            **/target/surefire-reports/**
+            **/target/failsafe-reports/**
+            secpipe-out-e2e/**
+          retention-days: 7
+  sandbox:
+    # Docker-backed tests (-Psandbox). Informational until the team makes it required at a re-plan.
+    name: sandbox
+    needs: ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "21", cache: maven }
+      - name: Build runner image if present
+        run: |
+          if [ -f sandbox-images/runner/Dockerfile ]; then docker build -q -t secpipe-runner:ci sandbox-images/runner; fi
+      - name: Sandbox tests
+        env: { SECPIPE_RUNNER_IMAGE: "secpipe-runner:ci" }
+        run: ./mvnw -B -q -Psandbox verify

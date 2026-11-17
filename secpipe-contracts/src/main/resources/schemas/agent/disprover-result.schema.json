@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://secpipe.dev/schemas/agent/disprover-result.schema.json",
+  "title": "Disprover result: one verdict for one candidate it did not write",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["fingerprint", "verdict", "entrypoint_valid", "sink_valid", "controls_examined", "trace", "evidence"],
+  "properties": {
+    "fingerprint": { "$ref": "_common.schema.json#/$defs/fingerprint" },
+    "verdict": { "enum": ["confirmed", "needs_validation", "rejected"] },
+    "entrypoint_valid": { "type": "boolean" },
+    "sink_valid": { "type": "boolean" },
+    "controls_examined": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["file", "line", "quote", "description", "effective"],
+        "properties": {
+          "file": { "$ref": "_common.schema.json#/$defs/relPath" },
+          "line": { "type": "integer", "minimum": 1 },
+          "quote": { "type": "string", "minLength": 1, "maxLength": 400 },
+          "description": { "$ref": "_common.schema.json#/$defs/text" },
+          "effective": { "type": "boolean" }
+        }
+      }
+    },
+    "refutation_pattern": { "enum": ["value_overwritten", "constant_value", "dead_branch", "parameterized", "sanitized_or_validated", "not_reachable", "framework_control", "wrong_sink", "other"] },
+    "root_cause": { "$ref": "_common.schema.json#/$defs/text" },
+    "intended_behavior": { "$ref": "_common.schema.json#/$defs/text" },
+    "trace": { "$ref": "_common.schema.json#/$defs/trace" },
+    "evidence": { "type": "array", "minItems": 1, "items": { "$ref": "_common.schema.json#/$defs/citation" } },
+    "conditions": { "type": "array", "items": { "$ref": "_common.schema.json#/$defs/condition" } },
+    "proposed_severity": {
+      "type": "object", "additionalProperties": false, "required": ["likelihood", "impact", "likelihood_reason", "impact_reason"],
+      "properties": {
+        "likelihood": { "$ref": "_common.schema.json#/$defs/score5" },
+        "impact": { "$ref": "_common.schema.json#/$defs/score5" },
+        "likelihood_reason": { "$ref": "_common.schema.json#/$defs/text" },
+        "impact_reason": { "$ref": "_common.schema.json#/$defs/text" }
+      }
+    },
+    "blockers": { "type": "array", "items": { "$ref": "_common.schema.json#/$defs/text" } },
+    "validation_plan": {
+      "type": "object", "additionalProperties": false, "minProperties": 1,
+      "properties": { "local": { "$ref": "_common.schema.json#/$defs/text" }, "deployment": { "$ref": "_common.schema.json#/$defs/text" } }
+    },
+    "reason": { "$ref": "_common.schema.json#/$defs/text" }
+  },
+  "allOf": [
+    { "if": { "properties": { "verdict": { "const": "confirmed" } } },
+      "then": { "required": ["root_cause", "intended_behavior", "proposed_severity", "conditions"], "not": { "anyOf": [ { "required": ["blockers"] }, { "required": ["validation_plan"] }, { "required": ["reason"] }, { "required": ["refutation_pattern"] } ] } } },
+    { "if": { "properties": { "verdict": { "const": "needs_validation" } } },
+      "then": { "required": ["root_cause", "blockers", "validation_plan"], "properties": { "blockers": { "minItems": 1 } }, "not": { "anyOf": [ { "required": ["proposed_severity"] }, { "required": ["reason"] } ] } } },
+    { "if": { "properties": { "verdict": { "const": "rejected" } } },
+      "then": { "required": ["reason", "refutation_pattern"], "not": { "anyOf": [ { "required": ["proposed_severity"] }, { "required": ["blockers"] } ] } } }
+  ]
+}
