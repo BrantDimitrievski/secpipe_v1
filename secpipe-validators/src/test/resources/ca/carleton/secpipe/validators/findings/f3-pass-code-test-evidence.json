@@ -1,0 +1,137 @@
+[
+  {
+    "verdict": "confirmed",
+    "fingerprint": "code:CWE-89:3f9a1c0d5e7b2a4c6d8e0f12",
+    "title": "SQL injection in LoginServlet.doPost",
+    "description": "The username request parameter is concatenated into a SQL query executed with Statement.executeQuery.",
+    "root_cause": "Untrusted request input is concatenated into a SQL string instead of being bound as a parameter.",
+    "intended_behavior": "Only the matching user row is returned; input cannot alter query structure.",
+    "trace": [
+      {
+        "kind": "entrypoint",
+        "file": "src/main/java/com/example/vulnlab/LoginServlet.java",
+        "line": 21,
+        "scope": "LoginServlet#doPost(HttpServletRequest,HttpServletResponse)",
+        "description": "request.getParameter(\"username\")"
+      },
+      {
+        "kind": "sink",
+        "file": "src/main/java/com/example/vulnlab/LoginServlet.java",
+        "line": 27,
+        "scope": "LoginServlet#doPost(HttpServletRequest,HttpServletResponse)",
+        "description": "stmt.executeQuery(query) with concatenated username"
+      }
+    ],
+    "evidence": [
+      {
+        "file": "src/main/java/com/example/vulnlab/LoginServlet.java",
+        "line": 26,
+        "description": "String query = \"SELECT * FROM users WHERE name='\" + username + \"'\""
+      }
+    ],
+    "conditions": [
+      {
+        "kind": "authentication_level",
+        "description": "Unauthenticated: login endpoint."
+      }
+    ],
+    "execution": {
+      "attacker_perspective": "Unauthenticated HTTP client",
+      "payloads": [
+        "' OR '1'='1"
+      ],
+      "instructions": [
+        "Run secpipe.generated.LoginServletSqliSecurityTest in the SecPipe sandbox"
+      ],
+      "observed_result": "te-0a1b2c3d4e5f: test failed as expected; captured SQL contained the injected OR clause"
+    },
+    "remediation": {
+      "strategy": "Use PreparedStatement with a ? placeholder for username."
+    },
+    "severity": {
+      "likelihood": {
+        "score": "high",
+        "reason": "Unauthenticated endpoint, direct parameter use."
+      },
+      "impact": {
+        "score": "critical",
+        "reason": "Full read access to the users table."
+      },
+      "overall_severity": "critical"
+    },
+    "confidence": {
+      "score": "high",
+      "reason": "Disprover could not refute; regression test failed as expected."
+    },
+    "secpipe": {
+      "category": "code",
+      "origin": "tool",
+      "tool_sources": [
+        {
+          "tool": "builtin",
+          "rule_id": "SP-JAVA-SQLI",
+          "tool_severity": "critical",
+          "file": "src/main/java/com/example/vulnlab/LoginServlet.java",
+          "line": 27
+        },
+        {
+          "tool": "semgrep",
+          "rule_id": "secpipe.java.sqli.concat"
+        }
+      ],
+      "cwe": [
+        "CWE-89"
+      ],
+      "owasp": "A03:2021",
+      "test_evidence": [
+        {
+          "id": "te-0a1b2c3d4e5f",
+          "phase": "pre_fix",
+          "test_file": "src/test/java/secpipe/generated/LoginServletSqliSecurityTest.java",
+          "test_class": "secpipe.generated.LoginServletSqliSecurityTest",
+          "outcome": "failed_as_expected",
+          "runs": 3,
+          "observed_result": "AssertionFailedError: query contained OR '1'='1'"
+        }
+      ],
+      "fix_attempts": [
+        {
+          "attempt": 1,
+          "patch_artifact": "patches/code-CWE-89-3f9a1c0d.patch",
+          "strategy": "PreparedStatement",
+          "outcome": "fixed",
+          "regression_test_passed": true,
+          "suite_passed": true,
+          "rescan_clean": true,
+          "new_fingerprints": [],
+          "adequacy": {
+            "changed_lines_total": 3,
+            "changed_lines_covered": 3,
+            "adequate": true
+          }
+        }
+      ],
+      "remediation_status": "fixed",
+      "verification": {
+        "disprover": {
+          "kind": "llm",
+          "agent_id": "disprover-1a2b3c4d",
+          "provider": "fake",
+          "model": "fake-strong",
+          "tier": "strong"
+        },
+        "record_verifier": {
+          "kind": "llm",
+          "agent_id": "record_verifier-5e6f7a8b",
+          "provider": "fake",
+          "model": "fake-strong",
+          "tier": "strong"
+        },
+        "guardrail_applied": false
+      },
+      "ledger_units": [
+        "cov:0123456789abcdef0123456789abcdef"
+      ]
+    }
+  }
+]
