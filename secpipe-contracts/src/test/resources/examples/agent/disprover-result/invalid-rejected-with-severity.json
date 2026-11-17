@@ -1,0 +1,40 @@
+{
+  "fingerprint": "code:CWE-89:0f0e0d0c0b0a090807060504",
+  "verdict": "rejected",
+  "entrypoint_valid": true,
+  "sink_valid": true,
+  "controls_examined": [
+    {
+      "file": "src/main/java/com/shop/app/TagFilter.java",
+      "line": 16,
+      "quote": "tag = \"featured\";",
+      "description": "Overwrites request value with constant",
+      "effective": true
+    }
+  ],
+  "refutation_pattern": "value_overwritten",
+  "trace": [
+    {
+      "kind": "sink",
+      "file": "src/main/java/com/shop/app/TagFilter.java",
+      "line": 19,
+      "scope": "TagFilter#search(HttpServletRequest)",
+      "description": "executeQuery"
+    }
+  ],
+  "evidence": [
+    {
+      "file": "src/main/java/com/shop/app/TagFilter.java",
+      "line": 16,
+      "description": "constant assignment",
+      "quote": "tag = \"featured\";"
+    }
+  ],
+  "reason": "Tainted value is overwritten before the sink.",
+  "proposed_severity": {
+    "likelihood": "high",
+    "impact": "high",
+    "likelihood_reason": "Unauthenticated endpoint reachable from the internet",
+    "impact_reason": "Reads every customer's orders"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "fingerprint": "code:CWE-22:a1b2c3d4e5f60718293a4b5c",
+  "invariant": "Resolved export paths stay inside export.dir",
+  "decision_point": {
+    "file": "src/main/java/com/shop/app/Export.java",
+    "line": 12,
+    "description": "unchecked join",
+    "quote": "return Files.newInputStream(base.resolve(name));"
+  },
+  "strategy": "Normalize and check the prefix before opening",
+  "patch": "--- a/src/main/java/com/shop/app/Export.java\n+++ b/src/main/java/com/shop/app/Export.java\n@@ -12 +12,3 @@\n-    return Files.newInputStream(base.resolve(name));\n+    Path p = base.resolve(name).normalize();\n+    if (!p.startsWith(base)) throw new IllegalArgumentException(name);\n+    return Files.newInputStream(p);\n",
+  "files_changed": [
+    "src/main/java/com/shop/app/Export.java",
+    "src/test/java/com/shop/app/ExportTest.java"
+  ],
+  "risk_notes": [
+    "Symlinks inside export.dir are still followed"
+  ]
+}

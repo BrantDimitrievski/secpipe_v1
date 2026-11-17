@@ -1,0 +1,11 @@
+{
+  "fingerprint": "code:CWE-89:0f0e0d0c0b0a090807060504",
+  "outcome": "replace",
+  "checked_citations": 2,
+  "material": true,
+  "changed_fields": [
+    "verdict",
+    "reason"
+  ],
+  "reason": "The constant assignment at TagFilter.java:16 refutes the confirmed verdict"
+}

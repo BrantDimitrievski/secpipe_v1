@@ -1,0 +1,54 @@
+{
+  "fingerprint": "code:CWE-22:a1b2c3d4e5f60718293a4b5c",
+  "verdict": "confirmed",
+  "entrypoint_valid": true,
+  "sink_valid": true,
+  "controls_examined": [
+    {
+      "file": "src/main/java/com/shop/app/OrderController.java",
+      "line": 29,
+      "quote": "if (id.length() > 64) throw new BadRequest();",
+      "description": "Length check does not block quotes",
+      "effective": false
+    }
+  ],
+  "root_cause": "id is concatenated into SQL in OrderRepository#byId",
+  "intended_behavior": "Only the caller's own order is returned",
+  "trace": [
+    {
+      "kind": "entrypoint",
+      "file": "src/main/java/com/shop/app/OrderController.java",
+      "line": 31,
+      "scope": "OrderController#find(String)",
+      "description": "HTTP query parameter id enters the handler",
+      "quote": "@RequestParam String id"
+    },
+    {
+      "kind": "sink",
+      "file": "src/main/java/com/shop/app/OrderRepository.java",
+      "line": 58,
+      "scope": "OrderRepository#byId(String)",
+      "description": "String-concatenated SQL reaches executeQuery"
+    }
+  ],
+  "evidence": [
+    {
+      "file": "src/main/java/com/shop/app/OrderRepository.java",
+      "line": 58,
+      "description": "query built by concatenation",
+      "quote": "stmt.executeQuery(\"SELECT * FROM orders WHERE id='\" + id + \"'\")"
+    }
+  ],
+  "conditions": [
+    {
+      "kind": "authentication_level",
+      "description": "Requires any logged-in customer account"
+    }
+  ],
+  "proposed_severity": {
+    "likelihood": "medium",
+    "impact": "high",
+    "likelihood_reason": "Unauthenticated endpoint reachable from the internet",
+    "impact_reason": "Reads every customer's orders"
+  }
+}

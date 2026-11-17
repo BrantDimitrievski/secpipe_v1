@@ -1,0 +1,22 @@
+{
+  "fingerprint": "dep:CVE-2022-42889:pkg:maven/org.apache.commons/commons-text@1.9",
+  "invariant": "No interpolation lookups on untrusted strings",
+  "decision_point": {
+    "file": "pom.xml",
+    "line": 41,
+    "description": "vulnerable version pinned",
+    "quote": "<version>1.9</version>"
+  },
+  "strategy": "Upgrade commons-text",
+  "patch": "--- a/pom.xml\n+++ b/pom.xml\n@@ -41 +41 @@\n-      <version>1.9</version>\n+      <version>1.10.0</version>\n",
+  "files_changed": [
+    "pom.xml"
+  ],
+  "dependency_change": {
+    "purl": "pkg:npm/lodash",
+    "to_version": "1.10.0"
+  },
+  "risk_notes": [
+    "1.10.0 disables script, dns and url lookups by default"
+  ]
+}

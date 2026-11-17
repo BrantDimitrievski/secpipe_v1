@@ -1,0 +1,43 @@
+{
+  "fingerprint": "code:CWE-89:0f0e0d0c0b0a090807060504",
+  "outcome": "replace",
+  "checked_citations": 2,
+  "material": true,
+  "changed_fields": [
+    "verdict",
+    "reason"
+  ],
+  "replacement": {
+    "verdict": "rejected",
+    "fingerprint": "code:CWE-89:0f0e0d0c0b0a090807060504",
+    "title": "SQL injection in tag search",
+    "description": "The tag parameter looked tainted but is replaced by a constant.",
+    "claimed_root_cause": "tag concatenated into SQL",
+    "trace": [
+      {
+        "kind": "sink",
+        "file": "src/main/java/com/shop/app/TagFilter.java",
+        "line": 19,
+        "scope": "TagFilter#search(HttpServletRequest)",
+        "description": "executeQuery"
+      }
+    ],
+    "evidence": [
+      {
+        "file": "src/main/java/com/shop/app/TagFilter.java",
+        "line": 16,
+        "description": "constant assignment"
+      }
+    ],
+    "reason": "Tainted value is overwritten before the sink.",
+    "secpipe": {
+      "category": "code",
+      "origin": "tool",
+      "tool_sources": [],
+      "cwe": [
+        "CWE-89"
+      ]
+    }
+  },
+  "reason": "The constant assignment at TagFilter.java:16 refutes the confirmed verdict"
+}

@@ -1,0 +1,54 @@
+{
+  "coverage_id": "cov:0123456789abcdef0123456789abcdef",
+  "status": "candidate",
+  "reviewed_paths": [
+    "src/main/java/com/shop/app/OrderController.java",
+    "src/main/java/com/shop/app/OrderRepository.java"
+  ],
+  "local_checks": [
+    "Followed id from @RequestParam to executeQuery"
+  ],
+  "candidates": [
+    {
+      "title": "SQL injection in order lookup",
+      "cwe": "CWE-89",
+      "principal": "unauthenticated internet user",
+      "accepted_input": "id query parameter of GET /orders",
+      "strongest_control": "none: no validation or parameterization",
+      "claimed_root_cause": "OrderRepository#byId concatenates the id into SQL",
+      "trace": [
+        {
+          "kind": "entrypoint",
+          "file": "src/main/java/com/shop/app/OrderController.java",
+          "line": 31,
+          "scope": "OrderController#find(String)",
+          "description": "HTTP query parameter id enters the handler",
+          "quote": "@RequestParam String id"
+        },
+        {
+          "kind": "sink",
+          "file": "src/main/java/com/shop/app/OrderRepository.java",
+          "line": 58,
+          "scope": "OrderRepository#byId(String)",
+          "description": "String-concatenated SQL reaches executeQuery"
+        }
+      ],
+      "evidence": [
+        {
+          "file": "src/main/java/com/shop/app/OrderRepository.java",
+          "line": 58,
+          "description": "query built by concatenation",
+          "quote": "stmt.executeQuery(\"SELECT * FROM orders WHERE id='\" + id + \"'\")"
+        }
+      ],
+      "smallest_fix": "Use a PreparedStatement with a bound parameter",
+      "regression_case": "GET /orders?id=' OR '1'='1 must not return other users' orders"
+    }
+  ],
+  "unresolved": [
+    "Whether the admin proxy strips quotes is unknown"
+  ],
+  "hardening_notes": [
+    "Add a global input length limit"
+  ]
+}
