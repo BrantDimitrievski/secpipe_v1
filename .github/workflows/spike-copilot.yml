@@ -1,0 +1,125 @@
+# WO-S.2 spike: can the Copilot CLI serve as SecPipe's GitHub-native provider? Evidence only, never a gate.
+# Two auth paths, one job each: (a) workflow GITHUB_TOKEN + copilot-requests: write, (b) COPILOT_GITHUB_TOKEN PAT.
+# Never pull_request_target. Fork PRs get the plain pull_request trigger: no secrets, read-only token.
+# Results land in ::notice annotations (check-runs API) and the job summary. See docs/spikes/S2-copilot.md.
+name: spike-copilot
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/spike-copilot.yml
+      - scripts/spike/copilot-probe.sh
+      - docs/spikes/S2-copilot.md
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/spike-copilot.yml
+      - scripts/spike/copilot-probe.sh
+      - docs/spikes/S2-copilot.md
+permissions: {}
+concurrency:
+  group: spike-copilot-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  COPILOT_CLI_VERSION: "1.0.112"
+jobs:
+  shellcheck:
+    name: spike-copilot / shellcheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: { contents: read }
+    steps:
+      - uses: actions/checkout@v4
+        with: { persist-credentials: false }
+      - name: shellcheck scripts/spike/copilot-probe.sh
+        run: |
+          shellcheck --version | sed -n 2p
+          shellcheck scripts/spike/copilot-probe.sh
+          echo "::notice title=S2 shellcheck::shellcheck scripts/spike/copilot-probe.sh -> exit $?"
+
+  workflow-token:
+    name: spike-copilot / (a) GITHUB_TOKEN + copilot-requests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      copilot-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with: { persist-credentials: false }
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+      - name: Record run context
+        env:
+          EVENT: ${{ github.event_name }}
+          OWNER_TYPE: ${{ github.event.repository.owner.type }}
+          REPO: ${{ github.repository }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          IS_FORK: ${{ github.event.pull_request.head.repo.fork }}
+        run: |
+          fork=no
+          if [ -n "$HEAD_REPO" ] && [ "$HEAD_REPO" != "$REPO" ]; then fork=yes; fi
+          echo "::notice title=S2 (a) run context::event=$EVENT repo=$REPO owner_type=$OWNER_TYPE head_repo=${HEAD_REPO:-n/a} fork_pr=$fork head_repo_is_fork=${IS_FORK:-n/a}"
+      - name: Install pinned Copilot CLI (no token in env)
+        run: |
+          npm install -g "@github/copilot@${COPILOT_CLI_VERSION}"
+          copilot --version
+      - name: Probe with the workflow token
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PROBE_LABEL: "(a) GITHUB_TOKEN ${{ github.event_name }}"
+          PROBE_INSTALL: "0"
+          PROBE_OUT: ${{ runner.temp }}/probe-a
+        run: bash scripts/spike/copilot-probe.sh
+      - name: Upload probe output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: copilot-probe-a-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/probe-a
+          retention-days: 14
+
+  pat-token:
+    name: spike-copilot / (b) COPILOT_GITHUB_TOKEN PAT
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions: { contents: read }
+    steps:
+      - name: Check for the COPILOT_GITHUB_TOKEN secret
+        id: gate
+        env:
+          HAS_PAT: ${{ secrets.COPILOT_GITHUB_TOKEN != '' }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          echo "has_pat=$HAS_PAT" >> "$GITHUB_OUTPUT"
+          if [ "$HAS_PAT" != "true" ]; then
+            echo "::notice title=S2 (b) PAT::no auth available: COPILOT_GITHUB_TOKEN secret absent or not passed (event=$EVENT); job (b) skipped"
+            echo "### (b) COPILOT_GITHUB_TOKEN: no auth available (secret absent, event=$EVENT)" >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/checkout@v4
+        if: steps.gate.outputs.has_pat == 'true'
+        with: { persist-credentials: false }
+      - uses: actions/setup-node@v4
+        if: steps.gate.outputs.has_pat == 'true'
+        with: { node-version: "22" }
+      - name: Install pinned Copilot CLI (no token in env)
+        if: steps.gate.outputs.has_pat == 'true'
+        run: |
+          npm install -g "@github/copilot@${COPILOT_CLI_VERSION}"
+          copilot --version
+      - name: Probe with the PAT
+        if: steps.gate.outputs.has_pat == 'true'
+        env:
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          PROBE_LABEL: "(b) PAT ${{ github.event_name }}"
+          PROBE_INSTALL: "0"
+          PROBE_MODELS_CHECK: "0"
+          PROBE_OUT: ${{ runner.temp }}/probe-b
+        run: bash scripts/spike/copilot-probe.sh
+      - name: Upload probe output
+        if: always() && steps.gate.outputs.has_pat == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: copilot-probe-b-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/probe-b
+          retention-days: 14
