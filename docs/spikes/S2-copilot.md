@@ -1,7 +1,12 @@
 # S2: Copilot CLI as the GitHub-native provider (WO-S.2)
 
 Spike date: 2026-11-17. CLI pinned: `@github/copilot@1.0.112` (changelog entry dated 2026-11-13).
-Probe: `scripts/spike/copilot-probe.sh`. Workflow: `.github/workflows/spike-copilot.yml`.
+Probe: `scripts/spike/copilot-probe.sh`. Workflow: `.github/workflows/spike-copilot.yml` (removed, see the note below).
+
+Workflow removed after the NO-GO: the required `ci` check runs actionlint, which does not support the
+`copilot-requests` permission scope, so the workflow could not stay in the repo. The runs linked below stay viewable
+on GitHub. To re-test, restore the file from commit `2c100f5` (or `fea7fce`) with `git show 2c100f5:.github/workflows/spike-copilot.yml`
+and add an actionlint ignore for `unknown permission scope "copilot-requests"`.
 
 Decision: NO-GO
 Fork PR copilot auth available: no
@@ -11,9 +16,11 @@ No-tools guarantee holds: no
 
 | Line | Value | Confidence | Basis | Pending runs that could change it |
 |---|---|---|---|---|
-| `Decision` | **NO-GO** | **High** | WO-S.2 rule: "If it *can* run tools without `--allow-tool`, the decision is NO-GO for `copilot`." Measured: it can (§4). | An org-repo run or a PAT run would only change this if the CLI behaved differently under another auth path. The tool-permission engine does not depend on the auth path, so this is unlikely. A re-plan could revisit it if a later CLI version adds a way to turn off all tools (§4.3). |
-| `Fork PR copilot auth available` | **no** | **Medium-high** (documented, not yet measured) | Fork `pull_request` runs get no secrets, so the PAT path is gone. Write scopes of the workflow token are lowered to read for fork PRs (§3.2), and `copilot-requests` is only granted as `write`. | The fork-PR run (pending Brant, §6). A fork run that shows `auth=authenticated` in job (a) would flip this to `yes`. |
-| `No-tools guarantee holds` | **no** | **High** (measured 3 ways, 2 runs) | The canary file outside the empty working dir was read and `uname -r` ran with no `--allow-tool`. The same happened with `--excluded-tools bash` and with `--available-tools ""` (§4). | None expected. The org and PAT runs reuse the same CLI and the same permission engine. |
+| `Decision` | **NO-GO** | **High** | WO-S.2 rule: "If it *can* run tools without `--allow-tool`, the decision is NO-GO for `copilot`." Measured: it can (§4). | An org-repo run or a PAT run (not run, §6) would only change this if the CLI behaved differently under another auth path. The tool-permission engine does not depend on the auth path, so this is unlikely. A re-plan could revisit it if a later CLI version adds a way to turn off all tools (§4.3). |
+| `Fork PR copilot auth available` | **no** | **Medium-high** (documented, not yet measured) | Fork `pull_request` runs get no secrets, so the PAT path is gone. Write scopes of the workflow token are lowered to read for fork PRs (§3.2), and `copilot-requests` is only granted as `write`. | The fork-PR run was not run (moot after NO-GO, §6). A fork run that showed `auth=authenticated` in job (a) would not change the decision, because the no-tools guarantee fails regardless. |
+| `No-tools guarantee holds` | **no** | **High** (measured 3 ways, 3 runs) | The canary file outside the empty working dir was read and `uname -r` ran with no `--allow-tool`. The same happened with `--excluded-tools bash` and with `--available-tools ""` (§4). | None expected. The skipped org and PAT runs would reuse the same CLI and the same permission engine. |
+
+Plan consequences: WO-L.5 closed as not needed; WO-CC.1 removes `copilot` from `action.yml`; WO-H.3 keeps fork PRs at AI mode `none`.
 
 Handoff consequence (from the work order): **WO-L.5 is closed as "not built".** A WO-CC contract change removes
 `copilot` from `action.yml`'s `llm-provider` list and the docs. The Action modes become `none` plus
@@ -34,8 +41,8 @@ bring-your-own-key. WO-H.3 keeps fork PRs at AI mode `none` (fork result `no`).
 
 | Auth path | Personal repo, branch PR | Org repo, branch PR | Fork PR (public repo, `pull_request`) | Evidence |
 |---|---|---|---|---|
-| (a) `GITHUB_TOKEN` + `permissions: copilot-requests: write` | **works**: `auth=authenticated`, exit 0, `premiumRequests: 1` per call, billed to the repo owner's seat | untested (pending Brant). Documented: works if the org enables "Allow use of Copilot CLI billed to the organization"; billed to the org | untested (pending Brant). Documented/expected: **fails** (write scopes become read for fork PRs) | [run 44172159681](https://github.com/BrantDimitrievski/secpipe_v1/actions/runs/44172159681/job/134353850418), [run 44196934977](https://github.com/BrantDimitrievski/secpipe_v1/actions/runs/44196934977/job/134440729970); docs [1], [2], [3] |
-| (b) `COPILOT_GITHUB_TOKEN` secret (fine-grained PAT, "Copilot Requests" permission) | untested (pending Brant). The job ran and reported "no auth available: secret absent", so it degrades gracefully | untested (pending Brant) | **fails by design**: secrets are not passed to fork `pull_request` runs | [run 44196934977 job (b)](https://github.com/BrantDimitrievski/secpipe_v1/actions/runs/44196934977/job/134440729888); docs [4], [5] |
+| (a) `GITHUB_TOKEN` + `permissions: copilot-requests: write` | **works**: `auth=authenticated`, exit 0, `premiumRequests: 1` per call, billed to the repo owner's seat | not run, moot after NO-GO (no-tools guarantee fails regardless). Documented: works if the org enables "Allow use of Copilot CLI billed to the organization"; billed to the org | not run, moot after NO-GO (no-tools guarantee fails regardless). Documented/expected: **fails** (write scopes become read for fork PRs) | [run 44172159681](https://github.com/BrantDimitrievski/secpipe_v1/actions/runs/44172159681/job/134353850418), [run 44196934977](https://github.com/BrantDimitrievski/secpipe_v1/actions/runs/44196934977/job/134440729970); docs [1], [2], [3] |
+| (b) `COPILOT_GITHUB_TOKEN` secret (fine-grained PAT, "Copilot Requests" permission) | not run. The job ran and reported "no auth available: secret absent", so it degrades gracefully | not run, moot after NO-GO (no-tools guarantee fails regardless) | **fails by design**: secrets are not passed to fork `pull_request` runs | [run 44196934977 job (b)](https://github.com/BrantDimitrievski/secpipe_v1/actions/runs/44196934977/job/134440729888); docs [4], [5] |
 | (none) no token | n/a | n/a | n/a | CLI prints an auth error. The probe classifies it as `no-auth` and skips paid cases (tested locally with a stub) |
 
 Auth precedence inside the CLI: `COPILOT_GITHUB_TOKEN` > `GH_TOKEN` > `GITHUB_TOKEN` [5]. Values of `GITHUB_TOKEN` and
@@ -103,13 +110,14 @@ system prompt and tool schemas are sent on every call.
 
 ### 3.6 Model ids (strong / standard / small)
 
-Not verified against a seat that may choose models: this repo's seat is auto-only (see §3.1). The ids follow the
+**All strong/standard/small ids below are unverified.** The seat used for this spike only allows `auto`, so no explicit
+model id could be tested (see §3.1). The ids follow the
 CLI's own help example (`copilot --model gpt-5.6-sol`) and the supported-models page [12]. With NO-GO, they are
 recorded for a possible re-plan only.
 
 | Tier | Recommended id | Display name [12] | Status |
 |---|---|---|---|
-| strong | `claude-opus-5.5` | Claude Opus 5.5 | unverified id (pending a Pro/Business seat run) |
+| strong | `claude-opus-5.5` | Claude Opus 5.5 | unverified id (the seat only allows `auto`) |
 | standard | `claude-sonnet-5.5` | Claude Sonnet 5.5 | unverified id |
 | small | `gpt-5.4-mini` | GPT-5.4 mini | unverified id |
 | any (Free/Student) | `auto` | Copilot auto model selection | **verified**: resolved to `mai-code-2-flash` on this seat |
@@ -145,6 +153,7 @@ means a tool ran.
 |---|---|---|---|
 | none (the ADR-10 invocation) | **BROKEN**: canary file read, `uname` ran | `bash`=4, `view`=3 | [44196934977](https://github.com/BrantDimitrievski/secpipe_v1/actions/runs/44196934977/job/134440729970) (also [44172159681](https://github.com/BrantDimitrievski/secpipe_v1/actions/runs/44172159681/job/134353850418): canary + uname, 6 tool executions) |
 | `--excluded-tools bash` | **BROKEN**: canary file read | `glob`=2, `rg`=3, `read_bash`=1, `web_fetch`=1 | same run |
+| `--excluded-tools bash,glob,view` (third run, after the doc commit) | No canary read in this run (`holds`), but tools were still started: `rg`, `read_bash`, `list_bash`, `web_fetch`. Excluding tool names is whack-a-mole, not a guarantee | `rg`, `read_bash`, `list_bash`, `web_fetch` | [44197519958](https://github.com/BrantDimitrievski/secpipe_v1/actions/runs/44197519958/job/134442728311). The default and `--available-tools ""` variants were `BROKEN` again in this run |
 | `--available-tools ""` | **BROKEN**: canary file read, `uname` ran (an empty allowlist is treated as unset) | `bash`=2, `view`=2 | same run |
 
 Why: `copilot help permissions` (1.0.112) says: "Commands it recognizes as read-only run without asking". The docs say
@@ -167,32 +176,27 @@ is **false**. In CI the runner's checkout, environment files, and the workflow t
 | [44196934977 / job (a)](https://github.com/BrantDimitrievski/secpipe_v1/actions/runs/44196934977/job/134440729970) | personal | `pull_request` from a branch | authenticated, model ids, 3 no-tools variants all BROKEN |
 | [44196934977 / job (b)](https://github.com/BrantDimitrievski/secpipe_v1/actions/runs/44196934977/job/134440729888) | personal | `pull_request` | no auth available (secret absent), skipped cleanly |
 | [44196934977 / shellcheck](https://github.com/BrantDimitrievski/secpipe_v1/actions/runs/44196934977/job/134440729554) | personal | `pull_request` | `shellcheck scripts/spike/copilot-probe.sh` → exit 0 |
-| org repo run | org | branch PR | **untested (pending Brant)**. Link goes here |
-| fork PR run | personal or org | `pull_request` from a fork | **untested (pending Brant)**. Link goes here |
-| PAT run (job (b) with secret) | personal | branch PR | **untested (pending Brant)**. Link goes here |
+| [44197519958](https://github.com/BrantDimitrievski/secpipe_v1/actions/runs/44197519958/job/134442728311) | personal | `pull_request` from a branch (re-run by the doc commit) | authenticated, default and `--available-tools ""` BROKEN, exclusion variant no canary but tools started (§4) |
+| org repo run | org | branch PR | not run, moot after NO-GO (no-tools guarantee fails regardless) |
+| fork PR run | personal or org | `pull_request` from a fork | not run, moot after NO-GO (no-tools guarantee fails regardless) |
+| PAT run (job (b) with secret) | personal | branch PR | not run (no PAT created), moot after NO-GO |
 
 Results are in each job's `::notice` annotations, job summary, and uploaded `copilot-probe-*` artifact.
 
 Known CI interaction: the required `ci` check runs actionlint 1.7.7 over every workflow. actionlint does not know
 the `copilot-requests` permission scope (it is not in `allPermissionScopes` in `rule_permissions.go` in v1.7.7 or
-v1.7.12). So `ci` fails on this branch even though GitHub accepts the scope and job (a) ran. The fix is outside this
-work order's files (see the PR).
+v1.7.12), so `ci` failed while the workflow existed, even though GitHub accepts the scope and job (a) ran. The
+workflow was removed for that reason. Each pull-request run re-ran the paid probe, because the `paths` filter looks at
+the whole PR diff, so even the doc-only commit `fea7fce` triggered a run of about 15 Copilot requests.
 
-## 6. Pending human runs (Brant)
+## 6. Runs skipped after the NO-GO
 
-1. **PAT (job b).** Create a fine-grained PAT with the "Copilot Requests" permission (Settings → Developer settings
-   → Fine-grained tokens → Add permissions → Copilot Requests). Add it as a repository secret named
-   `COPILOT_GITHUB_TOKEN`. Re-run the `spike-copilot` workflow from the Actions tab (`workflow_dispatch`).
-   Fill the §3.1 row (b) / personal cell and the §5 PAT row.
-2. **Org repo.** Push this branch to a repo in the team org where Copilot CLI and "Allow use of Copilot CLI billed
-   to the organization" are enabled. Run `spike-copilot` via `workflow_dispatch` or a branch PR. Fill §3.1 row (a) /
-   org and the §5 org row.
-3. **Fork PR.** From a second account, fork the repo, make a trivial edit to `scripts/spike/copilot-probe.sh`
-   (e.g. a comment), and open a PR to the upstream repo. Approve the fork run if asked. Read job (a)'s
-   "run context" notice (`fork_pr=yes`) and its auth notice. Fill §3.1 fork cells, §5 fork row, and update the
-   `Fork PR copilot auth available:` line only if it shows `auth=authenticated`.
+Brant approved skipping these. The no-tools guarantee fails regardless of auth path or repo type, so none of them can
+change the decision.
 
-Note: an authenticated probe run spends about 15 Copilot requests from the seat or org it bills.
+- **PAT (job b):** not run, moot after NO-GO.
+- **Org repo:** not run, moot after NO-GO.
+- **Fork PR:** not run, moot after NO-GO. `Fork PR copilot auth available: no` rests on the documentation (§3.2).
 
 ## Sources
 
