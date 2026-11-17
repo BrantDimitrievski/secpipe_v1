@@ -1,0 +1,106 @@
+[
+  {
+    "verdict": "rejected",
+    "fingerprint": "code:CWE-79:fedcba9876543210fedcba98",
+    "title": "Reflected XSS claim in SearchPage",
+    "description": "The query is echoed into the page, but through an encoding tag library.",
+    "claimed_root_cause": "Request parameter written into HTML.",
+    "trace": [ { "kind": "sink", "file": "src/main/webapp/search.jsp", "line": 9, "scope": "search.jsp", "description": "<c:out value=\"${param.q}\"/>" } ],
+    "evidence": [ { "file": "src/main/webapp/search.jsp", "line": 9, "description": "c:out escapes XML by default" } ],
+    "reason": "c:out HTML-escapes the value; no script context is reachable.",
+    "secpipe": { "category": "code", "origin": "tool", "tool_sources": [ { "tool": "semgrep", "rule_id": "java.jsp.xss.param" } ], "cwe": [], "verification": { "disprover": { "kind": "llm", "agent_id": "disprover-2a2b2c2d", "provider": "fake", "model": "fake-strong", "tier": "strong" }, "guardrail_applied": false } }
+  },
+  {
+    "verdict": "needs_validation",
+    "fingerprint": "code:CWE-918:1234567890abcdef12345678",
+    "title": "Possible SSRF in AvatarFetcher",
+    "description": "A user-supplied URL is fetched server-side.",
+    "claimed_root_cause": "The avatar URL from the profile form is passed to URL.openStream without an allow-list.",
+    "trace": [ { "kind": "sink", "file": "src/main/java/com/example/vulnlab/AvatarFetcher.java", "line": 33, "scope": "AvatarFetcher#fetch(String)", "description": "new URL(url).openStream()" } ],
+    "evidence": [ { "file": "src/main/java/com/example/vulnlab/AvatarFetcher.java", "line": 33, "description": "try (InputStream in = new URL(url).openStream())" } ],
+    "blockers": ["Sandbox has no network, so the outbound request cannot be observed", "Deployment egress rules unknown"],
+    "validation_plan": { "local": "Stub URL handler to record the requested host.", "deployment": "Check egress firewall rules for the app tier." },
+    "secpipe": { "category": "code", "origin": "carried_forward", "tool_sources": [], "cwe": ["CWE-918"], "first_seen_run": "run-20261101T120000Z-ab12", "carried_forward_from": "run-20261110T090000Z-cd34" }
+  },
+  {
+    "verdict": "confirmed",
+    "fingerprint": "dependency:CWE-502:9a8b7c6d5e4f3a2b1c0d9e8f",
+    "title": "Unsafe deserialization through a vulnerable commons-collections",
+    "description": "A reachable gadget chain in commons-collections 3.2.1 lets an attacker run code through ObjectInputStream.",
+    "root_cause": "The servlet deserializes request bodies with ObjectInputStream while a gadget library is on the classpath.",
+    "intended_behavior": "Only trusted, typed payloads are accepted; arbitrary classes are never instantiated.",
+    "trace": [
+      { "kind": "entrypoint", "file": "src/main/java/com/example/vulnlab/ImportServlet.java", "line": 18, "scope": "ImportServlet#doPost(HttpServletRequest,HttpServletResponse)", "description": "request.getInputStream()" },
+      { "kind": "propagation", "file": "src/main/java/com/example/vulnlab/ImportServlet.java", "line": 20, "scope": "ImportServlet#doPost(HttpServletRequest,HttpServletResponse)", "description": "new ObjectInputStream(body)" },
+      { "kind": "sink", "file": "src/main/java/com/example/vulnlab/ImportServlet.java", "line": 21, "scope": "ImportServlet#doPost(HttpServletRequest,HttpServletResponse)", "description": "ois.readObject()" }
+    ],
+    "evidence": [
+      { "file": "src/main/java/com/example/vulnlab/ImportServlet.java", "line": 21, "description": "Object payload = ois.readObject();" },
+      { "file": "pom.xml", "line": 40, "description": "commons-collections:commons-collections:3.2.1 declared at compile scope" }
+    ],
+    "conditions": [
+      { "kind": "network_routing", "description": "The import endpoint must be reachable from the attacker." },
+      { "kind": "third_party_dependency", "description": "commons-collections 3.2.1 must stay on the runtime classpath." }
+    ],
+    "execution": {
+      "attacker_perspective": "Unauthenticated HTTP client",
+      "payloads": ["ysoserial CommonsCollections6 'touch /tmp/pwned'", ""],
+      "instructions": ["Build the payload", "Run secpipe.generated.ImportServletDeserSecurityTest in the SecPipe sandbox"],
+      "observed_result": "te-1b2c3d4e5f60: the gadget chain reached Runtime.exec inside the sandbox"
+    },
+    "remediation": {
+      "strategy": "Replace ObjectInputStream with a JSON DTO and upgrade commons-collections.",
+      "code_changes": [
+        { "file_name": "src/main/java/com/example/vulnlab/ImportServlet.java", "fixed_code": "ImportRequest req = mapper.readValue(body, ImportRequest.class);" },
+        { "file_name": "pom.xml", "fixed_code": "" }
+      ]
+    },
+    "severity": {
+      "likelihood": { "score": "medium", "reason": "Requires a crafted serialized payload." },
+      "impact": { "score": "critical", "reason": "Remote code execution as the application user." },
+      "overall_severity": "high"
+    },
+    "confidence": { "score": "medium", "reason": "Exploit observed in the sandbox; production classpath not verified." },
+    "secpipe": {
+      "category": "dependency",
+      "origin": "hunter",
+      "tool_sources": [
+        { "tool": "osv", "rule_id": "GHSA-fjq5-5j5f-mvxh", "tool_severity": "critical", "file": "pom.xml", "line": 40 }
+      ],
+      "cwe": ["CWE-502"],
+      "cve": ["CVE-2015-7501", "GHSA-fjq5-5j5f-mvxh"],
+      "owasp": "A08:2021",
+      "dependency": {
+        "purl": "pkg:maven/commons-collections/commons-collections@3.2.1",
+        "group": "commons-collections",
+        "artifact": "commons-collections",
+        "version": "3.2.1",
+        "fixed_version": "3.2.2",
+        "scope": "compile",
+        "dependency_path": ["com.example:vulnlab:1.0", "commons-collections:commons-collections:3.2.1"],
+        "reachable": "yes"
+      },
+      "tool_severity_hint": "critical",
+      "confidence_hint": "high",
+      "test_evidence": [
+        { "id": "te-1b2c3d4e5f60", "phase": "pre_fix", "test_file": "src/test/java/secpipe/generated/ImportServletDeserSecurityTest.java", "test_class": "secpipe.generated.ImportServletDeserSecurityTest", "outcome": "failed_as_expected", "runs": 3, "observed_result": "AssertionFailedError: Runtime.exec was invoked", "log_artifact": "logs/te-1b2c3d4e5f60.log" },
+        { "id": "te-2c3d4e5f6071", "phase": "post_fix", "outcome": "not_run", "runs": 0, "blocker": "Fix attempt 2 broke the build" }
+      ],
+      "fix_attempts": [
+        { "attempt": 1, "patch_artifact": "patches/dependency-CWE-502-9a8b7c6d-1.patch", "strategy": "Upgrade only", "outcome": "still_present", "regression_test_passed": false, "suite_passed": true, "rescan_clean": false, "new_fingerprints": ["code:CWE-502:0011223344556677889900aa"] },
+        { "attempt": 2, "strategy": "JSON DTO", "outcome": "build_broken", "adequacy": { "changed_lines_total": 12, "changed_lines_covered": 0, "adequate": false, "note": "Build failed before coverage was collected." } }
+      ],
+      "remediation_status": "still_present",
+      "recommended_remediation": "Upgrade to 3.2.2 and stop deserializing request bodies with ObjectInputStream.",
+      "verification": {
+        "disprover": { "kind": "llm", "agent_id": "disprover-0a0b0c0d", "provider": "fake", "model": "fake-strong", "tier": "strong" },
+        "record_verifier": { "kind": "llm", "agent_id": "record_verifier-1a1b1c1d", "provider": "fake", "model": "fake-standard", "tier": "standard" },
+        "second_verifier": { "kind": "deterministic", "rule": "guardrail.small_tier_only" },
+        "guardrail_applied": true
+      },
+      "ledger_units": ["cov:00000000000000000000000000000001", "cov:00000000000000000000000000000002"],
+      "first_seen_run": "run-20261101T120000Z-ab12",
+      "carried_forward_from": "run-20261110T090000Z-cd34"
+    }
+  }
+]
