@@ -487,6 +487,30 @@ class CryptoUtilSpikeTest {
 JAVA
 }
 
+offline_diagnose() { # label scratch cache: is the missing artifact in the prefetch cache, and does -llr help?
+    local label=$1 scratch=$2 cache=$3 coord g a v dir found tracking
+    coord=$(printf '%s\n' "$OUTPUT" | sed -n 's/.*dependency: \([^ ]*\) (.*/\1/p' | head -1)
+    if [[ -n "$coord" ]]; then
+        g=$(printf '%s' "$coord" | cut -d: -f1 | tr '.' '/')
+        a=$(printf '%s' "$coord" | cut -d: -f2)
+        v=$(printf '%s' "$coord" | cut -d: -f4)
+        dir="$cache/$g/$a/$v"
+        found=$(ls "$dir" 2>/dev/null | tr '\n' ' ')
+        tracking=$(grep -v '^#' "$dir/_remote.repositories" 2>/dev/null | tr '\n' ' ')
+        record maven "$label-offline-diagnosis" info \
+            "missing $coord; in prefetch cache: ${found:-NOT PRESENT}; _remote.repositories: ${tracking:-none}"
+    fi
+    capture "$label-phase2-offline-llr" with_timeout 1800 sbx -v "$scratch:/scratch" -v "$cache:/cache/m2:ro" \
+        -w /scratch/project -- mvn -o -B -q -llr -Dmaven.repo.local=/scratch/m2 -Dmaven.repo.local.tail=/cache/m2 \
+        compile dependency:build-classpath -Dmdep.outputFile=/scratch/classpath.txt
+    if [[ $RC -eq 0 ]]; then
+        record maven "$label-phase2-offline-llr" pass "same offline build with -llr (ignore _remote.repositories) passes"
+    else
+        record maven "$label-phase2-offline-llr" info \
+            "with -llr still fails: exit $RC: $(printf '%s\n' "$OUTPUT" | grep -m2 'ERROR' | tr '\n' ' ')"
+    fi
+}
+
 maven_flow() { # label source-dir run-junit(yes|no) fatal-on-fail(yes|no)
     local label=$1 src=$2 junit=$3 fatal=$4 base scratch cache ext t0 t1 cp_count status
     if [[ ! -f "$src/pom.xml" ]]; then
@@ -543,6 +567,7 @@ maven_flow() { # label source-dir run-junit(yes|no) fatal-on-fail(yes|no)
         record maven "$label-phase2-offline" fail "exit $RC: "\
             "$(printf '%s\n' "$OUTPUT" | grep -m2 'ERROR' | tr '\n' ' ')"
         [[ "$fatal" == yes ]] && FATAL=1
+        offline_diagnose "$label" "$scratch" "$cache"
         return
     fi
 
