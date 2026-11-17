@@ -1,0 +1,141 @@
+{
+  "schema_version": 1,
+  "run_id": "run-20261117T143005Z-a1b2c3",
+  "secpipe_version": "0.1.0-SNAPSHOT",
+  "started_at": "2026-11-17T14:30:05Z",
+  "finished_at": "2026-11-17T14:41:52.250Z",
+  "terminal_state": "complete",
+  "profile": "standard",
+  "scope": {
+    "mode": "diff",
+    "base_ref": "origin/main",
+    "head_ref": "HEAD",
+    "changed_files": [
+      "src/main/java/com/example/vulnlab/LoginServlet.java"
+    ]
+  },
+  "target": {
+    "name": "vulnlab",
+    "build_tool": "maven_wrapper",
+    "jdk": "21",
+    "maven_version": "3.9.11",
+    "loc": 1840,
+    "source_files": 23,
+    "frameworks": [
+      "jakarta-servlet"
+    ],
+    "git_commit": "2905635"
+  },
+  "ai": {
+    "requested_mode": "openai-compatible",
+    "effective_mode": "fake",
+    "fallbacks": [
+      {
+        "from": "openai-compatible",
+        "to": "fake",
+        "reason": "SECPIPE_ALLOW_FAKE_LLM=1 in CI"
+      }
+    ],
+    "models": [
+      {
+        "role": "hunter",
+        "provider": "fake",
+        "model": "fake-standard",
+        "tier": "standard"
+      },
+      {
+        "role": "disprover",
+        "provider": "fake",
+        "model": "fake-strong",
+        "tier": "strong"
+      }
+    ],
+    "usage": [
+      {
+        "role": "hunter",
+        "calls": 4,
+        "retries": 1,
+        "discarded_outputs": 1,
+        "input_tokens": 52000,
+        "output_tokens": 6100,
+        "estimated_cost_usd": 0.25
+      },
+      {
+        "role": "disprover",
+        "calls": 2,
+        "retries": 0,
+        "discarded_outputs": 0,
+        "input_tokens": 18000,
+        "output_tokens": 2400
+      }
+    ],
+    "guardrail_downgrades": 0,
+    "prompts_hash": "sha256:9c1e4f"
+  },
+  "budget": {
+    "max_agent_calls": 40,
+    "used": 6,
+    "reserved": {
+      "remediation": 4,
+      "disprover": 6
+    },
+    "exhausted": false,
+    "max_sandbox_runs": 10,
+    "sandbox_runs_used": 3
+  },
+  "tools": [
+    {
+      "id": "builtin",
+      "version": "0.1.0",
+      "status": "ok",
+      "duration_ms": 412,
+      "candidates": 3
+    },
+    {
+      "id": "semgrep",
+      "status": "skipped",
+      "reason": "not installed",
+      "duration_ms": 0,
+      "candidates": 0
+    }
+  ],
+  "stage_timings_ms": {
+    "setup": 1200,
+    "detect": 5400,
+    "agents": 610000,
+    "report": 80
+  },
+  "sandbox": {
+    "available": true,
+    "image": "eclipse-temurin:21-jdk",
+    "enforced_controls": [
+      "network_none",
+      "read_only_root"
+    ]
+  },
+  "prior_run": {
+    "run_id": "run-20261116T020000Z-0f0e0d",
+    "carried_forward": 5,
+    "revalidated": 1,
+    "suppressed_rejections": 2
+  },
+  "counts": {
+    "confirmed": 1,
+    "needs_validation": 1,
+    "rejected": 1,
+    "ledger_units": {
+      "covered": 7,
+      "candidate": 2,
+      "blocked": 0
+    },
+    "by_severity": {
+      "high": 1,
+      "critical": 0
+    }
+  },
+  "validators": {
+    "findings": "pass",
+    "ledger": "pass"
+  },
+  "incomplete_reason": "should not be here"
+}
