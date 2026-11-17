@@ -339,9 +339,9 @@ echo "oom_kill=$(sed -n "s/^oom_kill //p" /sys/fs/cgroup/memory.events 2>/dev/nu
     $max = Get-Field 'memory_max' $script:Out
     $pe = Get-Field 'pipe_exit' $script:Out
     $oom = (Get-Field 'oom_kill' $script:Out) -as [int] ?? 0
-    if ($max -eq '134217728' -and ($pe -eq '137' -or $oom -ge 1)) {
+    if ($max -eq '134217728' -and ($pe -eq '137' -or $oom -ge 1 -or $script:RC -eq 137)) {
         Add-Result limits MEMORY_LIMIT enforced ("--memory 128m --memory-swap 128m: memory.max=$max; buffering " +
-            "1 GiB was OOM-killed (exit $pe, oom_kill=$oom); container survived")
+            "1 GiB was OOM-killed (exit $pe, oom_kill=$oom, docker run exit $($script:RC))")
     } elseif ($max) {
         Add-Result limits MEMORY_LIMIT unenforceable "memory.max=$max, allocation exit $pe, oom_kill=$oom"
     } else {
@@ -413,6 +413,8 @@ echo "size=$(stat -c %s /var/tmp/fill)"
     if ($script:RC -eq 0 -and (Get-Field 'dd_exit' $script:Out) -ne '0') {
         $native = $true
         $nativeEv = "--storage-opt size=64m works: 100 MiB write stopped at $(Get-Field 'size' $script:Out) bytes"
+    } elseif ($script:RC -eq 0) {
+        $nativeEv = '--storage-opt size=64m accepted but NOT enforced (100 MiB write to the rootfs succeeded)'
     } else {
         $first = (($script:Out -split "`n") | Select-Object -First 1) ?? ''
         $nativeEv = "--storage-opt size=64m not usable: $($first.Substring(0, [math]::Min(200, $first.Length)))"

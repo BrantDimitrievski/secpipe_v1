@@ -44,9 +44,9 @@ annotate() { # level title message  (GitHub workflow command; % must be escaped,
     printf '::%s title=%s::%s\n' "$1" "$2" "$(printf '%s' "$3" | sed 's/%/%25/g')"
 }
 
-record() { # group name status evidence
+record() { # group name status evidence... (evidence words are joined, so long strings may be split)
     local ev
-    ev=$(printf '%s' "$4" | tr '\t\r\n' '   ' | sed -e 's/  */ /g' -e 's/^ //' | cut -c1-700)
+    ev=$(printf '%s' "${*:4}" | tr '\t\r\n' '   ' | sed -e 's/  */ /g' -e 's/^ //' | cut -c1-700)
     printf '%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "$ev" >> "$RESULTS"
     printf 'RESULT %s %s %s\n' "$2" "$3" "$ev"
     case "$3" in
@@ -321,10 +321,11 @@ probe_memory_limit() {
     max=$(field memory_max "$OUTPUT")
     pe=$(field pipe_exit "$OUTPUT")
     oom=$(field oom_kill "$OUTPUT")
-    if [[ "$max" == 134217728 && ( "$pe" == 137 || "${oom:-0}" -ge 1 ) ]]; then
+    # cgroup v2 may OOM-kill the whole container (memory.oom.group), so docker run itself exiting 137 also counts.
+    if [[ "$max" == 134217728 && ( "$pe" == 137 || "${oom:-0}" -ge 1 || "$RC" == 137 ) ]]; then
         record limits MEMORY_LIMIT enforced \
             "--memory 128m --memory-swap 128m: memory.max=$max; buffering 1 GiB was OOM-killed (exit $pe, "\
-            "oom_kill=${oom:-n/a}); container survived"
+            "oom_kill=${oom:-n/a}, docker run exit $RC)"
     elif [[ -n "$max" ]]; then
         record limits MEMORY_LIMIT unenforceable "memory.max=$max, allocation exit $pe, oom_kill=${oom:-n/a}"
     else
@@ -404,6 +405,8 @@ probe_disk_limit() {
     if [[ $RC -eq 0 && "$(field dd_exit "$OUTPUT")" != 0 ]]; then
         native=yes
         native_ev="--storage-opt size=64m works: 100 MiB write stopped at $(field size "$OUTPUT") bytes"
+    elif [[ $RC -eq 0 ]]; then
+        native_ev="--storage-opt size=64m accepted but NOT enforced (100 MiB write to the rootfs succeeded)"
     else
         native_ev="--storage-opt size=64m not usable: "\
             "$(printf '%s\n' "$OUTPUT" | grep -v '^\[exit' | head -1 | cut -c1-200)"
