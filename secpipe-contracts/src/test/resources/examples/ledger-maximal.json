@@ -1,0 +1,61 @@
+[
+  {
+    "coverage_id": "cov:ac4470e14a90e1abee94af8d477c58d1",
+    "canonical_refs": { "surface": "src/main/java/com/example/vulnlab/LoginServlet.java#POST /login", "boundary": "src/main/java/com/example/vulnlab/LoginServlet.java#doPost", "subsystem": "src/main/java/com/example/vulnlab", "attack_class": "ATTACK-CLASSES.md#Injection/CWE-89", "lifecycle": "request" },
+    "surface": "POST /login", "boundary": "LoginServlet.doPost (no auth)", "subsystem": "vulnlab web", "attack_class": "Injection (SQL)",
+    "cwe": "CWE-89",
+    "starting_paths": ["src/main/java/com/example/vulnlab/LoginServlet.java", "src/main/java/com/example/vulnlab/Db.java"],
+    "ordinary_attack_class_block": "ATTACK-CLASSES.md#Injection",
+    "selected_companion_blocks": ["WEB-PROTOCOL-AND-AUTH.md#Core discipline"],
+    "excluded_blocks": [ { "block": "MEMORY-SAFETY-AND-BINARY.md#Core discipline", "reason": "JVM target; no native code" } ],
+    "prior_status": "prior_covered_changed_source",
+    "attempts": [
+      {
+        "agent_id": "hunter-0a1b2c3d",
+        "wave": 0,
+        "status": "blocked",
+        "reviewed_paths": ["src/main/java/com/example/vulnlab/LoginServlet.java"],
+        "local_checks": [],
+        "result_fingerprints": [],
+        "unresolved": ["Db.query wrapper not read before budget ran out"],
+        "archived_reason": "superseded by wave 1"
+      },
+      {
+        "agent_id": "hunter-4e5f6a7b",
+        "wave": 1,
+        "status": "candidate",
+        "reviewed_paths": ["src/main/java/com/example/vulnlab/LoginServlet.java", "src/main/java/com/example/vulnlab/Db.java"],
+        "local_checks": ["builtin:SP-JAVA-SQLI"],
+        "result_fingerprints": ["code:CWE-89:3f9a1c0d5e7b2a4c6d8e0f12"],
+        "unresolved": []
+      }
+    ],
+    "wave": 1,
+    "status": "candidate",
+    "agent_id": "hunter-4e5f6a7b",
+    "reviewed_paths": ["src/main/java/com/example/vulnlab/LoginServlet.java", "src/main/java/com/example/vulnlab/Db.java"],
+    "local_checks": ["builtin:SP-JAVA-SQLI"],
+    "result_fingerprints": ["code:CWE-89:3f9a1c0d5e7b2a4c6d8e0f12"],
+    "unresolved": [],
+    "settled_by": ["builtin"]
+  },
+  {
+    "coverage_id": "cov:7a27dc4c37fb370e1e1507fd5f945b7d",
+    "canonical_refs": { "surface": "src/main/java/com/example/vulnlab/FileServlet.java#GET /files", "boundary": "src/main/java/com/example/vulnlab/FileServlet.java#doGet", "subsystem": "profile/quick/all-in-scope-subsystems", "attack_class": "ATTACK-CLASSES.md#Path traversal/CWE-22" },
+    "surface": "GET /files", "boundary": "FileServlet.doGet", "subsystem": "all in-scope subsystems (quick profile)", "attack_class": "Path traversal",
+    "cwe": null,
+    "starting_paths": ["src/main/java/com/example/vulnlab/FileServlet.java"],
+    "ordinary_attack_class_block": "ATTACK-CLASSES.md#Path traversal",
+    "selected_companion_blocks": [],
+    "excluded_blocks": [],
+    "prior_status": "none",
+    "attempts": [],
+    "wave": 0,
+    "status": "planned",
+    "agent_id": null,
+    "reviewed_paths": [],
+    "local_checks": [],
+    "result_fingerprints": [],
+    "unresolved": []
+  }
+]

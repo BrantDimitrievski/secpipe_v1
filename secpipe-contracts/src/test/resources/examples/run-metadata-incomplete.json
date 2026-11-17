@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "run_id": "run-20261117T150000Z-00ff11",
+  "secpipe_version": "0.1.0-SNAPSHOT",
+  "started_at": "2026-11-17T15:00:00Z",
+  "finished_at": "2026-11-17T15:02:10Z",
+  "terminal_state": "incomplete",
+  "incomplete_reason": "agent-call budget exhausted before every ledger unit was settled",
+  "profile": "quick",
+  "scope": { "mode": "full" },
+  "target": { "name": "vulnlab", "build_tool": "none", "loc": 0, "source_files": 0 },
+  "ai": { "requested_mode": "none", "effective_mode": "none", "fallbacks": [], "models": [], "usage": [] },
+  "budget": { "max_agent_calls": 0, "used": 0, "reserved": {}, "exhausted": true },
+  "tools": [],
+  "stage_timings_ms": {},
+  "sandbox": { "available": false, "reason": "docker info failed" },
+  "counts": { "confirmed": 0, "needs_validation": 0, "rejected": 0, "ledger_units": {} },
+  "validators": { "findings": "not_run", "ledger": "fail" }
+}
