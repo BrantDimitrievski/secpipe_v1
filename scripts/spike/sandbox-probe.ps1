@@ -165,8 +165,8 @@ for p in / /etc /usr /var /opt/java /opt/maven /scratch; do
 done
 '@
     Invoke-Logged 'READ_ONLY_ROOT' ((Get-SbxArgs -User '0:0') + @('bash', '-c', $sh))
-    $denied = (Get-Lines $script:Out 'Read-only file system').Count
-    $writable = Get-Lines $script:Out '^WRITABLE'
+    $denied = @(Get-Lines $script:Out 'Read-only file system').Count
+    $writable = @(Get-Lines $script:Out '^WRITABLE')
     if ($denied -eq 7 -and $writable.Count -eq 0 -and $pos -match 'writable-without-read-only') {
         Add-Result isolation READ_ONLY_ROOT enforced ("--read-only: root got EROFS on 7/7 paths (/, /etc, /usr, " +
             "/var, /opt/java, /opt/maven, /scratch); without --read-only root can write /etc")
@@ -215,9 +215,9 @@ if /scratch/t 2>/dev/null; then echo "scratch_exec=allowed"; else echo "scratch_
 '@
     Invoke-Logged 'SCRATCH_ONLY_WRITES' ((Get-SbxArgs -Extra @('-v', "${d}:/scratch")) + @('bash', '-c', $sh))
     $o = $script:Out
-    $ok = (Get-Lines $o '^ok ').Count
-    $denied = (Get-Lines $o '^denied ').Count
-    $leaks = Get-Lines $o '^LEAK'
+    $ok = @(Get-Lines $o '^ok ').Count
+    $denied = @(Get-Lines $o '^denied ').Count
+    $leaks = @(Get-Lines $o '^LEAK')
     $owner = Get-HostUid (Join-Path $d 'w')
     if ($ok -eq 3 -and $denied -eq 5 -and (Get-Field 'tmp_exec' $o) -eq 'blocked' -and
         (Test-Path -LiteralPath (Join-Path $d 'w'))) {
@@ -642,6 +642,13 @@ function Remove-Work {
     }
 }
 
+# Any terminating error (including Set-StrictMode violations) fails the run instead of silently skipping probes.
+trap {
+    [Console]::Error.WriteLine("sandbox-probe: unexpected error: $_")
+    Write-Annotation 'error' 'sandbox-probe.ps1' "unexpected error: $_"
+    Remove-Work
+    exit 1
+}
 New-Item -ItemType Directory -Force -Path $Logs | Out-Null
 if ($Summary -and -not $PSBoundParameters.ContainsKey('Group')) { Show-Summary; exit 0 }
 if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
