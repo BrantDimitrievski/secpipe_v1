@@ -9,6 +9,8 @@ import ca.carleton.secpipe.core.util.Proc;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -123,21 +125,17 @@ class EnvironmentDetectorTest {
 
     @Test
     void procCapsOutputAndTimesOut() throws IOException {
-        Optional<Path> java = Optional.of(Path.of(System.getProperty("java.home"), "bin", "java"));
+        String javaBin = Path.of(System.getProperty("java.home"), "bin", "java").toString();
         Path src = tmp.resolve("Big.java");
         Files.writeString(src, "public class Big { public static void main(String[] a) throws Exception {"
                 + " if (a.length > 0) { Thread.sleep(60000); }"
                 + " byte[] b = new byte[2_000_000]; java.util.Arrays.fill(b, (byte) 'x'); System.out.write(b); "
                 + "System.out.flush(); } }");
-        Proc.Result big = Proc.run(java.map(Path::toString).stream()
-                .flatMap(j -> java.util.stream.Stream.of(j, src.toString())).toList(), null,
-                java.time.Duration.ofSeconds(60));
+        Proc.Result big = Proc.run(List.of(javaBin, src.toString()), null, Duration.ofSeconds(60));
         assertThat(big.ok()).isTrue();
         assertThat(big.stdout().length()).isEqualTo(Proc.MAX_OUTPUT_BYTES);
 
-        Proc.Result slow = Proc.run(java.map(Path::toString).stream()
-                .flatMap(j -> java.util.stream.Stream.of(j, src.toString(), "sleep")).toList(), null,
-                java.time.Duration.ofSeconds(3));
+        Proc.Result slow = Proc.run(List.of(javaBin, src.toString(), "sleep"), null, Duration.ofSeconds(3));
         assertThat(slow.timedOut()).isTrue();
         assertThat(slow.ok()).isFalse();
     }
