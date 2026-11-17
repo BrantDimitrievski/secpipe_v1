@@ -1,0 +1,41 @@
+[
+  {
+    "verdict": "confirmed",
+    "fingerprint": "m:1",
+    "title": "t",
+    "description": "d",
+    "root_cause": "r",
+    "intended_behavior": "i",
+    "trace": [ { "kind": "sink", "file": "A.java", "line": 1, "scope": "A#m()", "description": "s" } ],
+    "evidence": [ { "file": "A.java", "line": 1, "description": "e" } ],
+    "conditions": [],
+    "execution": { "attacker_perspective": "a", "payloads": ["p"], "instructions": ["i"], "observed_result": "o" },
+    "remediation": { "strategy": "s" },
+    "severity": { "likelihood": { "score": "informational", "reason": "r" }, "impact": { "score": "low", "reason": "r" }, "overall_severity": "low" },
+    "confidence": { "score": "low", "reason": "r" },
+    "secpipe": { "category": "code", "origin": "tool", "tool_sources": [], "cwe": [] }
+  },
+  {
+    "verdict": "needs_validation",
+    "fingerprint": "m:2",
+    "title": "t",
+    "description": "d",
+    "claimed_root_cause": "c",
+    "trace": [ { "kind": "sink", "file": "A.java", "line": 1, "scope": "A#m()", "description": "s" } ],
+    "evidence": [ { "file": "A.java", "line": 1, "description": "e" } ],
+    "blockers": ["b"],
+    "validation_plan": { "deployment": "p" },
+    "secpipe": { "category": "code", "origin": "tool", "tool_sources": [], "cwe": [] }
+  },
+  {
+    "verdict": "rejected",
+    "fingerprint": "m:3",
+    "title": "t",
+    "description": "d",
+    "claimed_root_cause": "c",
+    "trace": [ { "kind": "sink", "file": "A.java", "line": 1, "scope": "A#m()", "description": "s" } ],
+    "evidence": [ { "file": "A.java", "line": 1, "description": "e" } ],
+    "reason": "r",
+    "secpipe": { "category": "code", "origin": "tool", "tool_sources": [], "cwe": [] }
+  }
+]

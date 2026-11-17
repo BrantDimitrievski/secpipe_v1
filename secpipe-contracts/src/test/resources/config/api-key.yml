@@ -1,0 +1,3 @@
+# secpipe.yml that wrongly carries an API key: ConfigResolver must refuse it (ADR-10).
+profile: quick
+api-key: x
