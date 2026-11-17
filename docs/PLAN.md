@@ -3636,8 +3636,8 @@ other argument prints `error:` and `hint:` lines and exits 2. WO-K.13 replaces t
 - **Removed.** `ProviderMode.COPILOT`; `"copilot"` from the `llm-provider` enum in `config.schema.json` and the
   `providerMode` enum in `run-metadata.schema.json`; the Copilot wording in `action.yml`'s `llm-provider`,
   `api-key` and `github-token` descriptions (input names, defaults and outputs unchanged); `COPILOT_GITHUB_TOKEN`
-  from the key-environment hints (the `SECPIPE_LLM_KEY` alias was added there); the `copilot` provisions in ADR-10,
-  §4.3 and WO-H.1, WO-H.3, WO-H.6, WO-L.7, WO-E.10. WO-L.5 (`secpipe-llm-copilot`) is closed as not needed.
+  from the key-environment hints (the `SECPIPE_LLM_KEY` alias was added there); the `copilot` provisions in ADR-10
+  and §4.3. WO-L.5 (`secpipe-llm-copilot`) is closed as not needed.
 - **Remaining set.** `none`, `anthropic`, `openai`, `openai-compatible`, `ollama` (+ CI-only `fake`). The Action
   defaults to `none` unless a key is supplied; fork PRs stay at `none`.
 - **Old configs.** `llm-provider: copilot` in an old `secpipe.yml` (or `--llm-provider copilot`, or
@@ -3645,4 +3645,7 @@ other argument prints `error:` and `hint:` lines and exits 2. WO-K.13 replaces t
   `hint: copilot was removed after spike S.2 (no-tools guarantee does not hold); use anthropic, openai,
   openai-compatible, ollama or none`. An old `run-metadata.json` with `providerMode` `copilot` no longer validates.
 - **Not edited.** The embedded copies of these contract files in Part 4 §4.4 still show `copilot`; WO-CC.1 did
-  not own them. The files in the repository are authoritative.
+  not own them. The files in the repository are authoritative. WO-H.1, WO-H.3, WO-H.6, WO-L.7 and WO-E.10 moved
+  to `docs/work-orders/stretch/` in the lean re-plan and were left as they were; whoever revives one must drop
+  its `copilot` provisions first (this note and ADR-10's retirement note take precedence). The empty
+  `secpipe-llm-copilot` skeleton module is also left in place for a later clean-up order.
