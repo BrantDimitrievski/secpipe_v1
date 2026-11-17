@@ -6,8 +6,10 @@ Suggested human owner: Elaine Huang (reviewer: Clinton Odinamadu)
 Size: S
 
 Goal (2–3 sentences): `.github/workflows/action-selftest.yml` runs the local action (`uses: ./`) against
-`fixtures/e2e/sqli-min` in two modes: `none` and `fake` (CI-only, via env). It asserts outputs, SARIF
-validity, comment idempotency (on a throwaway PR), and the exit-code policy.
+`fixtures/e2e/sqli-min` in three modes: `none`, `fake` (CI-only, via env), and `copilot` (only on
+`workflow_dispatch` in the team org repo, with `copilot-requests: write`; skipped with a notice if S.2 was
+NO-GO). It asserts outputs, SARIF validity, comment idempotency (on a
+throwaway PR), and the exit-code policy.
 
 Context to read first (exact paths only): `action.yml`; `scripts/action/*.sh`; `fixtures/e2e/sqli-min/expected.json`.
 
