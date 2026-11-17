@@ -108,6 +108,27 @@ class DemoScanTest {
     }
 
     @Test
+    void entryPointPrintsAHumanSummaryForSqliMin(@TempDir Path out) {
+        // main(String[]) is System.exit(run(args, System.out, System.err)); this is the same path java -jar takes.
+        ByteArrayOutputStream stdout = new ByteArrayOutputStream();
+        ByteArrayOutputStream stderr = new ByteArrayOutputStream();
+        int code = SecPipeCli.run(new String[] {"scan", SQLI_MIN.toString(), "--out", out.toString()},
+                new PrintStream(stdout, true, StandardCharsets.UTF_8),
+                new PrintStream(stderr, true, StandardCharsets.UTF_8));
+
+        String console = stdout.toString(StandardCharsets.UTF_8);
+        assertThat(code).isZero();
+        assertThat(stderr.size()).isZero();
+        assertThat(console).contains("demo scan found 2 CWE-89 finding(s)")
+                .contains(out.resolve("findings.json").toString())
+                .contains(out.resolve("report.md").toString())
+                .contains("top findings:")
+                .contains("src/main/java/com/shop/app/LoginServlet.java:21");
+        assertThat(out.resolve("findings.json")).exists();
+        assertThat(out.resolve("report.md")).exists();
+    }
+
+    @Test
     void shopSamplesScanReportsACount(@TempDir Path out) {
         DemoScan.Outcome outcome = DemoScan.run(SHOP, "fixtures/mvp-samples/shop-samples", out);
 

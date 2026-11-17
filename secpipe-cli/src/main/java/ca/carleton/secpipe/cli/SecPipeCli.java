@@ -1,6 +1,7 @@
 package ca.carleton.secpipe.cli;
 
 import ca.carleton.secpipe.cli.demo.DemoScan;
+import ca.carleton.secpipe.cli.demo.SqliHit;
 import ca.carleton.secpipe.validators.ValidationError;
 import java.io.IOException;
 import java.io.InputStream;
@@ -108,7 +109,20 @@ public final class SecPipeCli {
         }
         out.println("secpipe: demo scan found " + outcome.findings().size() + " CWE-89 finding(s) (needs_validation) in "
                 + outcome.filesParsed() + " parsed Java file(s)");
-        out.println("wrote " + outcome.findingsFile() + " and " + outcome.reportFile());
+        out.println("findings.json: " + outcome.findingsFile());
+        out.println("report.md:     " + outcome.reportFile());
+        int shown = Math.min(5, outcome.hits().size());
+        if (shown > 0) {
+            out.println("top findings:");
+        }
+        for (int i = 0; i < shown; i++) {
+            SqliHit hit = outcome.hits().get(i);
+            out.println("  " + (i + 1) + ". " + DemoScan.CWE + " SQL injection at " + hit.file() + ":" + hit.line()
+                    + " (" + hit.scope() + ", " + hit.method() + ")");
+        }
+        if (outcome.hits().size() > shown) {
+            out.println("  ... and " + (outcome.hits().size() - shown) + " more (see report.md)");
+        }
         return failOnNeedsValidation && !outcome.findings().isEmpty() ? EXIT_FINDINGS : EXIT_OK;
     }
 
