@@ -1,0 +1,10 @@
+{
+  "fingerprint": "code:CWE-89:0f0e0d0c0b0a090807060504",
+  "outcome": "verified",
+  "checked_citations": 3,
+  "material": false,
+  "reason": "All three citations match the quoted lines",
+  "changed_fields": [
+    "title"
+  ]
+}

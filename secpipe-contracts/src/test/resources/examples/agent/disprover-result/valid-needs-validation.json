@@ -1,0 +1,40 @@
+{
+  "fingerprint": "code:CWE-89:0f0e0d0c0b0a090807060504",
+  "verdict": "needs_validation",
+  "entrypoint_valid": true,
+  "sink_valid": true,
+  "controls_examined": [],
+  "root_cause": "id may reach SQL unescaped",
+  "trace": [
+    {
+      "kind": "entrypoint",
+      "file": "src/main/java/com/shop/app/OrderController.java",
+      "line": 31,
+      "scope": "OrderController#find(String)",
+      "description": "HTTP query parameter id enters the handler",
+      "quote": "@RequestParam String id"
+    },
+    {
+      "kind": "sink",
+      "file": "src/main/java/com/shop/app/OrderRepository.java",
+      "line": 58,
+      "scope": "OrderRepository#byId(String)",
+      "description": "String-concatenated SQL reaches executeQuery"
+    }
+  ],
+  "evidence": [
+    {
+      "file": "src/main/java/com/shop/app/OrderRepository.java",
+      "line": 58,
+      "description": "query built by concatenation",
+      "quote": "stmt.executeQuery(\"SELECT * FROM orders WHERE id='\" + id + \"'\")"
+    }
+  ],
+  "blockers": [
+    "The servlet filter chain is configured outside the repository"
+  ],
+  "validation_plan": {
+    "local": "Run the generated test against the sandbox build",
+    "deployment": "Check the WAF rules in production"
+  }
+}

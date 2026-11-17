@@ -1,0 +1,16 @@
+{
+  "fingerprint": "code:CWE-89:0f0e0d0c0b0a090807060504",
+  "invariant": "User input never changes the structure of an SQL statement",
+  "decision_point": {
+    "file": "src/main/java/com/shop/app/OrderRepository.java",
+    "line": 58,
+    "description": "query built by concatenation",
+    "quote": "stmt.executeQuery(\"SELECT * FROM orders WHERE id='\" + id + \"'\")"
+  },
+  "strategy": "Bind id as a PreparedStatement parameter",
+  "patch": "diff --git a/x b/x\n--- a/src/main/java/com/shop/app/OrderRepository.java\n+++ b/src/main/java/com/shop/app/OrderRepository.java\n@@ -57,2 +57,3 @@\n-    ResultSet rs = stmt.executeQuery(\"SELECT * FROM orders WHERE id='\" + id + \"'\");\n+    PreparedStatement ps = conn.prepareStatement(\"SELECT * FROM orders WHERE id = ?\");\n+    ps.setString(1, id);\n+    ResultSet rs = ps.executeQuery();\n",
+  "files_changed": [
+    "src/main/java/com/shop/app/OrderRepository.java"
+  ],
+  "risk_notes": []
+}

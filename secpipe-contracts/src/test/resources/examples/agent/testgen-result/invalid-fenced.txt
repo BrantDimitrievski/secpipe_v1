@@ -1,0 +1,11 @@
+```java
+package secpipe.generated.orders;
+
+import org.junit.jupiter.api.Test;
+
+class OrderSqlInjectionSecurityTest {
+    @Test
+    void quoteInIdDoesNotWidenQuery() {
+    }
+}
+```

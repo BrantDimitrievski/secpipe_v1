@@ -1,0 +1,28 @@
+{
+  "missing_units": [
+    {
+      "surface_ref": "GET /orders",
+      "boundary_ref": "internet to app",
+      "subsystem_ref": "orders",
+      "attack_class_block": "INJECTION.md#sql-injection",
+      "starting_paths": [
+        "src/main/java/com/shop/app/OrderController.java"
+      ],
+      "reason": "No unit covers the order search endpoint"
+    },
+    {
+      "surface_ref": "GET /orders/export",
+      "boundary_ref": "internet to app",
+      "subsystem_ref": "orders",
+      "attack_class_block": "AUTHZ.md#idor",
+      "cwe": null,
+      "starting_paths": [
+        "src/main/java/com/shop/app/OrderController.java"
+      ],
+      "reason": "Ownership checks on order export are unreviewed"
+    }
+  ],
+  "reassign_ids": [],
+  "stop": false,
+  "rationale": "Two surfaces have no ledger unit"
+}

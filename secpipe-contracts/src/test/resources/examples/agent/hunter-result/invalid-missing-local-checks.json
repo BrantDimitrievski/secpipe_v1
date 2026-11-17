@@ -1,0 +1,10 @@
+{
+  "coverage_id": "cov:0123456789abcdef0123456789abcdef",
+  "status": "covered",
+  "reviewed_paths": [
+    "src/main/java/com/shop/app/OrderController.java"
+  ],
+  "candidates": [],
+  "unresolved": [],
+  "hardening_notes": []
+}
