@@ -1,0 +1,34 @@
+{
+  "entry_surfaces": [
+    {
+      "file": "src/main/java/com/acme/shop/OrderController.java",
+      "line": 31,
+      "scope": "com.acme.shop.OrderController#lookup(String)"
+    },
+    {
+      "file": "src/main/java/com/acme/shop/UserServlet.java",
+      "line": 18,
+      "scope": "com.acme.shop.UserServlet#doGet(HttpServletRequest, HttpServletResponse)"
+    }
+  ],
+  "sinks_by_family": {
+    "CWE-22": [
+      {
+        "file": "src/main/java/com/acme/shop/FileStore.java",
+        "line": 12
+      }
+    ],
+    "CWE-89": [
+      {
+        "file": "src/main/java/com/acme/shop/OrderDao.java",
+        "line": 40,
+        "scope": "com.acme.shop.OrderDao#find(String)"
+      },
+      {
+        "file": "src/main/java/com/acme/shop/UserDao.java",
+        "line": 7,
+        "scope": "com.acme.shop.UserDao#byName(String)"
+      }
+    ]
+  }
+}

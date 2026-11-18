@@ -7,17 +7,18 @@ Size: M
 
 Goal (2–3 sentences): `ReconNode` finds entry surfaces (servlet/Spring handlers) and sinks for the five Benchmark CWE families (22, 78, 89, 327, 328) with a JavaParser walk and a sink catalogue. It seeds one `LedgerUnit` per (family, entry surface) using `CoverageIds`, and exposes `FileSourceIndex` so later nodes can read source lines.
 
-Context to read first (exact paths only): contracts `ledger/LedgerUnit.java`, `ledger/CoverageIds.java`, `spi/SourceIndex.java`, `pipeline/RunContext.java`; `fixtures/mvp-samples/shop-samples/`; `docs/PLAN.md` Part 5 §A1
+Context to read first (exact paths only): contracts `ledger/LedgerUnit.java`, `ids/CoverageIds.java`, `spi/SourceIndex.java`, `recon/Location.java`, `recon/ReconFacts.java`, `json/ReconFactsCodec.java`, `pipeline/RunContext.java`; `fixtures/mvp-samples/shop-samples/`; `docs/PLAN.md` Part 5 §A2
 
 Files you own (create/modify — nothing else): `secpipe-core/src/main/java/ca/carleton/secpipe/core/recon/**`, `secpipe-core/src/main/resources/recon/**`, `secpipe-core/src/test/java/ca/carleton/secpipe/core/recon/**`, `secpipe-core/src/test/resources/ca/carleton/secpipe/core/recon/**`.
 
 Files you may read but not modify: contracts, `core/engine/**`.
 
-Interfaces consumed: `CoverageIds`, `SourceIndex`, `RunContext`   Interfaces produced: `ReconNode`; `ReconFacts` (entry surfaces with `Location`, sinks by family) persisted as `<work>/recon-facts.json`; `ReconFacts.load(workDir)`; `FileSourceIndex implements SourceIndex`.
+Interfaces consumed: `CoverageIds`, `SourceIndex`, `Location`, `ReconFacts`, `ReconFactsCodec` (all from `secpipe-contracts`, WO-CC.2), `RunContext`   Interfaces produced: `ReconNode`; a `ReconFacts` value (entry surfaces with `Location`, sinks by family) persisted as `<work>/recon-facts.json` (`ReconFactsCodec.FILE_NAME`) with `ReconFactsCodec.write`; `FileSourceIndex implements SourceIndex` in `core/recon`.
 
 Implementation notes:
 - Sink catalogue is JSON under `recon/`, one entry per (family, class, method, tainted-arg index).
-- Build `LedgerUnit`s directly (state `unexamined`); output sorted by `coverage_id`.
+- Build `LedgerUnit`s directly (status `planned`, i.e. `LedgerUnit.Status.PLANNED`); output sorted by `coverage_id`.
+- `SourceIndex`, `Location`, `ReconFacts` and `ReconFactsCodec` are contracts (WO-CC.2, merged before this order starts); do not redefine them in `secpipe-core`. Readers load facts with `ReconFactsCodec.read(workDir.resolve(ReconFactsCodec.FILE_NAME))`. WO-CC.2 is a prerequisite but is not listed under "Depends on" because both orders are wave 3 and `scripts/check-plan.py` rejects same-wave dependencies.
 - Files that do not parse are recorded as recon notes, never a crash.
 - Deterministic: no LLM, no target-code execution.
 - Dropped from the old K.4: boundary controls, auth hints, framework plug-ins (stretch).
@@ -31,4 +32,4 @@ Acceptance criteria (all must pass):
 
 Out of scope: hunter agents, architecture summary, non-Java languages.
 
-Handoff note for next agent: G.4 and G.5 read `ReconFacts` and `FileSourceIndex`; K.13 puts `ReconNode` before detect.
+Handoff note for next agent: G.4 and G.5 read `ReconFacts` (via `ReconFactsCodec`) and `SourceIndex` (implemented by `FileSourceIndex`); K.13 puts `ReconNode` before detect.
