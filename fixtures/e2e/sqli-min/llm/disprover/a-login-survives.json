@@ -1,0 +1,51 @@
+{
+  "description": "sqli-min LoginServlet: the disprover finds no control, so the CWE-89 candidate survives for test evidence",
+  "match": {
+    "promptTemplateId": "disprover.v1",
+    "userPromptContains": ["code:CWE-89:5063a6838d54b051366075cc"]
+  },
+  "responses": [
+    {
+      "json": {
+        "fingerprint": "code:CWE-89:5063a6838d54b051366075cc",
+        "verdict": "confirmed",
+        "entrypoint_valid": true,
+        "sink_valid": true,
+        "controls_examined": [],
+        "root_cause": "The username request parameter is concatenated into the SQL text passed to executeQuery.",
+        "intended_behavior": "Only the user whose name was submitted is looked up; the input never changes the query.",
+        "trace": [
+          {
+            "kind": "entrypoint",
+            "file": "src/main/java/com/shop/app/LoginServlet.java",
+            "line": 18,
+            "scope": "LoginServlet#doPost(HttpServletRequest,HttpServletResponse)",
+            "description": "username read from the request with getParameter"
+          },
+          {
+            "kind": "sink",
+            "file": "src/main/java/com/shop/app/LoginServlet.java",
+            "line": 21,
+            "scope": "LoginServlet#doPost(HttpServletRequest,HttpServletResponse)",
+            "description": "executeQuery receives the concatenated SQL"
+          }
+        ],
+        "evidence": [
+          {
+            "file": "src/main/java/com/shop/app/LoginServlet.java",
+            "line": 21,
+            "description": "string concatenation of the request parameter into the query",
+            "quote": "st.executeQuery(\"select id from users where username = '\" + username + \"'\")"
+          }
+        ],
+        "conditions": [],
+        "proposed_severity": {
+          "likelihood": "high",
+          "impact": "high",
+          "likelihood_reason": "The servlet is reachable without authentication.",
+          "impact_reason": "An attacker can bypass the login check or read other rows."
+        }
+      }
+    }
+  ]
+}

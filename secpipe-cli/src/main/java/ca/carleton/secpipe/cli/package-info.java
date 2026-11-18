@@ -1,6 +1,5 @@
 /**
- * SecPipe cli: picocli commands and the shaded secpipe.jar.
- *
- * <p>Skeleton created by WO-0.1; see CLAUDE.md §12 for what belongs here.
+ * SecPipe cli: the picocli {@code secpipe} command ({@code scan}, {@code validate}), the pipeline assembly
+ * ({@link ca.carleton.secpipe.cli.PipelineAssembly}) and the shaded secpipe.jar (WO-K.13).
  */
 package ca.carleton.secpipe.cli;
