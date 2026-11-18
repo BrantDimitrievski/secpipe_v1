@@ -1,0 +1,53 @@
+[
+  {
+    "verdict": "needs_validation",
+    "fingerprint": "code:CWE-78:aa11bb22cc33dd44ee55ff66",
+    "title": "Possible command injection in PingServlet",
+    "description": "Host parameter reaches Runtime.exec; no verifier configured.",
+    "claimed_root_cause": "Request parameter concatenated into an exec string.",
+    "trace": [
+      {
+        "kind": "entrypoint",
+        "file": "src/main/java/com/example/vulnlab/PingServlet.java",
+        "line": 12,
+        "scope": "PingServlet#doGet(HttpServletRequest,HttpServletResponse)",
+        "description": "getParameter(\"host\")"
+      },
+      {
+        "kind": "sink",
+        "file": "src/main/java/com/example/vulnlab/PingServlet.java",
+        "line": 16,
+        "scope": "PingServlet#doGet(HttpServletRequest,HttpServletResponse)",
+        "description": "Runtime.getRuntime().exec(\"ping \" + host)"
+      }
+    ],
+    "evidence": [
+      {
+        "file": "src/main/java/com/example/vulnlab/PingServlet.java",
+        "line": 16,
+        "description": "exec with concatenated host"
+      }
+    ],
+    "blockers": [
+      "No verifier configured (llm-provider=none); unverified tool finding"
+    ],
+    "validation_plan": {
+      "local": "Re-run with an LLM provider configured so the disprover and test generator can validate."
+    },
+    "secpipe": {
+      "category": "code",
+      "origin": "tool",
+      "tool_sources": [
+        {
+          "tool": "builtin",
+          "rule_id": "SP-JAVA-CMDI"
+        }
+      ],
+      "cwe": [
+        "CWE-78"
+      ],
+      "tool_severity_hint": "critical",
+      "confidence_hint": "medium"
+    }
+  }
+]
