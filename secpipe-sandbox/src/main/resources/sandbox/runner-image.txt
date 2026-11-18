@@ -1,0 +1,4 @@
+# Default sandbox runner image (WO-X.1). Lines starting with '#' are comments; the first other line is the image.
+# Build it with: docker build -t secpipe-runner:local sandbox-images/runner
+# The SECPIPE_RUNNER_IMAGE environment variable overrides this value (CI uses secpipe-runner:ci).
+secpipe-runner:local
