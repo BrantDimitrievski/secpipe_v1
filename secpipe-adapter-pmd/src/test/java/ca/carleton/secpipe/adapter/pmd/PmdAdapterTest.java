@@ -9,6 +9,7 @@ import ca.carleton.secpipe.contracts.spi.AnalyzerAdapter;
 import net.sourceforge.pmd.PMDConfiguration;
 import net.sourceforge.pmd.lang.rule.Rule;
 import net.sourceforge.pmd.lang.rule.RuleSet;
+import net.sourceforge.pmd.lang.rule.RuleSetLoader;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -27,7 +28,7 @@ class PmdAdapterTest {
 
     @Test
     void everyRulesetRuleHasCweMappingOrIsIgnored() {
-        RuleSet ruleSet = new PMDConfiguration().createRuleSetLoader().loadFromResource(PmdAdapter.RULESET);
+        RuleSet ruleSet = RuleSetLoader.fromPmdConfig(new PMDConfiguration()).loadFromResource(PmdAdapter.RULESET);
         List<String> names = new ArrayList<>();
         for (Rule rule : ruleSet.getRules()) names.add(rule.getName());
         assertThat(names).isNotEmpty();
