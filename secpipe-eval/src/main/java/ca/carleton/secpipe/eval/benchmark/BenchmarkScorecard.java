@@ -32,7 +32,8 @@ public final class BenchmarkScorecard {
     public record Rates(double tpr, double fpr, double score) { }
 
     /** One scored answer-key row. */
-    public record Case(String test, String category, String cwe, boolean vulnerable, boolean reported, String result) { }
+    public record Case(String test, String category, String cwe, boolean vulnerable, boolean reported,
+            String result) { }
 
     public record Result(Map<String, CweCounts> perCwe, Rates average, Rates baselineDelta, List<Case> cases) { }
 

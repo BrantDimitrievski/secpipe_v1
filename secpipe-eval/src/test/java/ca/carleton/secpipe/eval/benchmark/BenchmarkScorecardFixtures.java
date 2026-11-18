@@ -56,7 +56,7 @@ final class BenchmarkScorecardFixtures {
                 Finding.Score5.HIGH), new Finding.Confidence(Finding.Level3.HIGH, "r"), ext(cwe));
     }
 
-    /** Expected: 1 TP (family 23->22), 2 TN (rejected), 3 TP, 4 FP, 5 FN, 6 TN, 7 TP (326->327), 8 FN (wrong family). */
+    /** Expected: 1 TP (23->22), 2 TN (rejected), 3 TP, 4 FP, 5 FN, 6 TN, 7 TP (326->327), 8 FN (wrong family). */
     static List<Finding> findings() {
         return List.of(
                 needsValidation(1, "CWE-23"),
