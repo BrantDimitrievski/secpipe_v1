@@ -159,12 +159,12 @@ public class PmdAdapter implements AnalyzerAdapter {
 
     /** Enclosing method as {@code Class#method}, else {@code Class#<unknown>}. */
     private static String scope(RuleViolation v, Path abs) {
-        String cls = v.getClassName();
+        String cls = v.getAdditionalInfo().get(RuleViolation.CLASS_NAME);
         if (cls == null || cls.isBlank()) {
             String name = abs.getFileName().toString();
             cls = name.endsWith(".java") ? name.substring(0, name.length() - 5) : name;
         }
-        String method = v.getMethodName();
+        String method = v.getAdditionalInfo().get(RuleViolation.METHOD_NAME);
         return cls + "#" + (method == null || method.isBlank() ? "<unknown>" : method);
     }
 
