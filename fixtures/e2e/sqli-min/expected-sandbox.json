@@ -1,0 +1,11 @@
+{
+  "description": "Expected verdicts when fixtures/e2e/sqli-min runs through the test-evidence node with a working Docker sandbox and the fake LLM (WO-G.7, TestEvidenceSandboxTest).",
+  "findings": [
+    {
+      "file": "src/main/java/com/shop/app/LoginServlet.java",
+      "cwe": "CWE-89",
+      "verdict": "confirmed",
+      "test_outcome": "failed_as_expected"
+    }
+  ]
+}
