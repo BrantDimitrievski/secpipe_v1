@@ -1,0 +1,5 @@
+CWE-79 (cross-site scripting) controls:
+- Context-aware output encoding (OWASP Encoder, Spring HtmlUtils.htmlEscape, StringEscapeUtils.escapeHtml4).
+- Auto-escaping template engines (Thymeleaf th:text, JSP c:out, FreeMarker with auto-escape on).
+- Response content type that is not rendered as HTML (application/json with nosniff, text/plain).
+Not a control: th:utext, ${...} in raw JSP, input length checks.

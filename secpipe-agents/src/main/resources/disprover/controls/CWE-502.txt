@@ -1,0 +1,4 @@
+CWE-502 (unsafe deserialization) controls:
+- ObjectInputFilter (setObjectInputFilter / jdk.serialFilter) with a strict allowlist.
+- Data formats without polymorphic typing (Jackson without enableDefaultTyping/@JsonTypeInfo on Object).
+Not a control: catching ClassCastException after readObject().

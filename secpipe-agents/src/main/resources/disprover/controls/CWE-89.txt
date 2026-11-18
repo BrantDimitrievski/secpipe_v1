@@ -1,0 +1,8 @@
+CWE-89 (SQL injection) controls that make a candidate non-exploitable when they cover the value reaching the sink:
+- PreparedStatement / CallableStatement with every untrusted value bound through setX(...) placeholders.
+- JPA/Hibernate named or positional parameters (:name, ?1), Criteria API, Spring Data derived queries.
+- Spring JdbcTemplate / NamedParameterJdbcTemplate with argument arrays or parameter maps.
+- MyBatis #{...} parameters (but NOT ${...} substitution).
+- Strict allowlist mapping of identifiers (column, table, sort direction) to constants before concatenation.
+- Numeric parsing (Integer.parseInt, Long.valueOf) of the value before it is concatenated.
+Not a control: escaping by hand, blacklisting quotes, length checks, client-side validation.
