@@ -34,6 +34,12 @@ class TestEvidenceSandboxTest {
     @Test
     void sqliMinLoginServletIsConfirmedByAFailingRegressionTest() throws Exception {
         Optional<SandboxRunner> runner = ServiceLoader.load(SandboxRunner.class).findFirst();
+        // In CI (runner image configured) the sandbox must be usable: fail instead of silently skipping.
+        boolean ci = System.getenv("SECPIPE_RUNNER_IMAGE") != null;
+        if (ci) {
+            assertThat(runner).as("SandboxRunner via ServiceLoader").isPresent();
+            assertThat(runner.get().probe().available()).as("%s", runner.get().probe()).isTrue();
+        }
         assumeTrue(runner.isPresent(), "no SandboxRunner on the class path");
         assumeTrue(runner.get().probe().available(), "Docker sandbox not available");
         Path work = Files.createTempDirectory("secpipe-g7-");
