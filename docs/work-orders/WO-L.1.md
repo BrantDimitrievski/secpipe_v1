@@ -1,48 +1,34 @@
-### WO-L.1: Build the LLM core — routing client, fake client, role→model mapping, usage accounting
-Wave: 2   Depends on: WO-C.3, WO-C.4   Blocks: WO-G.1, WO-K.13, WO-L.6, WO-L.2, WO-0.2, WO-L.3, WO-L.7, WO-L.4, WO-L.5, WO-L.8
+### WO-L.1: Build the LLM core — routing, fake client, retries/fallback, call budget, redaction
+Wave: 3   Depends on: WO-C.3, WO-C.4, WO-CC.1   Blocks: WO-L.2, WO-G.1, WO-G.4, WO-K.13
 Milestone: Prototype 2 Dec 5
-Traces: FR-1, FR-2 · A, O
+Traces: FR-1, FR-2, NFR-5 · A, O
 Suggested human owner: Clinton Odinamadu (reviewer: Brant Dimitrievski)
 Size: M
 
-Goal (2–3 sentences): `RoutingLlmClient implements LlmClient` selects the provider via `LlmProviderFactory`
-ServiceLoader, maps role → model (config > provider defaults), and calls the provider. It records usage per
-role (calls, retries, discards, tokens) and exposes `ModelInfo`. `FakeLlmClient` replays recorded fixtures
-deterministically for CI.
+Goal (2–3 sentences): `LlmClients.assemble(config, env, budget, outDir)` is the single LLM assembly point: it builds a routing client over the configured provider (ServiceLoader `LlmProviderFactory`), the CI `FakeLlmClient`, or `NoneLlmClient`. It folds in the essentials of retry/fallback (old L.7), the agent-call budget (old K.10) and secret redaction, plus per-role model and tier routing and usage accounting.
 
-Context to read first (exact paths only): contracts `spi/LlmClient.java`, `spi/LlmProviderFactory.java`,
-`agent/AgentRole.java`, `config/SecPipeConfig.java`, `run/RunMetadata.java` (`Usage`, `ModelAssignment`);
-`docs/PLAN.md` ADR-10.
+Context to read first (exact paths only): contracts `spi/LlmClient.java`, `spi/LlmProviderFactory.java`, `spi/Budget.java`, `config/ProviderMode.java`; `docs/work-orders/stretch/WO-L.7.md`; `docs/work-orders/stretch/WO-K.10.md`
 
-Files you own (create/modify — nothing else): `secpipe-llm/src/main/java/ca/carleton/secpipe/llm/RoutingLlmClient.java`,
-`secpipe-llm/src/main/java/ca/carleton/secpipe/llm/FakeLlmClient.java`, `secpipe-llm/src/main/java/ca/carleton/secpipe/llm/FakeFixture.java`, `secpipe-llm/src/main/java/ca/carleton/secpipe/llm/UsageLedger.java`, `secpipe-llm/src/main/java/ca/carleton/secpipe/llm/ModelRouting.java`,
-`secpipe-llm/src/main/java/ca/carleton/secpipe/llm/NoneLlmClient.java`, `secpipe-llm/src/main/java/ca/carleton/secpipe/llm/LlmClients.java`, `secpipe-llm/src/test/**`.
+Files you own (create/modify — nothing else): `secpipe-llm/src/**`.
 
 Files you may read but not modify: contracts.
 
-Interfaces consumed: `LlmProviderFactory`, `Budget`   Interfaces produced: `RoutingLlmClient.create(config, env,
-budget)`, `FakeLlmClient.fromDir(Path)`, `UsageLedger.snapshot() → List<Usage>`, and
-**`LlmClients.assemble(config, env, budget, outDir) → LlmClient`**. This is the single assembly point the
-CLI calls; L.7 and L.8 extend it in later waves, so the CLI never changes for LLM wiring.
+Interfaces consumed: `LlmProviderFactory`, `Budget`   Interfaces produced: `LlmClients.assemble(...) → LlmClient`; `FakeLlmClient.fromDir(Path)`; `ModelRouting.forRole(role) → (model, tier)`; `CallBudget implements Budget` (`--max-agent-calls`); `UsageLedger.snapshot()`; `Redactor.redact(String)`; `SecretLeakAssertions` (test fixture).
 
 Implementation notes:
-- **Fake fixture format:** `{"role":"disprover","match":["LoginServlet.java","CWE-89"],"response":"<raw text>",
-  "input_tokens":100,"output_tokens":50}`. The first fixture whose `match` strings all occur in the user
-  prompt wins. With no match → the raw text `NO_FIXTURE`, which callers will discard (that exercises the
-  discard path).
-- `FakeLlmClient.modelFor` returns `fake-strong` / `fake-small` by role, using an optional
-  `tiers.json` in the fixture dir.
-- `NoneLlmClient.mode()==NONE`; `complete` throws `LlmUnavailableException`.
-- Fallback and retries are **not** here (WO-L.7): a single attempt, one budget acquire.
+- Retry: up to 2 retries with exponential backoff on 429/5xx/timeouts; then fall back to the next configured model; each attempt counts against the budget.
+- `CallBudget` reserves before a call and refunds on transport failure; exhausted budget → `Unavailable`, never an exception to the user.
+- API keys are read from env at call time only; `Redactor` scrubs key values from every error message and usage record.
+- Providers are `none`, `anthropic`, `openai`, `openai-compatible`, `ollama`, `fake` (post-CC.1); no copilot.
+- Dropped: capability-tier guardrail module (L.6), privacy denylist/`--print-prompts` (L.8).
 
-Tests to write: routing precedence; fake matching and order; usage accounting; the `NONE` behaviour; a
-budget acquire per call (stub budget).
+Tests to write: `FakeLlmClientTest`, `RoutingLlmClientTest` (retry, fallback, budget per attempt), `CallBudgetTest`, `RedactorTest` + `SecretLeakAssertions` on errors and usage.
 
 Acceptance criteria (all must pass):
-- [ ] `./mvnw -q -B -pl secpipe-llm -am test` → ≥ 10 tests, 0 failures
-- [ ] `grep -rn "System.getenv" secpipe-llm/src/main` → only inside a single `EnvSource` default (the env is injected for tests)
+- [ ] `./mvnw -q -B -pl secpipe-llm -am test` → ≥ 15 tests, 0 failures
+- [ ] A test asserts an injected key never appears in exception messages, usage records or logs
+- [ ] `./mvnw -q -B verify` → exit 0 (CI `ci` check green)
 
-Out of scope: real providers (L.2–L.5), tiers (L.6), fallback (L.7), privacy (L.8).
+Out of scope: concrete providers (L.2), Ollama, privacy controls.
 
-Handoff note for next agent: Agents never see provider names. `ModelInfo.tier` comes from L.6 once it's
-merged (default `standard` until then).
+Handoff note for next agent: L.2 registers factories; agents call only `LlmClient` from `RunContext`.

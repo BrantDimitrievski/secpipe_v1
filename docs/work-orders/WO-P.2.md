@@ -1,59 +1,33 @@
-### WO-P.2: Port the builtin rules adapter and emit traced candidates
-Wave: 2   Depends on: WO-C.1, WO-C.5, WO-P.0   Blocks: WO-K.6, WO-G.5, WO-0.2
+### WO-P.2: Port the builtin rules adapter and the knowledge base / CWE family mapping
+Wave: 2   Depends on: WO-C.1, WO-C.5, WO-P.0   Blocks: WO-K.6, WO-K.8, WO-K.9, WO-G.5
 Milestone: Prototype 2 Dec 5
-Traces: FR-3, FR-9, NFR-2, NFR-3 · D, G
+Traces: FR-3, FR-9, FR-11, NFR-2, NFR-3 · D, G, H
 Suggested human owner: Brant Dimitrievski (reviewer: Elodie Abdo)
-Size: L
+Size: M
 
-Goal (2–3 sentences): Port the MVP's JavaParser rules and intra-procedural taint tracker into
-`secpipe-adapter-builtin` as an `AnalyzerAdapter`. Each hit becomes a `Candidate` with a trace (entrypoint
-→ propagations → sink), `sinkStatement`, and `sinkScope`, plus coverage claims. The MVP's own-sample results
-must be reproduced exactly (baseline parity).
+Goal (2–3 sentences): Port the MVP builtin taint rules into `secpipe-adapter-builtin` as adapter `builtin`, emitting traced candidates for CWE families 22, 78, 89, 327 and 328. Fold in the knowledge base (old P.8): CWE → family mapping, impact class and remediation text, in `core/knowledge`.
 
-Context to read first (exact paths only): MVP `src/main/java/ca/carleton/secpipe/tools/builtin/*.java`,
-MVP `src/test/java/ca/carleton/secpipe/tools/builtin/BuiltinRulesTest.java`; contracts
-`spi/AnalyzerAdapter.java`, `finding/Candidate.java`, `ids/Fingerprints.java`;
-`fixtures/mvp-samples/shop-samples/**`, `secpipe-eval/src/main/resources/mvp/answers.csv`.
+Context to read first (exact paths only): MVP `src/main/java/ca/carleton/secpipe/rules/`; MVP `src/main/java/ca/carleton/secpipe/knowledge/`; contracts `spi/AnalyzerAdapter.java`, `findings/Candidate.java`, `Fingerprints.java`; `fixtures/mvp-samples/shop-samples/`
 
-Files you own (create/modify — nothing else):
-`secpipe-adapter-builtin/src/main/java/ca/carleton/secpipe/adapter/builtin/**`,
-`secpipe-adapter-builtin/src/main/resources/META-INF/services/ca.carleton.secpipe.contracts.spi.AnalyzerAdapter`,
-`secpipe-adapter-builtin/src/test/**`.
+Files you own (create/modify — nothing else): `secpipe-adapter-builtin/src/main/java/ca/carleton/secpipe/adapter/builtin/**`, `secpipe-adapter-builtin/src/main/resources/META-INF/services/ca.carleton.secpipe.contracts.spi.AnalyzerAdapter`, `secpipe-adapter-builtin/src/test/**`, `secpipe-core/src/main/java/ca/carleton/secpipe/core/knowledge/**`, `secpipe-core/src/main/resources/knowledge/**`, `secpipe-core/src/test/java/ca/carleton/secpipe/core/knowledge/**`.
 
-Files you may read but not modify: contracts, fixtures.
+Files you may read but not modify: contracts, fixtures, MVP.
 
-Interfaces consumed: `AnalyzerAdapter`, `Candidate`, `Fingerprints.normalizeStatement`   Interfaces produced:
-adapter id `builtin`.
+Interfaces consumed: `AnalyzerAdapter`, `Candidate`, `Fingerprints.normalizeStatement`   Interfaces produced: adapter id `builtin`; `KnowledgeBase.family(cwe)`, `KnowledgeBase.impactClass(family)`, `KnowledgeBase.remediation(family)`.
 
 Implementation notes:
-- `RuleContext.report(...)` now builds a `Candidate`:
-  - the trace's first step is the taint source (the `getParameter` call or the annotated parameter) with
-    kind `entrypoint`, or `propagation` if the level is only PARAMETER;
-  - intermediate assignments the tracker followed become `propagation` steps (record them in
-    `TaintTracker`);
-  - the sink call becomes `sink`.
-- `sinkScope` = `SimpleClassName#method(ParamSimpleTypes)`. `sinkStatement` = `normalizeStatement(call.toString())`.
-- `supportedCwes` = {CWE-22, 78, 89, 327, 328, 502, 798}. Emit one `CoverageClaim` per CWE covering every
-  parsed file.
-- Keep the MVP's severity mapping as `toolSeverityHint` and `TaintLevel.confidence()` as `confidenceHint`.
-- Parse in parallel as the MVP did (thread-local `JavaParser`, language level 21).
-- Do not improve detection logic here (that is WO-G.5's refuter). This is a faithful port.
+- Candidates carry source → sink trace `Location`s and coverage claims; no fingerprints (normalize assigns them).
+- Port only the five families; other MVP rules go to stretch.
+- Knowledge data is JSON under `secpipe-core/src/main/resources/knowledge/`, loaded once, immutable.
+- Add `Ported-from:` lines in commit bodies.
 
-Tests to write:
-- port `BuiltinRulesTest` cases;
-- trace shape (first entrypoint, last sink) on `LoginServlet`;
-- parity: run the adapter on `fixtures/mvp-samples/shop-samples` and score it against `answers.csv` using
-  file + CWE family. Expect exactly TP=10, FP=2 (`TagFilter`, `ArchiveJob`), FN=0, TN=8, i.e. the MVP
-  2026-11-03 table.
+Tests to write: `BuiltinAdapterTest` on `shop-samples` (expected hits per family), `KnowledgeBaseTest` (family mapping incl. CWE-23 → 22, every family has remediation text).
 
 Acceptance criteria (all must pass):
-- [ ] `./mvnw -q -B -pl secpipe-adapter-builtin -am verify` → exit 0
-- [ ] `./mvnw -q -B -pl secpipe-adapter-builtin test -Dtest=MvpParityTest` → reports `tp=10 fp=2 fn=0 tn=8`
-- [ ] A test asserts every emitted candidate has `trace.get(last).kind()==SINK`, non-empty `sinkStatement`, and `sinkScope`
+- [ ] `./mvnw -q -B -pl secpipe-adapter-builtin,secpipe-core -am test -Dtest='Builtin*Test,KnowledgeBase*Test'` → ≥ 10 tests, 0 failures
+- [ ] A test asserts the shop-samples true positives are all reported by `builtin`
+- [ ] `./mvnw -q -B verify` → exit 0 (CI `ci` check green)
 
-Session split (L-size; same branch, one PR): **Session A** — Port `TaintTracker`, `RuleContext`, `JavaRule`, the six rules, and the ported `BuiltinRulesTest` cases (trace building included). Commit and push; stop. **Session B** (fresh session, same kickoff + "continue <WO-ID> part B") — Adapter class, services file, coverage claims, `MvpParityTest`, and the remaining acceptance commands. Then run all acceptance commands and open the PR.
+Out of scope: other MVP rules, framework-specific sources.
 
-Out of scope: inter-procedural taint, new rules.
-
-Handoff note for next agent: `ArchiveJob` and `TagFilter` are the known FPs that the refuter (WO-G.5) must
-remove. `ScriptRunner` is a TP that needs inter-procedural flow (Joern, WO-A.2).
+Handoff note for next agent: G.5 reuses `TaintTracker` read-only; K.8/K.9 use `KnowledgeBase`.

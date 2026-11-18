@@ -1,5 +1,5 @@
 ### WO-K.1: Build the plain-Java graph engine and the sole-writer state store
-Wave: 2   Depends on: WO-C.1, WO-C.2   Blocks: WO-K.3, WO-K.5, WO-K.8, WO-K.13, WO-K.2, WO-D.2, WO-Y.2
+Wave: 2   Depends on: WO-C.1, WO-C.2   Blocks: WO-K.4, WO-K.5, WO-K.8, WO-K.13
 Milestone: Prototype 2 Dec 5
 Traces: FR-1, NFR-2 · A, I, P
 Suggested human owner: Brant Dimitrievski (reviewer: Clinton Odinamadu)

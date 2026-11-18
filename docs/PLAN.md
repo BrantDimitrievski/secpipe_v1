@@ -130,13 +130,19 @@ WO-M.2 → WO-E.6 → WO-D.3 (oral demo)`.
   - `--cpus`, `--memory`, `--pids-limit`, `--ulimit fsize`, and a wall-clock kill;
   - `--cap-drop ALL`, `--security-opt no-new-privileges`, and a non-root uid;
   - an env built only from an allowlist;
-  - the target copied into a fresh scratch directory (the only rw mount);
+  - the target copied into a fresh scratch directory (the only rw mount); per spike S.3 the disk limit is
+    enforced with a size-capped tmpfs scratch (files move in and out as a tar stream), and containers are
+    always named so a timeout can `docker kill` them;
   - toolchain and caches mounted ro.
 
   It runs in two phases.
   1. **Prefetch** (`WO-X.2`). A network-enabled container with no secrets and no host mounts except scratch
-     and the cache runs `mvn -B dependency:go-offline dependency:resolve-plugins` with tests and
-     non-resolution plugins skipped. Before it runs, a pre-flight refuses POMs that declare
+     and the cache runs `mvn -B dependency:go-offline dependency:resolve-plugins dependency:resolve` (all scopes)
+     with tests and non-resolution plugins skipped. *(Corrected by WO-RP.1 after spike S.3: `go-offline` +
+     `resolve-plugins` alone is not a sufficient prefetch; on OWASP Benchmark it left a compile-scope jar out of the
+     cache. If the offline phase still reports "Could not resolve dependencies", the finding stays
+     `needs_validation` with a named `prefetch-incomplete` blocker, never a test failure.)*
+     Before it runs, a pre-flight refuses POMs that declare
      `<extensions>true</extensions>` or `.mvn/extensions.xml`, unless `--allow-build-extensions` is set
      (extensions execute code at load).
   2. **Execute.** Runs with `--network none` and `mvn -o -Dmaven.repo.local=/scratch/m2
@@ -3615,3 +3621,141 @@ sources. Its `SkeletonTest` loads `PipelineGraph` and `schemas/findings.schema.j
 **Bootstrap CLI.** `SecPipeCli` (WO-0.1) supports only `--version` and `--help`. The version comes from the
 filtered resource `secpipe-cli/src/main/resources/ca/carleton/secpipe/cli/secpipe-version.properties`. Any
 other argument prints `error:` and `hint:` lines and exits 2. WO-K.13 replaces this class.
+
+---
+
+## Re-plan 2026-11-17 (lean)
+
+**Reason.** Finish the remaining work in about 2 days of agent time; the owner (Brant) approved a lean, CLI-only plan: detect (analyzers) → normalize/score → deterministic refuter + adversarial disprover → generated JUnit test → sandbox evidence → report, plus the OWASP Benchmark scorecard. Dropped and folded orders were moved unchanged to `docs/work-orders/stretch/` (outside `scripts/check-plan.py`'s scope; it globs `docs/work-orders/WO-*.md` non-recursively). ADR-03's prefetch wording was corrected after spike S.3 (see ADR-03).
+
+### Changelog
+
+| Work order | Decision | New wave | Reason |
+|---|---|---|---|
+| WO-K.1 | kept (unchanged text) | 2 | in progress; only Blocks updated to the kept set |
+| WO-V.1 | kept (unchanged text) | 2 | in progress; only Blocks updated |
+| WO-CC.1 | kept (added verbatim from the approved draft) | 2 | in progress; removes `copilot` after S.2 NO-GO |
+| WO-P.2 | kept, absorbs P.8 | 2 | detection core; knowledge base needed by normalize and scoring |
+| WO-X.1 | kept, absorbs X.3 + X.4 | 2 | one sandbox order using S.3 findings (tmpfs disk limit, named containers) |
+| WO-E.1 | kept | 2 | Benchmark scorecard is the headline metric |
+| WO-K.4 | kept (forced; not in either list), cut L → M | 3 | G.4/G.5 need `ReconFacts`/`SourceIndex`, and the ledger needs seeded units |
+| WO-K.5 | kept, absorbs V.2 invariants as tests | 3 | ledger state machine + the invariants the engine validates |
+| WO-K.6 | kept | 3 | detect node |
+| WO-K.8 | kept, cut to S | 3 | fingerprint + dedup; root-cause merge dropped |
+| WO-L.1 | kept, absorbs L.7 essentials, K.10, redaction | 3 | single LLM assembly point incl. retry/fallback, call budget, secret redaction |
+| WO-R.1 | kept, absorbs R.2 (Markdown instead of HTML) | 3 | JSON + SARIF + `report.md` |
+| WO-K.9 | kept, absorbs K.11 | 4 | scoring and finalize are both short deterministic nodes |
+| WO-P.6 | kept | 4 | second analyzer (PMD) |
+| WO-L.2 | kept, absorbs L.3 | 4 | OpenAI-compatible + Anthropic in one order, WireMock-tested |
+| WO-G.1 | kept, absorbs minimal V.3 grounding, cut L → M | 4 | AgentRunner + prompt framework; only shared fragments |
+| WO-G.5 | kept, cut L → M (4 rules) | 4 | deterministic refuter; CollectionTrickRule to stretch |
+| WO-X.2 | kept | 4 | prefetch; adds the Benchmark prefetch case from S.3 |
+| WO-G.4 | kept, cut L → M | 5 | disprover; small-tier guardrail now local (L.6 dropped) |
+| WO-G.6 | kept | 5 | test generator |
+| WO-K.13 | kept, absorbs K.3 + 0.2; owns `secpipe-cli/**` | 6 | real CLI replaces the demo slice; e2e fixture scan is a CI test |
+| WO-G.7 | kept, cut L → M | 6 | sandbox evidence (absorbs X.3 promotion use) |
+| WO-D.1 | kept, absorbs D.3 | 7 | short user guide + demo script |
+| WO-S.3 | unchanged, stays in place | 1 | approved PR #98 awaits laptop checks |
+| WO-L.5 | unchanged, stays in place (closed) | 6 | closed after S.2 NO-GO; WO-CC.1 edits it |
+| WO-0.1, P.0, C.1–C.5, S.2 | unchanged (merged) | 0–1 | done |
+| WO-K.3 | merged into WO-K.13; file moved to stretch | — | folded to cut the order count |
+| WO-0.2 | merged into WO-K.13; file moved to stretch | — | folded to cut the order count |
+| WO-K.10 | merged into WO-L.1; file moved to stretch | — | folded to cut the order count |
+| WO-L.7 | merged into WO-L.1; file moved to stretch | — | folded to cut the order count |
+| WO-K.11 | merged into WO-K.9; file moved to stretch | — | folded to cut the order count |
+| WO-V.2 | merged into WO-K.5; file moved to stretch | — | folded to cut the order count |
+| WO-V.3 | merged into WO-G.1 (minimal grounding only); file moved to stretch | — | folded to cut the order count |
+| WO-P.8 | merged into WO-P.2; file moved to stretch | — | folded to cut the order count |
+| WO-L.3 | merged into WO-L.2; file moved to stretch | — | folded to cut the order count |
+| WO-X.3 | merged into WO-X.1; file moved to stretch | — | folded to cut the order count |
+| WO-X.4 | merged into WO-X.1; file moved to stretch | — | folded to cut the order count |
+| WO-R.2 | merged into WO-R.1 (Markdown); file moved to stretch | — | folded to cut the order count |
+| WO-D.3 | merged into WO-D.1; file moved to stretch | — | folded to cut the order count |
+| WO-S.1 | dropped to stretch | — | LangGraph4j runner not needed; plain runner suffices |
+| WO-S.4 | dropped to stretch | — | Joern adapter dropped |
+| WO-K.2 | dropped to stretch | — | optional runner |
+| WO-K.7 | dropped to stretch | — | no SARIF-ingesting adapter in the lean set (PMD read via its API) |
+| WO-K.12 | dropped to stretch | — | incremental runs not in CLI-only core |
+| WO-K.14 | dropped to stretch | — | perf tuning after release |
+| WO-P.1 | dropped to stretch | — | `doctor` not needed; setup in K.13 covers env |
+| WO-P.3 | dropped to stretch | — | dependency/OSV scanning out of the core flow |
+| WO-P.4 | dropped to stretch | — | needs P.3/K.7 |
+| WO-P.5 | dropped to stretch | — | needs P.3/K.7 |
+| WO-P.7 | dropped to stretch | — | Semgrep adapter not needed for the core flow |
+| WO-L.4 | dropped to stretch | — | Ollama provider not needed |
+| WO-L.6 | dropped to stretch | — | tier guardrail done locally in G.4 |
+| WO-L.8 | dropped to stretch | — | privacy extras; redaction kept in L.1 |
+| WO-G.2 | dropped to stretch | — | hunter agents are not in the core flow |
+| WO-G.3 | dropped to stretch | — | needs G.2 |
+| WO-G.8 | dropped to stretch | — | record verifier is polish on top of evidence |
+| WO-G.9 | dropped to stretch | — | optional summary agent |
+| WO-G.10 | dropped to stretch | — | remediation not in the core flow |
+| WO-M.1 | dropped to stretch | — | remediation loop not in the core flow |
+| WO-M.2 | dropped to stretch | — | needs M.1 |
+| WO-R.3 | dropped to stretch | — | PR comment needs the Action |
+| WO-R.4 | dropped to stretch | — | patches need remediation |
+| WO-H.1 | dropped to stretch | — | GitHub Action out of scope (CLI-only) |
+| WO-H.2 | dropped to stretch | — | Action |
+| WO-H.3 | dropped to stretch | — | Action |
+| WO-H.4 | dropped to stretch | — | Action |
+| WO-H.5 | dropped to stretch | — | Action |
+| WO-H.6 | dropped to stretch | — | Action |
+| WO-A.1 | dropped to stretch | — | extra adapter |
+| WO-A.2 | dropped to stretch | — | extra adapter |
+| WO-A.3 | dropped to stretch | — | extra adapter |
+| WO-A.4 | dropped to stretch | — | extra adapter |
+| WO-E.2 | dropped to stretch | — | ablation harness is evaluation polish |
+| WO-E.3 | dropped to stretch | — | tool comparison |
+| WO-E.4 | dropped to stretch | — | optional baseline |
+| WO-E.5 | dropped to stretch | — | memorization controls |
+| WO-E.6 | dropped to stretch | — | needs remediation |
+| WO-E.7 | dropped to stretch | — | needs incremental |
+| WO-E.8 | dropped to stretch | — | perf measurement |
+| WO-E.9 | dropped to stretch | — | portability matrix |
+| WO-E.10 | dropped to stretch | — | provider comparison |
+| WO-Y.1 | dropped to stretch | — | injection suite (basic defence stays in G.1) |
+| WO-Y.2 | dropped to stretch | — | redaction kept in L.1 |
+| WO-Y.3 | dropped to stretch | — | self-audit |
+| WO-D.2 | dropped to stretch | — | architecture docs |
+| WO-D.4 | dropped to stretch | — | release pass |
+
+### Wave table
+
+| Wave | Work orders (parallel) | Notes |
+|---|---|---|
+| 0–1 | 0.1, C.1–C.5, P.0, S.2 (merged); S.3 (PR #98 pending laptop checks) | done |
+| 2 | K.1, V.1, CC.1 (in progress); P.2, X.1, E.1 | 6 |
+| 3 | K.4, K.5, K.6, K.8, L.1, R.1 | 6 |
+| 4 | K.9, P.6, L.2, G.1, G.5, X.2 | 6 |
+| 5 | G.4, G.6 | 2 |
+| 6 | K.13, G.7 | 2 (L.5 is closed and also sits in wave 6) |
+| 7 | D.1 | 1 |
+
+```mermaid
+graph LR
+  K1[K.1]-->K4[K.4] & K5[K.5] & K8[K.8] & K13[K.13]
+  V1[V.1]-->K9[K.9] & R1[R.1] & K13
+  CC1[CC.1]-->L1[L.1]
+  P2[P.2]-->K6[K.6] & K8 & K9 & G5[G.5]
+  X1[X.1]-->X2[X.2] & G7[G.7]
+  K4-->G4[G.4] & G5 & K13
+  K5-->K9 & K13
+  K6-->P6[P.6] & K13
+  K8-->G4 & G5 & K13
+  L1-->L2[L.2] & G1[G.1] & G4 & K13
+  R1-->K13
+  K9-->K13
+  G1-->G4 & G6[G.6]
+  G5-->K13
+  X2-->G7
+  G4-->G7 & K13
+  G6-->G7
+  G7-->D1[D.1]
+  K13-->D1
+  L2-->D1
+```
+
+### Traceability after the re-plan
+
+- **No longer implemented:** FR-7 (dependency CVE scanning, P.3), FR-13 (verified fixes, G.10/M.1), FR-14 (remediation loop and `secpipe diff`, M.1/K.12) and feature Q (remediation). They are traced only by WO-D.1's Limitations section so `check-plan.py` stays green; they are not delivered.
+- **Weakened:** NFR-5 privacy extras (denylist, `--print-prompts`; L.8) and the prompt-injection suite (Y.1) are gone; key redaction (L.1) and untrusted-block rendering (G.1) remain. NFR-2 perf tuning (K.14/E.8) and NFR-6 portability matrix (E.9) are unmeasured. Feature M (incremental) is traced only by merged contract C.2. The GitHub Action (`action.yml`, H.*) is not built.

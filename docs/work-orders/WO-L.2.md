@@ -1,42 +1,33 @@
-### WO-L.2: Implement the OpenAI and OpenAI-compatible provider
-Wave: 4   Depends on: WO-L.1   Blocks: WO-E.2, WO-L.7, WO-L.5, WO-E.10
+### WO-L.2: Implement the OpenAI-compatible and Anthropic providers
+Wave: 4   Depends on: WO-L.1   Blocks: WO-D.1
 Milestone: Prototype 2 Dec 5
-Traces: FR-2, NFR-3 · (§2.7)
+Traces: FR-2, NFR-3 · O
 Suggested human owner: Brant Dimitrievski (reviewer: Clinton Odinamadu)
-Size: S
+Size: M
 
-Goal (2–3 sentences): `OpenAiProviderFactory` serves both `openai` and `openai-compatible` (a base URL plus
-a key), using LangChain4j's OpenAI chat model with JSON response format. It maps 429 to
-`RateLimitedException` with `Retry-After`, and includes a manual smoke workflow.
+Goal (2–3 sentences): Add `LlmProviderFactory` implementations for `openai` / `openai-compatible` (Chat Completions, configurable base URL) and `anthropic` (Messages API). Both are fixture-tested against fake HTTP with the pinned WireMock; no test touches the network.
 
-Context to read first (exact paths only): contracts `spi/LlmProviderFactory.java`, `spi/LlmClient.java`;
-`secpipe-llm/src/main/java/ca/carleton/secpipe/llm/RoutingLlmClient.java`; `docs/PLAN.md` ADR-10.
+Context to read first (exact paths only): contracts `spi/LlmProviderFactory.java`, `spi/LlmClient.java`; `secpipe-llm/src/main/java/ca/carleton/secpipe/llm/LlmClients.java`; `docs/work-orders/stretch/WO-L.3.md`; `docs/PLAN.md` §4.3 (provider env vars)
 
-Files you own (create/modify — nothing else): `secpipe-llm-openai/src/**`, `.github/workflows/llm-smoke-openai.yml`.
+Files you own (create/modify — nothing else): `secpipe-llm-openai/src/**`, `secpipe-llm-anthropic/src/**`.
 
 Files you may read but not modify: `secpipe-llm/**`.
 
-Interfaces consumed: `LlmProviderFactory`   Interfaces produced: factories for `OPENAI` and `OPENAI_COMPATIBLE`
-(two classes in the services file).
+Interfaces consumed: `LlmProviderFactory`   Interfaces produced: factories `OPENAI`, `OPENAI_COMPATIBLE`, `ANTHROPIC` registered in each module's services file.
 
 Implementation notes:
-- Keys come from `SECPIPE_API_KEY` or `OPENAI_API_KEY` at `create()` time; they are never stored in a field
-  beyond the LangChain4j client instance; `toString()` must not include them.
-- **Default models:** strong `gpt-4.1`, small `gpt-4.1-mini` (verify the current names; record them in
-  the class Javadoc with the date).
-- `probe()`: key present (no network call). `openai-compatible` needs `llmBaseUrl`.
-- Tests use WireMock to emulate `/v1/chat/completions` (200, 429 with Retry-After, 500).
-- **Smoke workflow:** `workflow_dispatch` only, uses `secrets.OPENAI_API_KEY`, runs `secpipe scan
-  fixtures/e2e/sqli-min --llm-provider openai --max-agent-calls 5`, and uploads the outputs.
+- Request JSON-only output where the API supports it; return the raw text, never repair it.
+- Map 429/5xx/timeouts to the retryable error type L.1 expects; 4xx auth errors are not retried and carry a `hint:` naming the env var.
+- Keys come from env at call time; assert with `SecretLeakAssertions` that they never reach logs or exceptions.
+- Dropped: live smoke workflows (stretch).
 
-Tests to write: WireMock happy path → raw text + tokens; 429 → `RateLimitedException` with the duration;
-no key → probe reason; the key absent from `toString` and exception messages.
+Tests to write: per provider: happy path, 429 → retryable, 401 → hint, malformed body → error; WireMock stubs under `src/test/resources/`.
 
 Acceptance criteria (all must pass):
-- [ ] `./mvnw -q -B -pl secpipe-llm-openai -am verify` → exit 0 (no network)
-- [ ] `grep -n "workflow_dispatch" .github/workflows/llm-smoke-openai.yml` → present, and `grep -c "pull_request" …` → 0
+- [ ] `./mvnw -q -B -pl secpipe-llm-openai,secpipe-llm-anthropic -am test` → ≥ 10 tests, 0 failures
+- [ ] A test asserts the `Authorization`/`x-api-key` header is set from env and never appears in a thrown message
+- [ ] `./mvnw -q -B verify` → exit 0 (CI `ci` check green)
 
-Out of scope: retries (L.7).
+Out of scope: Ollama (stretch), streaming.
 
-Handoff note for next agent: `openai-compatible` also covers Azure/Microsoft Foundry OpenAI-v1 endpoints and
-self-hosted gateways. Document the base-URL forms in D.1.
+Handoff note for next agent: Users pick a provider with `--llm-provider`; D.1 documents the env vars.
