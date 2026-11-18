@@ -1,0 +1,9 @@
+{
+  "description": "Provider outage",
+  "match": {
+    "userPromptContains": [
+      "CASE_OUTAGE"
+    ]
+  },
+  "error": "simulated provider outage"
+}
