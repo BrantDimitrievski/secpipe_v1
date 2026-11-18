@@ -1,0 +1,30 @@
+{
+  "description": "Valid checked test on the first call",
+  "match": {
+    "promptTemplateId": "testgen.v1",
+    "userPromptContains": [
+      "code:CWE-89:00000000000000000000a001"
+    ],
+    "systemPromptContains": [
+      "regression-test generator"
+    ]
+  },
+  "responses": [
+    {
+      "json": {
+        "fingerprint": "code:CWE-89:00000000000000000000a001",
+        "package_name": "secpipe.generated",
+        "class_name": "LoginServletSqliSecurityTest",
+        "source": "package secpipe.generated;\n\nimport static org.junit.jupiter.api.Assertions.assertFalse;\n\nimport com.shop.app.LoginServlet;\nimport java.lang.reflect.Proxy;\nimport java.sql.Connection;\nimport java.sql.Driver;\nimport java.sql.DriverManager;\nimport java.sql.ResultSet;\nimport java.sql.Statement;\nimport java.util.ArrayList;\nimport java.util.List;\nimport javax.servlet.http.HttpServletRequest;\nimport javax.servlet.http.HttpServletResponse;\nimport org.junit.jupiter.api.Test;\n\nclass LoginServletSqliSecurityTest {\n\n    private final List<String> executed = new ArrayList<>();\n\n    @SuppressWarnings(\"unchecked\")\n    private <T> T stub(Class<T> type, java.lang.reflect.InvocationHandler h) {\n        return (T) Proxy.newProxyInstance(type.getClassLoader(), new Class<?>[] {type}, h);\n    }\n\n    @Test\n    void usernamePayloadMustNotReachTheQueryText() throws Exception {\n        String payload = \"' OR '1'='1\";\n        ResultSet rs = stub(ResultSet.class, (p, m, a) -> m.getName().equals(\"next\") ? false : null);\n        Statement st = stub(Statement.class, (p, m, a) -> {\n            if (m.getName().equals(\"executeQuery\")) {\n                executed.add((String) a[0]);\n                return rs;\n            }\n            return null;\n        });\n        Connection conn = stub(Connection.class, (p, m, a) -> m.getName().equals(\"createStatement\") ? st : null);\n        Driver driver = stub(Driver.class, (p, m, a) -> switch (m.getName()) {\n            case \"acceptsURL\" -> true;\n            case \"connect\" -> conn;\n            default -> null;\n        });\n        DriverManager.registerDriver(driver);\n        HttpServletRequest req = stub(HttpServletRequest.class,\n                (p, m, a) -> m.getName().equals(\"getParameter\") ? payload : null);\n        HttpServletResponse resp = stub(HttpServletResponse.class, (p, m, a) -> null);\n        try {\n            new LoginServlet() { { doPost(req, resp); } };\n        } finally {\n            DriverManager.deregisterDriver(driver);\n        }\n        assertFalse(executed.stream().anyMatch(q -> q.contains(payload)),\n                \"attacker-controlled username reached the SQL text: \" + executed);\n    }\n}\n",
+        "target_symbols": [
+          "com.shop.app.LoginServlet#doPost(HttpServletRequest, HttpServletResponse)"
+        ],
+        "payloads": [
+          "' OR '1'='1"
+        ],
+        "expected_failure": "attacker-controlled username reached the SQL text",
+        "rationale": "A recording JDBC proxy captures the query passed to Statement.executeQuery; while the username is concatenated, the payload appears verbatim in the SQL text."
+      }
+    }
+  ]
+}

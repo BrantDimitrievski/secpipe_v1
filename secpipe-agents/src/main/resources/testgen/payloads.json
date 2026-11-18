@@ -1,0 +1,41 @@
+{
+  "description": "Payload hints per CWE for the regression-test generator (WO-G.6). Ported (payload lists and labels only) from capstone-mvp-1@2905635:src/main/resources/knowledge/test-templates.json.",
+  "families": {
+    "CWE-22": {
+      "label": "path traversal",
+      "payloads": [
+        "../../../../etc/passwd",
+        "..\\\\..\\\\..\\\\windows\\\\win.ini",
+        "%2e%2e%2f%2e%2e%2fetc%2fpasswd",
+        "/etc/passwd",
+        "....//....//etc/passwd"
+      ]
+    },
+    "CWE-78": {
+      "label": "OS command injection",
+      "payloads": [
+        "127.0.0.1; cat /etc/passwd",
+        "127.0.0.1 && whoami",
+        "`id`",
+        "$(id)",
+        "| ls -la",
+        "127.0.0.1\nid"
+      ]
+    },
+    "CWE-89": {
+      "label": "SQL injection",
+      "payloads": [
+        "' OR '1'='1",
+        "admin'--",
+        "1; DROP TABLE users--",
+        "' UNION SELECT null, username, password FROM users--"
+      ]
+    },
+    "CWE-502": {
+      "label": "unsafe deserialization",
+      "payloads": [
+        "rO0ABXNyABFqYXZhLnV0aWwuSGFzaE1hcAUH2sHDFmDRAwACRgAKbG9hZEZhY3RvckkACXRocmVzaG9sZHhwP0AAAAAAAAx3CAAAABAAAAAAeA=="
+      ]
+    }
+  }
+}

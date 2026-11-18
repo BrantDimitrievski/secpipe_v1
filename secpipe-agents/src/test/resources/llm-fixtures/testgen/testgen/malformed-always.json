@@ -1,0 +1,16 @@
+{
+  "description": "Prose and a fenced object: never one bare JSON object",
+  "match": {
+    "userPromptContains": [
+      "code:CWE-89:00000000000000000000a004"
+    ]
+  },
+  "responses": [
+    {
+      "text": "Here is the test you asked for."
+    },
+    {
+      "text": "```json\n{\"fingerprint\": \"x\"}\n```"
+    }
+  ]
+}
