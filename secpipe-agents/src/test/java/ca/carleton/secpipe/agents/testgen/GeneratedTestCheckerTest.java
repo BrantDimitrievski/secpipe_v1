@@ -136,4 +136,78 @@ class GeneratedTestCheckerTest {
         return new TestGenResult("code:CWE-89:000000000000000000000001", pkg, cls, src, List.of("A#b()"),
                 List.of("' OR '1'='1"), "payload reached sink", "because");
     }
+
+    private static final String EXPECTED = "attacker-controlled username reached the SQL text";
+
+    private static TestGenResult result(String body) {
+        String src = """
+                package secpipe.generated;
+
+                import static org.junit.jupiter.api.Assertions.assertEquals;
+                import static org.junit.jupiter.api.Assertions.assertFalse;
+                import static org.junit.jupiter.api.Assertions.fail;
+                import static org.junit.jupiter.api.Assumptions.assumeTrue;
+
+                import org.junit.jupiter.api.Assertions;
+                import org.junit.jupiter.api.Assumptions;
+                import org.junit.jupiter.api.Test;
+
+                class SampleSecurityTest {
+
+                    @Test
+                    void payloadDoesNotReachSink() throws Exception {
+                        int rc = 0;
+                        String sql = "SELECT 1";
+                %s
+                        assertFalse(sql.contains("'"), "attacker-controlled username reached the SQL text: " + sql);
+                    }
+                }
+                """.formatted(body);
+        return new TestGenResult("code:CWE-89:00000000000000000000a001", "secpipe.generated", "SampleSecurityTest",
+                src, List.of("A#b()"), List.of("' OR '1'='1"), EXPECTED, "r");
+    }
+
+    private static List<Violation> setupChecks(TestGenResult r) {
+        return GeneratedTestChecker.check(r).stream().filter(v -> v.rule() == Rule.SETUP_CHECK).toList();
+    }
+
+    @Test
+    void assumptionsForSetupChecksAreAccepted() {
+        TestGenResult r = result("        assumeTrue(rc == 0, \"the recording Db stub did not compile\");\n"
+                + "        Assumptions.assumeTrue(sql != null, \"the login query did not run\");\n"
+                + "        Assumptions.assumeFalse(sql.isEmpty());\n");
+        assertThat(GeneratedTestChecker.check(r)).isEmpty();
+    }
+
+    @Test
+    void javaAssertStatementSetupCheckIsRejected() {
+        List<Violation> v = setupChecks(result("        assert rc == 0 : \"stub did not compile\";\n"));
+        assertThat(v).hasSize(1);
+        assertThat(v.get(0).detail()).contains("assert statement").contains("Assumptions");
+        assertThat(v.get(0).line()).isEqualTo(18);
+    }
+
+    @Test
+    void ifFailSetupCheckIsRejected() {
+        assertThat(setupChecks(result("        if (rc != 0) {\n            fail(\"stub did not compile\");\n"
+                + "        }\n"))).extracting(Violation::detail).anyMatch(d -> d.startsWith("if (...) fail"));
+        assertThat(setupChecks(result("        if (rc != 0) Assertions.fail(\"x\");\n"))).isNotEmpty();
+        assertThat(setupChecks(result("        if (rc != 0) throw new AssertionError(\"no stub\");\n")))
+                .extracting(Violation::rule).containsExactly(Rule.SETUP_CHECK);
+        // plain source check (no expected_failure known) rejects them as well
+        assertThat(GeneratedTestChecker.check(result("        if (rc != 0) fail(\"x\");\n").source()))
+                .extracting(Violation::rule).contains(Rule.SETUP_CHECK);
+    }
+
+    @Test
+    void assertionWhoseMessageIsNotTheExpectedFailureIsASetupCheck() {
+        List<Violation> v = setupChecks(result(
+                "        assertEquals(0, rc, \"the recording Db stub did not compile\");\n"));
+        assertThat(v).hasSize(1);
+        assertThat(v.get(0).detail()).contains("assertEquals").contains("expected_failure");
+        // an assertion without a literal message is left to the runtime expected-failure match
+        assertThat(setupChecks(result("        assertEquals(0, rc);\n"))).isEmpty();
+        // the vulnerability assertion in the template reports expected_failure and is accepted
+        assertThat(setupChecks(result(""))).isEmpty();
+    }
 }
