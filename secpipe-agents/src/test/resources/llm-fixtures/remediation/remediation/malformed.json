@@ -1,0 +1,14 @@
+{
+  "description": "Prose instead of one JSON object, every time",
+  "match": {
+    "userPromptContains": [
+      "code:CWE-89:00000000000000000000b002"
+    ],
+    "promptTemplateId": "remediation.v1"
+  },
+  "responses": [
+    {
+      "text": "Sure! Here is the fix:\n```diff\n--- a/src/main/java/com/shop/app/LoginServlet.java\n+++ b/src/main/java/com/shop/app/LoginServlet.java\n@@ -6,9 +6,9 @@\n import javax.servlet.http.HttpServletResponse;\n import java.io.IOException;\n import java.sql.Connection;\n+import java.sql.PreparedStatement;\n import java.sql.ResultSet;\n import java.sql.SQLException;\n-import java.sql.Statement;\n \n @WebServlet(\"/login\")\n public class LoginServlet extends HttpServlet {\n@@ -17,8 +17,9 @@\n     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {\n         String username = req.getParameter(\"username\");\n         try (Connection conn = Db.get()) {\n-            Statement st = conn.createStatement();\n-            ResultSet rs = st.executeQuery(\"select id from users where username = '\" + username + \"'\");\n+            PreparedStatement st = conn.prepareStatement(\"select id from users where username = ?\");\n+            st.setString(1, username);\n+            ResultSet rs = st.executeQuery();\n             if (rs.next()) {\n                 resp.getWriter().println(\"ok\");\n             } else {\n```"
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "description": "Diff that escapes the repository, every time",
+  "match": {
+    "userPromptContains": [
+      "code:CWE-89:00000000000000000000b003"
+    ],
+    "promptTemplateId": "remediation.v1"
+  },
+  "responses": [
+    {
+      "json": {
+        "fingerprint": "code:CWE-89:00000000000000000000b003",
+        "invariant": "The username request parameter never changes the structure of the SQL query.",
+        "decision_point": {
+          "file": "src/main/java/com/shop/app/LoginServlet.java",
+          "line": 21,
+          "description": "query text is built by concatenating username",
+          "quote": "st.executeQuery("
+        },
+        "strategy": "Replace the concatenated Statement query with a PreparedStatement that binds username as a parameter.",
+        "patch": "--- a/../outside/Evil.java\n+++ b/../outside/Evil.java\n@@ -1,1 +1,1 @@\n-class Evil {}\n+class Evil { }\n",
+        "files_changed": [
+          "src/main/java/com/shop/app/LoginServlet.java"
+        ],
+        "risk_notes": [
+          "Usernames containing quotes now match literally."
+        ]
+      }
+    }
+  ]
+}
