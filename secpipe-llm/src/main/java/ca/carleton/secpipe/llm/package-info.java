@@ -1,6 +1,10 @@
 /**
- * SecPipe llm: llmClient over LangChain4j: routing, tiers, privacy, FakeLlmClient.
+ * SecPipe llm: the single LLM assembly point (WO-L.1).
  *
- * <p>Skeleton created by WO-0.1; see CLAUDE.md §12 for what belongs here.
+ * <p>{@link ca.carleton.secpipe.llm.LlmClients#assemble} builds one of three {@code LlmClient}s:
+ * {@link ca.carleton.secpipe.llm.RoutingLlmClient} (a real provider discovered through {@code LlmProviderFactory},
+ * with per-role model routing, retries, model fallback, per-attempt budget accounting and redaction),
+ * {@link ca.carleton.secpipe.llm.FakeLlmClient} (CI and tests, JSON fixtures) or
+ * {@link ca.carleton.secpipe.llm.NoneLlmClient} (AI off or unavailable).
  */
 package ca.carleton.secpipe.llm;

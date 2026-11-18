@@ -1,0 +1,4 @@
+{
+  "description": "Catch-all: no candidates",
+  "responses": [{"json": {"candidates": []}}]
+}

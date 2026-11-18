@@ -1,0 +1,8 @@
+{
+  "description": "First call returns prose (to be discarded by the runner), the re-run returns valid JSON",
+  "match": {"userPromptContains": ["RETRY_ME"]},
+  "responses": [
+    {"text": "Sure! Here are the findings: none"},
+    {"json": {"candidates": []}}
+  ]
+}
