@@ -211,6 +211,33 @@ class TestEvidenceNodeTest {
     }
 
     @Test
+    void failureWithAnotherMessageLeavesNeedsValidationWithTheExactBlocker() throws Exception {
+        FakeSandboxRunner sandbox = new FakeSandboxRunner().then(FakeSandboxRunner.report(1,
+                FakeSandboxRunner.UNEXPECTED_FAILURE_REPORT));
+
+        Finding.NeedsValidation n = nv(run(EvidenceFixtures.fake(), Optional.of(sandbox), FP));
+
+        assertThat(n.blockers()).containsExactly(
+                "unexpected failure: the login query did not run ==> expected: <1> but was: <0>");
+        TestEvidence te = n.secpipe().testEvidence().get(0);
+        assertThat(te.outcome()).isEqualTo(TestEvidence.Outcome.ERROR);
+        assertThat(te.observedResult()).isEmpty();
+        assertThat(sandbox.testRuns()).hasSize(1);
+    }
+
+    @Test
+    void failedSetupAssumptionLeavesNeedsValidation() throws Exception {
+        FakeSandboxRunner sandbox = new FakeSandboxRunner().then(FakeSandboxRunner.report(0,
+                FakeSandboxRunner.SKIPPED_REPORT));
+
+        Finding.NeedsValidation n = nv(run(EvidenceFixtures.fake(), Optional.of(sandbox), FP));
+
+        assertThat(n.blockers()).containsExactly("setup assumption failed: the recording Db stub did not compile");
+        assertThat(n.secpipe().testEvidence()).extracting(TestEvidence::outcome)
+                .containsExactly(TestEvidence.Outcome.NOT_RUN);
+    }
+
+    @Test
     void malformedGeneratorOutputLeavesNeedsValidation() throws Exception {
         FakeSandboxRunner sandbox = new FakeSandboxRunner();
 

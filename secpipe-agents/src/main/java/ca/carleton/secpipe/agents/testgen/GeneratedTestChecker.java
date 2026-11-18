@@ -11,15 +11,23 @@ import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.PackageDeclaration;
 import com.github.javaparser.ast.body.TypeDeclaration;
 import com.github.javaparser.ast.expr.AnnotationExpr;
+import com.github.javaparser.ast.expr.BinaryExpr;
+import com.github.javaparser.ast.expr.EnclosedExpr;
 import com.github.javaparser.ast.expr.Expression;
 import com.github.javaparser.ast.expr.FieldAccessExpr;
 import com.github.javaparser.ast.expr.MethodCallExpr;
 import com.github.javaparser.ast.expr.ObjectCreationExpr;
 import com.github.javaparser.ast.expr.StringLiteralExpr;
+import com.github.javaparser.ast.expr.TextBlockLiteralExpr;
+import com.github.javaparser.ast.stmt.AssertStmt;
+import com.github.javaparser.ast.stmt.IfStmt;
+import com.github.javaparser.ast.stmt.ThrowStmt;
 import com.github.javaparser.ast.type.ClassOrInterfaceType;
 
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -31,6 +39,11 @@ import java.util.regex.Pattern;
  * {@code SandboxRunner}); it parses it with JavaParser and rejects tests that would use the network, touch files
  * outside the scratch/{@code @TempDir} area, reach into SecPipe, exit the JVM, spawn processes or sleep. A test with
  * any violation is treated as malformed agent output: the caller asks a fresh agent, never edits the test.
+ *
+ * <p>WO-G.11: setup checks must be JUnit assumptions ({@code Assumptions.assumeTrue}), so that only the vulnerability
+ * assertion can fail. Java {@code assert} statements, {@code if (...) fail(...)} / {@code throw new AssertionError} and
+ * (with a {@link TestGenResult}) assertions whose literal message does not report {@code expected_failure} are
+ * rejected as {@link Rule#SETUP_CHECK}.
  */
 public final class GeneratedTestChecker {
 
@@ -60,7 +73,9 @@ public final class GeneratedTestChecker {
         /** Process creation. */
         PROCESS,
         /** {@code Thread.sleep} / {@code TimeUnit.sleep}. */
-        SLEEP
+        SLEEP,
+        /** A setup check written as an assertion instead of a JUnit assumption (WO-G.11). */
+        SETUP_CHECK
     }
 
     /** One problem; {@code line} is 1-based, 0 if unknown. */
@@ -96,6 +111,20 @@ public final class GeneratedTestChecker {
             "TestFactory", "org.junit.jupiter.api.Test", "org.junit.jupiter.params.ParameterizedTest",
             "org.junit.jupiter.api.RepeatedTest", "org.junit.jupiter.api.TestFactory");
     private static final Pattern ABSOLUTE = Pattern.compile("^([/\\\\~]|[A-Za-z]:[/\\\\]).*");
+    private static final Set<String> ASSERTION_SCOPES = Set.of("", "Assertions", "org.junit.jupiter.api.Assertions");
+    private static final Set<String> ASSERTION_ERRORS = Set.of("AssertionError", "java.lang.AssertionError",
+            "AssertionFailedError", "org.opentest4j.AssertionFailedError");
+    private static final int MIN_PARTIAL_MESSAGE = 12;
+    /** JUnit 5 assertions whose message is the last argument when there are at least 3 (expected, actual, ...). */
+    private static final Set<String> MESSAGE_LAST_AT_LEAST_3 = Set.of("assertEquals", "assertNotEquals",
+            "assertSame", "assertNotSame", "assertArrayEquals", "assertIterableEquals", "assertLinesMatch",
+            "assertInstanceOf");
+    /** JUnit 5 assertions whose message is the last argument only at exactly this arity. */
+    private static final Map<String, Integer> MESSAGE_LAST_AT_ARITY = Map.of("assertTrue", 2, "assertFalse", 2,
+            "assertNull", 2, "assertNotNull", 2, "assertDoesNotThrow", 2, "assertThrows", 3,
+            "assertThrowsExactly", 3, "assertTimeout", 3, "assertTimeoutPreemptively", 3);
+    private static final String USE_ASSUMPTIONS = "; setup checks must use Assumptions.assumeTrue/assumeFalse";
+    private static final Pattern WHITESPACE = Pattern.compile("\\s+");
     private static final Pattern ESCAPING = Pattern.compile("(^|.*[/\\\\])\\.\\.([/\\\\].*|$)");
 
     private GeneratedTestChecker() {
@@ -132,6 +161,7 @@ public final class GeneratedTestChecker {
                 out.add(new Violation(Rule.DECLARATION_MISMATCH, line(cu),
                         "class_name " + result.className() + " is not a top-level type of the source"));
             }
+            assertionMessages(cu, result.expectedFailure() == null ? "" : result.expectedFailure(), out);
         });
         return List.copyOf(out);
     }
@@ -187,6 +217,99 @@ public final class GeneratedTestChecker {
         for (MethodCallExpr m : cu.findAll(MethodCallExpr.class)) {
             calls(m, out);
         }
+        for (AssertStmt a : cu.findAll(AssertStmt.class)) {
+            out.add(new Violation(Rule.SETUP_CHECK, line(a), "Java assert statement" + USE_ASSUMPTIONS));
+        }
+        for (IfStmt i : cu.findAll(IfStmt.class)) {
+            boolean fails = i.getThenStmt().findAll(MethodCallExpr.class).stream()
+                    .anyMatch(GeneratedTestChecker::isFail)
+                    || i.getThenStmt().findAll(ThrowStmt.class).stream().anyMatch(t -> t.getExpression()
+                    instanceof ObjectCreationExpr n && ASSERTION_ERRORS.contains(n.getType().getNameWithScope()));
+            if (fails) {
+                out.add(new Violation(Rule.SETUP_CHECK, line(i), "if (...) fail/throw AssertionError; use an "
+                        + "Assertions.assert* call for the vulnerability check" + USE_ASSUMPTIONS));
+            }
+        }
+    }
+
+    private static boolean isFail(MethodCallExpr m) {
+        return m.getNameAsString().equals("fail")
+                && ASSERTION_SCOPES.contains(m.getScope().map(Expression::toString).orElse(""));
+    }
+
+    /**
+     * The index of the message argument of a JUnit 5 {@code Assertions} call, by method and overload arity, or empty
+     * when the call has no message argument (or is not an assertion). Expected/actual operands, executables and
+     * suppliers are never a message position; {@code assertAll} (heading first, then executables) is not checked.
+     */
+    static Optional<Integer> messageIndex(MethodCallExpr m) {
+        if (!ASSERTION_SCOPES.contains(m.getScope().map(Expression::toString).orElse(""))) {
+            return Optional.empty();
+        }
+        String name = m.getNameAsString();
+        int n = m.getArguments().size();
+        if (name.equals("fail")) {
+            // fail(String), fail(String, Throwable), fail(Supplier<String>); fail(Throwable) has no literal message
+            return n >= 1 ? Optional.of(0) : Optional.empty();
+        }
+        if (MESSAGE_LAST_AT_LEAST_3.contains(name)) {
+            // (expected, actual, message) or (expected, actual, delta, message); a 3-arg numeric delta has no literal
+            return n >= 3 ? Optional.of(n - 1) : Optional.empty();
+        }
+        Integer arity = MESSAGE_LAST_AT_ARITY.get(name);
+        return arity != null && n == arity ? Optional.of(n - 1) : Optional.empty();
+    }
+
+    /**
+     * An assertion whose message argument contains string literals, none of which reports {@code expected_failure},
+     * can only fail for a reason other than the vulnerability: it is a setup check. Lambda and method-reference
+     * arguments (executables, suppliers) are never inspected.
+     */
+    private static void assertionMessages(CompilationUnit cu, String expectedFailure, Set<Violation> out) {
+        String expected = normalize(expectedFailure);
+        for (MethodCallExpr m : cu.findAll(MethodCallExpr.class)) {
+            Optional<Integer> index = messageIndex(m);
+            if (index.isEmpty()) {
+                continue;
+            }
+            List<String> literals = new ArrayList<>();
+            messageLiterals(m.getArgument(index.get()), literals);
+            if (literals.isEmpty()) {
+                continue;
+            }
+            boolean reports = !expected.isEmpty() && literals.stream().anyMatch(l -> l.contains(expected)
+                    || l.length() >= MIN_PARTIAL_MESSAGE && expected.contains(l));
+            if (!reports) {
+                out.add(new Violation(Rule.SETUP_CHECK, line(m), m.getNameAsString() + " message \""
+                        + literals.get(0) + "\" does not report expected_failure" + USE_ASSUMPTIONS));
+            }
+        }
+    }
+
+    /** String literals of a message expression: literals, {@code +} concatenation, parentheses, format calls. */
+    private static void messageLiterals(Expression e, List<String> out) {
+        if (e instanceof StringLiteralExpr s) {
+            out.add(normalize(s.getValue()));
+        } else if (e instanceof TextBlockLiteralExpr t) {
+            out.add(normalize(t.getValue()));
+        } else if (e instanceof BinaryExpr b && b.getOperator() == BinaryExpr.Operator.PLUS) {
+            messageLiterals(b.getLeft(), out);
+            messageLiterals(b.getRight(), out);
+        } else if (e instanceof EnclosedExpr p) {
+            messageLiterals(p.getInner(), out);
+        } else if (e instanceof MethodCallExpr c && (c.getNameAsString().equals("formatted")
+                || c.getNameAsString().equals("format") && c.getScope().map(Expression::toString)
+                .filter(sc -> sc.equals("String") || sc.equals("java.lang.String")).isPresent())) {
+            c.getScope().ifPresent(sc -> messageLiterals(sc, out));
+            if (c.getNameAsString().equals("format") && !c.getArguments().isEmpty()) {
+                messageLiterals(c.getArgument(0), out);
+            }
+        }
+        // lambdas, method references, variables and other calls are not inspected
+    }
+
+    private static String normalize(String s) {
+        return WHITESPACE.matcher(s).replaceAll(" ").strip();
     }
 
     private static void checkJunit(CompilationUnit cu, Set<Violation> out) {
