@@ -70,8 +70,8 @@ class LedgerInvariantsTest {
                         List.of(), List.of()),
                 with(p, Status.COVERED, Optional.empty(), List.of("A.java"), List.of("c"), List.of(), List.of(),
                         List.of()),
-                with(p, Status.CANDIDATE, Optional.of(AGENT), List.of("A.java"), List.of("c"), List.of(), List.of(),
-                        List.of()),
+                with(p, Status.CANDIDATE, Optional.of(AGENT), List.of("A.java"), List.of(), List.of("code:x"),
+                        List.of(), List.of()),
                 with(p, Status.BLOCKED, Optional.of(AGENT), List.of(), List.of(), List.of(), List.of(), List.of()),
                 with(p, Status.DEFERRED, Optional.empty(), List.of(), List.of(), List.of(), List.of(), List.of()),
                 with(p, Status.NOT_APPLICABLE, Optional.of(AGENT), List.of(), List.of(), List.of(), List.of("r"),
@@ -82,6 +82,43 @@ class LedgerInvariantsTest {
             assertTrue(errors.stream().allMatch(e -> e.code().equals("L2")));
         }
         assertEquals("/0/result_fingerprints", LedgerInvariants.checkL2(bad.get(2), "/0").get(0).path());
+    }
+
+    @Test
+    void l2PerDeltaAcceptsACandidateWithoutFingerprintsBeforeNormalize() {
+        LedgerUnit settled = with(planned("a"), Status.CANDIDATE, Optional.empty(), List.of("A.java"),
+                List.of("semgrep:sqli"), List.of(), List.of(), List.of("semgrep"));
+        assertTrue(LedgerInvariants.check(List.of(planned("a")), List.of(settled)).ok());
+    }
+
+    @Test
+    void l2PerDeltaStillRequiresReviewedPathsAndLocalChecksForCandidate() {
+        LedgerUnit noPaths = with(planned("a"), Status.CANDIDATE, Optional.empty(), List.of(), List.of("c"),
+                List.of(), List.of(), List.of("semgrep"));
+        LedgerUnit noChecks = with(planned("a"), Status.CANDIDATE, Optional.empty(), List.of("A.java"), List.of(),
+                List.of(), List.of(), List.of("semgrep"));
+        ValidationResult r1 = LedgerInvariants.check(List.of(planned("a")), List.of(noPaths));
+        ValidationResult r2 = LedgerInvariants.check(List.of(planned("a")), List.of(noChecks));
+        assertEquals(List.of("L2"), codes(r1));
+        assertEquals("/0/reviewed_paths", r1.errors().get(0).path());
+        assertEquals(List.of("L2"), codes(r2));
+        assertEquals("/0/local_checks", r2.errors().get(0).path());
+    }
+
+    @Test
+    void l2FinalPassesWhenEveryCandidateHasAFingerprint() {
+        List<LedgerUnit> ledger = List.of(in(planned("a"), Status.CANDIDATE), in(planned("b"), Status.COVERED));
+        assertTrue(LedgerInvariants.checkFinal(ledger).ok());
+    }
+
+    @Test
+    void l2FinalFailsForACandidateWithoutFingerprints() {
+        LedgerUnit bare = with(planned("a"), Status.CANDIDATE, Optional.empty(), List.of("A.java"), List.of("c"),
+                List.of(), List.of(), List.of("semgrep"));
+        ValidationResult r = LedgerInvariants.checkFinal(List.of(bare));
+        assertEquals(List.of("L2"), codes(r));
+        assertEquals("/0/result_fingerprints", r.errors().get(0).path());
+        assertEquals(Optional.empty(), LedgerInvariants.incompleteReason(List.of(bare)));
     }
 
     @Test

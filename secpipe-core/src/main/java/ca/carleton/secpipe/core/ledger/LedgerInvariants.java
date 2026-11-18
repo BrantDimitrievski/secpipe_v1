@@ -19,11 +19,13 @@ import java.util.Set;
  * rule names ({@code L1} .. {@code L6}); paths are JSON pointers into the ledger array.
  *
  * <ul>
- *   <li>{@link #check(List, List)}: L1, L2 on {@code after}; L3, L4 per unit between {@code before} and
+ *   <li>{@link #check(List, List)}: L1, L2 (except the finalize-only cell) on {@code after}; L3, L4 per unit
+ *       between {@code before} and
  *       {@code after}. Same shape as {@code EngineValidators.ledgerTransition}, so WO-K.13 wires
  *       {@code LedgerInvariants::check} directly.</li>
  *   <li>{@link #checkFingerprints(List, Set)}: L5 (needs the known fingerprints, so it is not part of
  *       {@code check}).</li>
+ *   <li>{@link #checkFinal(List)}: the L2 cell deferred to finalize (a candidate has a result fingerprint).</li>
  *   <li>{@link #checkTerminal(List)} / {@link #incompleteReason(List)}: L6.</li>
  * </ul>
  * L3 compares the unit before and after one write. A write that moves one unit through two statuses in one call
@@ -82,7 +84,10 @@ public final class LedgerInvariants {
         return List.copyOf(errors);
     }
 
-    /** L2: the status invariant table, for one unit. */
+    /**
+     * L2: the status invariant table, for one unit, as checked on every delta. The one deferred cell, "a candidate has
+     * at least one result_fingerprint", is checked by {@link #checkFinal(List)} instead.
+     */
     public static List<ValidationError> checkL2(LedgerUnit u, String path) {
         List<ValidationError> errors = new ArrayList<>();
         String s = LedgerTransitions.name(u.status());
@@ -110,9 +115,10 @@ public final class LedgerInvariants {
                 requireEmpty(errors, path, s, "unresolved", u.unresolved());
             }
             case CANDIDATE -> {
+                // ">= 1 result_fingerprints" is enforced only at finalize (checkFinal): fingerprints are assigned by
+                // normalize / normalize_llm (PLAN §4.2), after detect and hunt have settled the unit.
                 requireNonEmpty(errors, path, s, "reviewed_paths", u.reviewedPaths());
                 requireNonEmpty(errors, path, s, "local_checks", u.localChecks());
-                requireNonEmpty(errors, path, s, "result_fingerprints", u.resultFingerprints());
             }
             case BLOCKED -> {
                 requireAgent(errors, path, s, agent, true);
@@ -181,6 +187,22 @@ public final class LedgerInvariants {
                     errors.add(ValidationError.of("L5", "/" + i + "/result_fingerprints/" + j,
                             "unknown result fingerprint " + fps.get(j)));
                 }
+            }
+        }
+        return ValidationResult.of(errors);
+    }
+
+    /**
+     * The L2 cell deferred to finalize: every {@code candidate} unit has at least one {@code result_fingerprint}
+     * (normalize has run). Code {@code L2}. Call it at finalize next to {@link #checkFingerprints(List, Set)}.
+     */
+    public static ValidationResult checkFinal(List<LedgerUnit> ledger) {
+        List<ValidationError> errors = new ArrayList<>();
+        for (int i = 0; i < ledger.size(); i++) {
+            LedgerUnit u = ledger.get(i);
+            if (u.status() == Status.CANDIDATE && u.resultFingerprints().isEmpty()) {
+                errors.add(ValidationError.of("L2", "/" + i + "/result_fingerprints",
+                        "candidate unit " + u.coverageId() + " has no result_fingerprints at finalize"));
             }
         }
         return ValidationResult.of(errors);
