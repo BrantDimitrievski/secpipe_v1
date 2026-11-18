@@ -43,7 +43,7 @@ class BuildExtensionPreflightTest {
         List<BuildExtensionPreflight.Finding> f = BuildExtensionPreflight.check(root);
         assertThat(paths(f)).containsExactly("mod-b/pom.xml", "pom.xml");
         assertThat(BuildExtensionPreflight.message(f)).contains("mod-b/pom.xml")
-            .contains("\nhint: ").contains("--allow-build-extensions");
+            .contains("\nhint: ").contains("--allow-build-extensions").contains("remote parent POM");
     }
 
     @Test
@@ -58,6 +58,36 @@ class BuildExtensionPreflightTest {
         Files.writeString(root.resolve("pom.xml"), PLAIN_POM);
         Files.createDirectories(root.resolve("target/classes"));
         Files.writeString(root.resolve("target/classes/pom.xml"), "<extensions>true</extensions>");
+        assertThat(BuildExtensionPreflight.check(root)).isEmpty();
+    }
+
+    @Test
+    void standardBuildExtensionsBlockIsFlagged(@TempDir Path root) throws Exception {
+        Files.writeString(root.resolve("pom.xml"), """
+            <project>
+              <build>
+                <extensions>
+                  <extension>
+                    <groupId>kr.motd.maven</groupId>
+                    <artifactId>os-maven-plugin</artifactId>
+                    <version>1.7.1</version>
+                  </extension>
+                </extensions>
+              </build>
+            </project>
+            """);
+        List<BuildExtensionPreflight.Finding> f = BuildExtensionPreflight.check(root);
+        assertThat(paths(f)).containsExactly("pom.xml");
+        assertThat(f.get(0).reason()).contains("<build><extensions>");
+        assertThat(BuildExtensionPreflight.declaresExtensions("<build><extensions><extension "
+            + "x=\"1\"/></extensions></build>")).isTrue();
+    }
+
+    @Test
+    void emptyOrCommentedBuildExtensionsAreIgnored(@TempDir Path root) throws Exception {
+        Files.writeString(root.resolve("pom.xml"), "<project><build><extensions>\n</extensions>"
+            + "<extensions><!-- <extension><artifactId>x</artifactId></extension> --></extensions>"
+            + "</build><!-- <build><extensions><extension/></extensions></build> --></project>");
         assertThat(BuildExtensionPreflight.check(root)).isEmpty();
     }
 }

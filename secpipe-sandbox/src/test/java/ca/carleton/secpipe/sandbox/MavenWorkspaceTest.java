@@ -3,6 +3,7 @@ package ca.carleton.secpipe.sandbox;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import ca.carleton.secpipe.contracts.spi.SandboxRunner;
 import ca.carleton.secpipe.contracts.spi.SandboxRunner.Capabilities;
@@ -16,6 +17,8 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFileAttributeView;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -129,13 +132,27 @@ class MavenWorkspaceTest {
     }
 
     @Test
-    void failedPrefetchIsIncompleteEvenIfDryCheckPasses(@TempDir Path dir) throws Exception {
+    void failedPrefetchIsIncompleteAndSkipsTheDryCheck(@TempDir Path dir) throws Exception {
         FakeRunner fake = new FakeRunner().then(1, "[ERROR] network unreachable").then(0, "");
         MavenWorkspace ws = new MavenWorkspace(fake, dir.resolve("work"), MavenWorkspace.Options.defaults());
         MavenWorkspace.Outcome out = ws.prepare(project(dir));
         assertThat(out).isInstanceOf(MavenWorkspace.PrefetchIncomplete.class);
         assertThat(((MavenWorkspace.PrefetchIncomplete) out).reason())
             .isEqualTo("prefetch failed with exit 1: [ERROR] network unreachable");
+        assertThat(fake.specs).hasSize(1);
+        assertThat(fake.specs.get(0).network()).isEqualTo(Network.PREFETCH_ONLY);
+    }
+
+    @Test
+    void workRootIsOwnerOnlyWhileCacheIsOpenToTheSandboxUser(@TempDir Path dir) throws Exception {
+        assumeTrue(Files.getFileAttributeView(dir, PosixFileAttributeView.class) != null, "POSIX file system");
+        MavenWorkspace ws = new MavenWorkspace(new FakeRunner().then(0, "").then(0, ""), dir.resolve("work"),
+            MavenWorkspace.Options.defaults());
+        ws.prepare(project(dir));
+        assertThat(PosixFilePermissions.toString(Files.getPosixFilePermissions(dir.resolve("work"))))
+            .isEqualTo("rwx------");
+        assertThat(PosixFilePermissions.toString(Files.getPosixFilePermissions(ws.cacheDir())))
+            .isEqualTo("rwxrwxrwx");
     }
 
     @Test

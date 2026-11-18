@@ -40,10 +40,11 @@ import java.util.regex.Pattern;
  *   <b>MavenPrefetch</b> phase through {@link SandboxRunner}: {@link Network#PREFETCH_ONLY}, no env beyond the
  *   runner's defaults (no secrets), the cache mounted read-write at {@link #CACHE_MOUNT}, goals
  *   {@link #PREFETCH_GOALS}.</li>
- *   <li>A dry check then runs {@code mvn -o dependency:build-classpath} with {@code --network none}, all 13 controls
- *   and the cache mounted read-only as the local-repo tail. "Could not resolve dependencies" (or any other offline
- *   resolution error) yields {@link PrefetchIncomplete} naming the missing artifacts: a {@code needs_validation}
- *   blocker {@value #BLOCKER}, never a test failure.</li>
+ *   <li>If the prefetch succeeded, a dry check runs {@code mvn -o dependency:build-classpath} with
+ *   {@code --network none}, all 13 controls and the cache mounted read-only as the local-repo tail. A failed
+ *   prefetch, or "Could not resolve dependencies" (or any other offline resolution error) in the dry check, yields
+ *   {@link PrefetchIncomplete} naming the missing artifacts: a {@code needs_validation} blocker {@value #BLOCKER},
+ *   never a test failure.</li>
  * </ol>
  *
  * <p>Later offline runs use {@link #offlineCommand(String...)} inside {@link #offlineSpec}: the same read-only cache
@@ -155,23 +156,25 @@ public final class MavenWorkspace {
         Path cache = cacheDir();
         Path scratch = scratchDir();
         try {
+            Files.createDirectories(workRoot);
+            setPermissions(workRoot, "rwx------");
             Files.createDirectories(cache);
-            openForSandboxUser(cache);
+            setPermissions(cache, "rwxrwxrwx");
             copyTree(target, scratch);
         } catch (IOException e) {
             throw new UncheckedIOException("cannot prepare workspace in " + workRoot + ": " + e.getMessage(), e);
         }
         Result prefetch = runner.run(prefetchSpec());
-        Result dry = runner.run(offlineSpec(offlineCommand("dependency:build-classpath"), "maven offline dry check"));
-        boolean prefetchOk = !prefetch.timedOut() && prefetch.exitCode() == 0;
-        boolean dryOk = !dry.timedOut() && dry.exitCode() == 0;
-        if (prefetchOk && dryOk) {
-            return new Prepared(cache, scratch);
+        if (prefetch.timedOut() || prefetch.exitCode() != 0) {
+            return new PrefetchIncomplete(missingArtifacts(prefetch.stdoutTail() + "\n" + prefetch.stderrTail()),
+                "prefetch " + describe(prefetch));
         }
-        TreeSet<String> missing = new TreeSet<>(missingArtifacts(dry.stdoutTail() + "\n" + dry.stderrTail()));
-        missing.addAll(missingArtifacts(prefetch.stdoutTail() + "\n" + prefetch.stderrTail()));
-        String reason = !prefetchOk ? "prefetch " + describe(prefetch) : "offline dependency check " + describe(dry);
-        return new PrefetchIncomplete(List.copyOf(missing), reason);
+        Result dry = runner.run(offlineSpec(offlineCommand("dependency:build-classpath"), "maven offline dry check"));
+        if (dry.timedOut() || dry.exitCode() != 0) {
+            return new PrefetchIncomplete(missingArtifacts(dry.stdoutTail() + "\n" + dry.stderrTail()),
+                "offline dependency check " + describe(dry));
+        }
+        return new Prepared(cache, scratch);
     }
 
     /** The network-enabled, secret-free MavenPrefetch spec. Runs no lifecycle phase, so no tests or build plugins. */
@@ -237,11 +240,14 @@ public final class MavenWorkspace {
         return "failed with exit " + r.exitCode() + err.map(e -> ": " + e.strip()).orElse("");
     }
 
-    /** The container runs as uid 10001; the cache root must be writable by it during prefetch. */
-    private static void openForSandboxUser(Path dir) throws IOException {
+    /**
+     * POSIX only. The container runs as uid 10001, so the cache root must be world-writable during prefetch; the
+     * enclosing {@code workRoot} is 0700 so other local users cannot reach (and tamper with) that cache.
+     */
+    private static void setPermissions(Path dir, String perms) throws IOException {
         PosixFileAttributeView view = Files.getFileAttributeView(dir, PosixFileAttributeView.class);
         if (view != null) {
-            view.setPermissions(PosixFilePermissions.fromString("rwxrwxrwx"));
+            view.setPermissions(PosixFilePermissions.fromString(perms));
         }
     }
 

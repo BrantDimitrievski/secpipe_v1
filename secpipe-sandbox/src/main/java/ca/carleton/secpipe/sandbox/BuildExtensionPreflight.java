@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
@@ -20,8 +21,10 @@ import java.util.regex.Pattern;
  * declares them is refused unless the user passed {@code --allow-build-extensions}.
  *
  * <p>Flags {@code .mvn/extensions.xml} at the target root and every {@code pom.xml} (outside {@code target/},
- * {@code .git/} and {@code node_modules/}) that contains {@code <extensions>true</extensions>} outside an XML
- * comment. The check is purely textual and runs on the host without executing anything.
+ * {@code .git/} and {@code node_modules/}) that, outside XML comments, contains {@code <extensions>true</extensions>}
+ * or an {@code <extensions>} element with an {@code <extension>} child ({@code <build><extensions>}). The check is
+ * purely textual and runs on the host without executing anything, so extensions inherited from a parent POM that is
+ * not in the target tree (a remote parent) are not detected.
  */
 public final class BuildExtensionPreflight {
 
@@ -31,6 +34,9 @@ public final class BuildExtensionPreflight {
     private static final Set<String> SKIP_DIRS = Set.of("target", ".git", "node_modules");
     private static final Pattern COMMENT = Pattern.compile("<!--.*?-->", Pattern.DOTALL);
     private static final Pattern EXTENSIONS_TRUE = Pattern.compile("<extensions>\\s*true\\s*</extensions>");
+    private static final Pattern EXTENSIONS_BLOCK = Pattern.compile("<extensions\\b[^>]*>(.*?)</extensions>",
+        Pattern.DOTALL);
+    private static final Pattern EXTENSION = Pattern.compile("<extension\\b");
 
     /** One reason to refuse: a target-relative path (forward slashes) and what it declares. */
     public record Finding(String path, String reason) { }
@@ -55,10 +61,16 @@ public final class BuildExtensionPreflight {
 
                 @Override
                 public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                    if (attrs.isRegularFile() && file.getFileName().toString().equals("pom.xml")
-                        && declaresExtensions(Files.readString(file, StandardCharsets.UTF_8))) {
-                        out.add(new Finding(relative(root, file),
-                            "declares a plugin with <extensions>true</extensions>"));
+                    if (attrs.isRegularFile() && file.getFileName().toString().equals("pom.xml")) {
+                        String pom = COMMENT.matcher(Files.readString(file, StandardCharsets.UTF_8)).replaceAll("");
+                        if (EXTENSIONS_TRUE.matcher(pom).find()) {
+                            out.add(new Finding(relative(root, file),
+                                "declares a plugin with <extensions>true</extensions>"));
+                        }
+                        if (declaresBuildExtensions(pom)) {
+                            out.add(new Finding(relative(root, file),
+                                "declares <build><extensions><extension> build extensions"));
+                        }
                     }
                     return FileVisitResult.CONTINUE;
                 }
@@ -70,9 +82,21 @@ public final class BuildExtensionPreflight {
         return List.copyOf(out);
     }
 
-    /** True when the POM text enables extensions outside XML comments. */
+    /** True when the POM text enables extensions of either kind outside XML comments. */
     static boolean declaresExtensions(String pom) {
-        return EXTENSIONS_TRUE.matcher(COMMENT.matcher(pom).replaceAll("")).find();
+        String stripped = COMMENT.matcher(pom).replaceAll("");
+        return EXTENSIONS_TRUE.matcher(stripped).find() || declaresBuildExtensions(stripped);
+    }
+
+    /** An {@code <extensions>} element that contains an {@code <extension>} (comments already stripped). */
+    private static boolean declaresBuildExtensions(String strippedPom) {
+        Matcher m = EXTENSIONS_BLOCK.matcher(strippedPom);
+        while (m.find()) {
+            if (EXTENSION.matcher(m.group(1)).find()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** User-facing refusal: a one-line problem plus a one-line {@code hint:}. */
@@ -81,7 +105,8 @@ public final class BuildExtensionPreflight {
         for (Finding f : findings) {
             sb.append(' ').append(f.path()).append(" (").append(f.reason()).append(')');
         }
-        return sb.append("\nhint: review them, then re-run with --allow-build-extensions").toString();
+        return sb.append("\nhint: review them, then re-run with --allow-build-extensions (extensions inherited from a")
+            .append(" remote parent POM cannot be detected by this text scan)").toString();
     }
 
     private static String relative(Path root, Path file) {
