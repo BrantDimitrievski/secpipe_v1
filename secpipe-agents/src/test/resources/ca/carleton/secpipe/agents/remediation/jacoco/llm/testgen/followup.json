@@ -1,0 +1,28 @@
+{
+  "description": "adequacy follow-up test for the fixed LoginServlet (WO-M.2)",
+  "match": {
+    "promptTemplateId": "testgen.v1",
+    "userPromptContains": [
+      "Adequacy follow-up",
+      "code:CWE-89:00000000000000000000c001"
+    ]
+  },
+  "responses": [
+    {
+      "json": {
+        "fingerprint": "code:CWE-89:00000000000000000000c001",
+        "package_name": "secpipe.generated",
+        "class_name": "LoginServletAdequacySecurityTest",
+        "source": "package secpipe.generated;\n\nimport static org.junit.jupiter.api.Assertions.assertEquals;\n\nimport java.util.ArrayList;\nimport java.util.List;\nimport org.junit.jupiter.api.Test;\n\nclass LoginServletAdequacySecurityTest {\n\n    @Test\n    void boundLoginQueryRunsOnce() {\n        List<String> executed = new ArrayList<>();\n        executed.add(\"select id from users where username = ?\");\n        assertEquals(1, executed.size(), \"the bound login query did not run\");\n    }\n}\n",
+        "target_symbols": [
+          "com.shop.app.LoginServlet#doPost(HttpServletRequest, HttpServletResponse)"
+        ],
+        "payloads": [
+          "' OR '1'='1"
+        ],
+        "expected_failure": "the bound login query did not run",
+        "rationale": "Executes the bound executeQuery() line that the regression test did not reach."
+      }
+    }
+  ]
+}

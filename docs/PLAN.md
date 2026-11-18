@@ -3839,8 +3839,9 @@ Design principles: reuse the existing sandbox path (DockerSandboxRunner, MavenWo
 | 0–7 | as in "Re-plan 2026-11-17 (lean)" | merged or in progress |
 | 8 | K.15, G.11, G.10 | 3; no shared files (cli + `core/detect/DetectRescanner`; `agents/evidence` + `agents/testgen`; `agents/remediation` agent files) |
 | 9 | M.1 | 1 (L, two sessions) |
-| 10 | M.2, R.4 | 2 |
-| 11 | E.6 | 1 |
+| 10 | M.3, R.4 | 2 |
+| 11 | M.2 | 1 (depends on M.3) |
+| 12 | E.6 | 1 |
 
 ```mermaid
 graph LR

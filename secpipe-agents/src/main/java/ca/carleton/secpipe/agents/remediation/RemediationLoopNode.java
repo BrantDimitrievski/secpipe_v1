@@ -5,10 +5,14 @@ import ca.carleton.secpipe.agents.remediation.RemediationAgent.PreviousAttempt;
 import ca.carleton.secpipe.agents.remediation.RemediationAgent.RegressionTest;
 import ca.carleton.secpipe.agents.runner.AgentOutcome;
 import ca.carleton.secpipe.agents.runner.AgentRunner;
+import ca.carleton.secpipe.agents.runner.GroundingContext;
+import ca.carleton.secpipe.agents.testgen.TestGenAgent;
 import ca.carleton.secpipe.contracts.agent.AgentOutputs.RemediationResult;
+import ca.carleton.secpipe.contracts.agent.AgentOutputs.TestGenResult;
 import ca.carleton.secpipe.contracts.config.SecPipeConfig;
 import ca.carleton.secpipe.contracts.finding.Candidate;
 import ca.carleton.secpipe.contracts.finding.Finding;
+import ca.carleton.secpipe.contracts.finding.Finding.Adequacy;
 import ca.carleton.secpipe.contracts.finding.Finding.FixAttempt;
 import ca.carleton.secpipe.contracts.finding.Finding.TestEvidence;
 import ca.carleton.secpipe.contracts.pipeline.PipelineNode;
@@ -38,6 +42,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.SortedSet;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
@@ -75,6 +80,12 @@ import java.util.stream.Stream;
  * record is not retried. A sandbox that refuses or dies ({@link SuiteBaseline.NotRun}) during the regression test or
  * the suite gives a {@code sandbox_unavailable} attempt and stops that record. Every non-confirmed code record
  * without a status gets {@code remediation_status=not_attempted} whenever the node is enabled.
+ *
+ * <p>WO-M.2: the regression run of step 2 also measures JaCoCo coverage ({@link AdequacyCheck#run}). For a
+ * {@code fixed} attempt the changed production lines are checked: all executed → {@code adequacy.adequate=true};
+ * otherwise one extra testgen call writes a follow-up test, which runs with the regression test on a fresh patched
+ * copy (one more sandbox run). Still not adequate is recorded in {@code fix_attempts[].adequacy} and a run note; the
+ * attempt stays {@code fixed}.
  */
 public final class RemediationLoopNode implements PipelineNode {
 
@@ -244,6 +255,8 @@ public final class RemediationLoopNode implements PipelineNode {
         private Path pristine;
         private SuiteBaseline.Baseline baseline;
         private boolean sandboxBudgetOut;
+        private AgentRunner agentRunner;
+        private AgentRunner.DiscardListener discardListener = AgentRunner.DiscardListener.NONE;
 
         Run(PipelineState state, Settings settings, Services svc) {
             this.state = state;
@@ -286,6 +299,8 @@ public final class RemediationLoopNode implements PipelineNode {
                     svc.log().warn("remediate: discarded " + agentId + " output (attempt " + attempt + "): "
                             + reason);
             AgentRunner runner = new AgentRunner(svc.llm(), new DefaultPromptRenderer(), listener);
+            agentRunner = runner;
+            discardListener = listener;
             RemediationAgent agent = new RemediationAgent(runner, sources, pristine, listener);
             for (Finding.Confirmed c : todo.values()) {
                 RegressionTest test = tests.get(c.fingerprint());
@@ -397,8 +412,12 @@ public final class RemediationLoopNode implements PipelineNode {
                             + " (not retried)");
                     break;
                 }
-                attempts.add(FixClassifier.toFixAttempt(n, Optional.of(patchArtifact), Optional.of(fix.strategy()),
-                        a.classification()));
+                FixAttempt entry = FixClassifier.toFixAttempt(n, Optional.of(patchArtifact),
+                        Optional.of(fix.strategy()), a.classification());
+                if (a.classification().outcome() == FixAttempt.Outcome.FIXED) {
+                    entry = withAdequacy(entry, adequacy(record, fix.patch(), test, fqcn, a, n, dir));
+                }
+                attempts.add(entry);
                 svc.log().info("remediate: " + fp + " attempt " + n + ": "
                         + a.classification().outcome().name().toLowerCase(Locale.ROOT));
                 if (a.classification().outcome() == FixAttempt.Outcome.SANDBOX_UNAVAILABLE) {
@@ -438,8 +457,9 @@ public final class RemediationLoopNode implements PipelineNode {
                 sandboxBudgetOut = true;
                 return Optional.empty();
             }
-            SuiteBaseline.TestRun reg = SuiteBaseline.runTests(runner, ws, regressionCopy, Optional.of(fqcn),
+            AdequacyCheck.CoverageRun covered = AdequacyCheck.run(runner, ws, regressionCopy, List.of(fqcn),
                     "regression test " + fqcn + " (fix attempt " + n + ")");
+            SuiteBaseline.TestRun reg = covered.tests();
             if (reg instanceof SuiteBaseline.BuildFailed bf) {
                 return Optional.of(Attempt.of(FixClassifier.classify(obs.withCompiled(false)),
                         "build broken: " + bf.detail(), bf.logTail(), Map.of()));
@@ -453,7 +473,7 @@ public final class RemediationLoopNode implements PipelineNode {
             }
             if (rr == FixClassifier.RegressionResult.SKIPPED) {
                 return Optional.of(new Attempt(FixClassifier.classify(obs), FixClassifier.FIX_UNVERIFIED,
-                        describe(reg), Map.of(), true));
+                        describe(reg), Map.of(), true, Optional.empty()));
             }
             if (rr != FixClassifier.RegressionResult.PASSED) {
                 return Optional.of(Attempt.of(FixClassifier.classify(obs), "regression test did not pass ("
@@ -504,7 +524,86 @@ public final class RemediationLoopNode implements PipelineNode {
                         + String.join(", ", c.newFingerprints());
                 default -> "none";
             };
-            return Optional.of(Attempt.of(c, step, step, rescanned));
+            return Optional.of(new Attempt(c, step, step, rescanned, false, covered.coverage()));
+        }
+
+        /**
+         * WO-M.2: adequacy of a {@code fixed} attempt. Measured from the coverage of the regression run; when changed
+         * lines stay uncovered, one extra testgen call (LLM budget) writes a follow-up test, which runs next to the
+         * regression test on a fresh patched copy with coverage (one sandbox run, {@code --max-sandbox-runs}). Both
+         * tests must pass there; the suite and the rescan (steps 3-4) are not repeated because only test code was
+         * added. Never changes the attempt's outcome: a limitation goes into the note.
+         */
+        private Adequacy adequacy(Finding.Confirmed record, String patch, RegressionTest test, String fqcn,
+                                  Attempt a, int n, Path dir) throws InterruptedException {
+            String fp = record.fingerprint();
+            Map<String, SortedSet<Integer>> changed = AdequacyCheck.changedLines(patch);
+            AdequacyCheck.Measurement first = AdequacyCheck.evaluate(changed, a.coverage());
+            if (first.adequacy().adequate() || a.coverage().isEmpty() || first.uncovered().isEmpty()) {
+                return logged(fp, n, first).adequacy();
+            }
+            String limit = "; one follow-up test was not run: ";
+            if (svc.budget().exhausted() || agentRunner == null) {
+                return logged(fp, n, first.withNote(first.adequacy().note().orElse("") + limit
+                        + "agent-call budget exhausted (--max-agent-calls)")).adequacy();
+            }
+            Path regressionCopy = dir.resolve("attempt" + n + "-regression");
+            SourceIndex patched = index(regressionCopy);
+            AgentOutcome<TestGenResult> gen = new TestGenAgent().generate(agentRunner,
+                    AdequacyCheck.followUpInput(record, first, test, patched),
+                    GroundingContext.of(patched, Set.of(fp)), discardListener);
+            if (!(gen instanceof AgentOutcome.Ok<TestGenResult> ok)) {
+                String why = gen instanceof AgentOutcome.Unavailable<TestGenResult> u ? u.reason()
+                        : ((AgentOutcome.Dropped<TestGenResult>) gen).reason();
+                return logged(fp, n, first.withNote(first.adequacy().note().orElse("") + limit
+                        + "testgen: " + why)).adequacy();
+            }
+            TestGenResult t = ok.value();
+            String followFqcn = t.packageName().isBlank() ? t.className() : t.packageName() + "." + t.className();
+            String followPath = "src/test/java/" + followFqcn.replace('.', '/') + ".java";
+            if (followPath.equals(test.path())) {
+                return logged(fp, n, first.withNote(first.adequacy().note().orElse("") + limit
+                        + "the follow-up test reused the regression test's class name")).adequacy();
+            }
+            if (!svc.budget().tryAcquireSandboxRun()) {
+                sandboxBudgetOut = true;
+                return logged(fp, n, first.withNote(first.adequacy().note().orElse("") + limit
+                        + SANDBOX_BUDGET + " (--max-sandbox-runs)")).adequacy();
+            }
+            Path copy = dir.resolve("attempt" + n + "-adequacy");
+            SuiteBaseline.freshCopy(pristine, copy);
+            UnifiedDiff.apply(copy, patch);
+            writeTest(copy, test);
+            writeTest(copy, new RegressionTest(followPath, t.source()));
+            AdequacyCheck.CoverageRun rerun = AdequacyCheck.run(svc.sandbox().orElseThrow(), ws, copy,
+                    List.of(fqcn, followFqcn), "regression test " + fqcn + " with follow-up " + followFqcn
+                            + " (adequacy, fix attempt " + n + ")");
+            boolean allPassed = rerun.tests() instanceof SuiteBaseline.Completed done && !done.tests().isEmpty()
+                    && done.tests().values().stream().allMatch(s -> s == SuiteBaseline.TestStatus.PASSED);
+            if (!allPassed) {
+                return logged(fp, n, first.withNote(first.adequacy().note().orElse("")
+                        + "; the follow-up test " + followFqcn + " did not pass on the patched code: "
+                        + cap(describe(rerun.tests())).lines().findFirst().orElse(""))).adequacy();
+            }
+            AdequacyCheck.Measurement second = AdequacyCheck.evaluate(changed, rerun.coverage());
+            if (!second.adequacy().adequate()) {
+                second = second.withNote(second.adequacy().note().orElse("not adequate")
+                        + "; still not adequate after one follow-up test (" + followFqcn + ")");
+            } else {
+                second = second.withNote("adequate with follow-up test " + followFqcn);
+            }
+            return logged(fp, n, second).adequacy();
+        }
+
+        private AdequacyCheck.Measurement logged(String fp, int n, AdequacyCheck.Measurement m) {
+            Adequacy q = m.adequacy();
+            svc.log().info("remediate: " + fp + " attempt " + n + " adequacy: adequate=" + q.adequate() + ", "
+                    + q.changedLinesCovered() + "/" + q.changedLinesTotal() + " changed lines covered"
+                    + q.note().map(x -> " (" + x + ")").orElse(""));
+            if (!q.adequate()) {
+                notes.add("adequacy limited for " + fp + " attempt " + n + ": " + q.note().orElse("not adequate"));
+            }
+            return m;
         }
 
         private List<String> applyProblems(Path copy, String patch, String testPath) {
@@ -623,11 +722,18 @@ public final class RemediationLoopNode implements PipelineNode {
 
     /** What one attempt observed: classification, failing step, log for the next prompt, rescanned candidates. */
     private record Attempt(FixClassifier.Classification classification, String failingStep, String log,
-                           Map<String, Candidate> rescanned, boolean unverified) {
+                           Map<String, Candidate> rescanned, boolean unverified,
+                           Optional<JacocoXml.Coverage> coverage) {
         static Attempt of(FixClassifier.Classification classification, String failingStep, String log,
                           Map<String, Candidate> rescanned) {
-            return new Attempt(classification, failingStep, log, rescanned, false);
+            return new Attempt(classification, failingStep, log, rescanned, false, Optional.empty());
         }
+    }
+
+    /** {@code a} with {@code adequacy} set (WO-M.2). */
+    static FixAttempt withAdequacy(FixAttempt a, Adequacy adequacy) {
+        return new FixAttempt(a.attempt(), a.patchArtifact(), a.strategy(), a.outcome(), a.regressionTestPassed(),
+                a.suitePassed(), a.rescanClean(), a.newFingerprints(), Optional.of(adequacy));
     }
 
     /** {@code <family>-<first 12 hash chars>} for code fingerprints, else a file-name-safe form. */
