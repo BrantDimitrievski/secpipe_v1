@@ -1,5 +1,5 @@
 ### WO-X.2: Implement Maven prefetch and offline workspace preparation
-Wave: 4   Depends on: WO-X.1   Blocks: WO-G.7
+Wave: 4   Depends on: WO-X.1   Blocks: WO-G.7, WO-M.1
 Milestone: Prototype 2 Dec 5
 Traces: FR-12, NFR-5 · J
 Suggested human owner: Elodie Abdo (reviewer: Abdul Babatunde)

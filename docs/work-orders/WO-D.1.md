@@ -1,7 +1,7 @@
 ### WO-D.1: Write the user guide and demo script
 Wave: 7   Depends on: WO-K.13, WO-L.2, WO-G.7   Blocks: none
 Milestone: Prototype 2 Dec 5
-Traces: NFR-1, NFR-5, NFR-6, FR-2, FR-7, FR-13, FR-14 · Q (FR-7, FR-13, FR-14 and Q appear only in the Limitations section: not implemented in the lean plan; see `docs/PLAN.md` "Re-plan 2026-11-17 (lean)")
+Traces: NFR-1, NFR-5, NFR-6, FR-2, FR-7 (FR-7 appears only in the Limitations section: not implemented; FR-13, FR-14 and Q are traced again by the remediation orders, see `docs/PLAN.md` "Re-plan 2026-11-18 (remediation)")
 Suggested human owner: Elaine Huang (reviewer: Abdul Babatunde)
 Size: S
 

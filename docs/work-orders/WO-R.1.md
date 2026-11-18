@@ -1,5 +1,5 @@
 ### WO-R.1: Implement JSON and SARIF writers, the Markdown report, and the report node
-Wave: 3   Depends on: WO-V.1, WO-C.1, WO-C.2   Blocks: WO-K.13
+Wave: 3   Depends on: WO-V.1, WO-C.1, WO-C.2   Blocks: WO-K.13, WO-R.4
 Milestone: Prototype 2 Dec 5
 Traces: FR-4, FR-9, FR-10, FR-11 · F, G, S
 Suggested human owner: Abdul Babatunde (reviewer: Elaine Huang)

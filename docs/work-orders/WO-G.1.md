@@ -1,5 +1,5 @@
 ### WO-G.1: Build the prompt framework and AgentRunner
-Wave: 4   Depends on: WO-L.1, WO-C.3   Blocks: WO-G.4, WO-G.6
+Wave: 4   Depends on: WO-L.1, WO-C.3   Blocks: WO-G.4, WO-G.6, WO-G.10
 Milestone: Prototype 2 Dec 5
 Traces: FR-1, NFR-5 · A, C, I, R
 Suggested human owner: Clinton Odinamadu (reviewer: Elodie Abdo)

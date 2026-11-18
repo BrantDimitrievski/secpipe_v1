@@ -1,5 +1,5 @@
 ### WO-K.6: Implement the detect node — adapter discovery, parallel execution, ledger settlement
-Wave: 3   Depends on: WO-P.2, WO-C.2   Blocks: WO-P.6, WO-K.13
+Wave: 3   Depends on: WO-P.2, WO-C.2   Blocks: WO-P.6, WO-K.13, WO-K.15, WO-M.1
 Milestone: Prototype 2 Dec 5
 Traces: FR-3, NFR-2, NFR-3 · A, B, D
 Suggested human owner: Brant Dimitrievski (reviewer: Abdul Babatunde)
