@@ -43,7 +43,9 @@ import java.util.TreeMap;
  *       makes it {@code needs_validation} (a small model is never the sole reason a tool finding is rejected);</li>
  *   <li>{@code Ok} + {@code rejected} citing no effective control: {@code needs_validation};</li>
  *   <li>{@code Ok} + {@code confirmed}/{@code needs_validation} (survives): the result goes to
- *       {@code StateDelta.putSurvivorDrafts} for test generation (WO-G.7); no record is written here;</li>
+ *       {@code StateDelta.putSurvivorDrafts} for test generation (WO-G.7), and a {@code needs_validation} record
+ *       with blocker {@value #SURVIVOR_BLOCKER} is written from the survivor's result (PLAN §4.2), so a survivor
+ *       is never lost when test evidence is skipped; WO-G.7 later replaces that record;</li>
  *   <li>{@code Dropped} (invalid or ungrounded output on every fresh attempt) or {@code Unavailable}:
  *       {@code needs_validation} with the reason as blocker.</li>
  * </ul>
@@ -55,6 +57,7 @@ public final class DisproverNode implements PipelineNode {
 
     static final String GUARDRAIL_BLOCKER = "a small-tier disprover refuted this tool-flagged candidate; a small model "
             + "alone never rejects a tool finding, so it needs a strong/standard or deterministic second verifier";
+    static final String SURVIVOR_BLOCKER = "awaiting regression test evidence";
     static final String NO_CONTROL_BLOCKER = "the disprover refuted this candidate without citing an effective control";
 
     public DisproverNode() {
@@ -121,6 +124,7 @@ public final class DisproverNode implements PipelineNode {
                     DisproverResult r = ok.value();
                     if (r.verdict() != Finding.Verdict.REJECTED) {
                         drafts.put(fp, r);
+                        records.add(survivor(c, r, ok));
                         log.info("disprover: " + fp + " survives (" + r.verdict().name().toLowerCase(Locale.ROOT) + ")");
                     } else {
                         records.add(refuted(c, r, ok));
@@ -152,10 +156,39 @@ public final class DisproverNode implements PipelineNode {
         return c.origin() == Finding.Origin.TOOL || !c.toolSources().isEmpty();
     }
 
-    private static Finding refuted(Candidate c, DisproverResult r, AgentOutcome.Ok<DisproverResult> ok) {
-        VerifierRef ref = new VerifierRef(VerifierRef.Kind.LLM, Optional.of(ok.agentId()),
+    private static VerifierRef ref(AgentOutcome.Ok<DisproverResult> ok) {
+        return new VerifierRef(VerifierRef.Kind.LLM, Optional.of(ok.agentId()),
                 Optional.of(ok.model().provider().cliName()), Optional.of(ok.model().modelId()),
                 Optional.ofNullable(ok.model().tier()), Optional.empty());
+    }
+
+    /**
+     * The {@code needs_validation} record for a survivor (PLAN §4.2), built from the disprover's result: its root
+     * cause, trace and evidence, falling back to the candidate's when the result lacks them (or its trace does not
+     * end at a sink, F2). No severity (F5); the candidate's {@code tool_severity_hint} is kept.
+     */
+    private static Finding survivor(Candidate c, DisproverResult r, AgentOutcome.Ok<DisproverResult> ok) {
+        String rootCause = r.rootCause().filter(s -> !s.isBlank()).orElse(rootCause(c));
+        List<Finding.TraceStep> trace = r.trace().stream()
+                .map(s -> new Finding.TraceStep(s.kind(), s.file(), s.line(), s.scope(), s.description()))
+                .toList();
+        if (trace.isEmpty() || trace.get(trace.size() - 1).kind() != Finding.TraceKind.SINK) {
+            trace = c.trace();
+        }
+        List<Finding.Evidence> evidence = r.evidence().stream()
+                .map(e -> new Finding.Evidence(e.file(), e.line(), nonBlank(e.description(), "evidence")))
+                .toList();
+        if (evidence.isEmpty()) {
+            evidence = evidence(c);
+        }
+        Finding.ValidationPlan plan = r.validationPlan().orElse(new Finding.ValidationPlan(Optional.of(
+                "Generate and run a failing regression test for the cited trace (test evidence)."), Optional.empty()));
+        return new Finding.NeedsValidation(c.fingerprint().get(), title(c), description(c), rootCause, trace,
+                evidence, List.of(SURVIVOR_BLOCKER), plan, ext(c, Optional.of(ref(ok)), false, false));
+    }
+
+    private static Finding refuted(Candidate c, DisproverResult r, AgentOutcome.Ok<DisproverResult> ok) {
+        VerifierRef ref = ref(ok);
         boolean effectiveControl = r.controlsExamined().stream().anyMatch(ControlExamined::effective);
         if (!effectiveControl) {
             return needsValidation(c, NO_CONTROL_BLOCKER, Optional.of(ref), false);

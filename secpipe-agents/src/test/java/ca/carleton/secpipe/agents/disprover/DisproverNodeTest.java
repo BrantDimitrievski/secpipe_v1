@@ -110,13 +110,38 @@ class DisproverNodeTest {
     }
 
     @Test
-    void survivingCandidateBecomesASurvivorDraftWithoutARecord() {
+    void survivingCandidateBecomesASurvivorDraftAndANeedsValidationRecord() {
         StateDelta d = run(fake(), toolCandidate(3, "CASE_SURVIVES"));
 
-        assertThat(d.putRecords()).isEmpty();
         assertThat(d.putSurvivorDrafts()).containsOnlyKeys(fp(3));
         assertThat(d.putSurvivorDrafts().get(fp(3)).verdict()).isEqualTo(Finding.Verdict.CONFIRMED);
         assertThat(d.putSurvivorDrafts().get(fp(3)).rootCause()).isPresent();
+
+        Finding f = only(d);
+        assertThat(f).isInstanceOf(Finding.NeedsValidation.class);
+        Finding.NeedsValidation nv = (Finding.NeedsValidation) f;
+        assertThat(nv.fingerprint()).isEqualTo(fp(3));
+        assertThat(nv.blockers()).containsExactly("awaiting regression test evidence");
+        assertThat(nv.claimedRootCause()).isEqualTo("Request parameter concatenated into SQL.");
+        assertThat(nv.trace()).extracting(Finding.TraceStep::line).containsExactly(15, 19);
+        assertThat(nv.trace().get(1).kind()).isEqualTo(Finding.TraceKind.SINK);
+        assertThat(nv.evidence()).singleElement().satisfies(e -> {
+            assertThat(e.line()).isEqualTo(17);
+            assertThat(e.description()).isEqualTo("string concatenation");
+        });
+        Finding.VerifierRef ref = nv.secpipe().verification().orElseThrow().disprover().orElseThrow();
+        assertThat(ref.tier()).contains(CapabilityTier.STRONG);
+        assertValid(d);
+    }
+
+    @Test
+    void survivorRecordCarriesTheToolSeverityHintButNoSeverity() {
+        Candidate c = toolCandidate(3, "CASE_SURVIVES");
+        StateDelta d = run(fake(), c);
+
+        Finding.NeedsValidation nv = (Finding.NeedsValidation) only(d);
+        assertThat(nv.secpipe().toolSeverityHint()).isEqualTo(c.toolSeverityHint()).contains(Finding.Score5.HIGH);
+        assertValid(d);
     }
 
     @Test
@@ -126,6 +151,8 @@ class DisproverNodeTest {
 
         assertThat(llm.calls()).hasSize(2);
         assertThat(d.putSurvivorDrafts()).containsOnlyKeys(fp(4));
+        assertThat(((Finding.NeedsValidation) only(d)).blockers()).containsExactly(DisproverNode.SURVIVOR_BLOCKER);
+        assertValid(d);
     }
 
     @Test
@@ -192,8 +219,11 @@ class DisproverNodeTest {
         // fingerprint order: fp(1) before fp(3)
         assertThat(llm.calls().get(0).request().userPrompt()).contains(fp(1)).doesNotContain(fp(3));
         assertThat(llm.calls().get(1).request().userPrompt()).contains(fp(3)).doesNotContain(fp(1));
-        assertThat(d.putRecords()).extracting(Finding::fingerprint).containsExactly(fp(1));
+        assertThat(d.putRecords()).extracting(Finding::fingerprint).containsExactly(fp(1), fp(3));
+        assertThat(d.putRecords()).extracting(Finding::verdict)
+                .containsExactly(Finding.Verdict.REJECTED, Finding.Verdict.NEEDS_VALIDATION);
         assertThat(d.putSurvivorDrafts()).containsOnlyKeys(fp(3));
+        assertValid(d);
     }
 
     @Test
