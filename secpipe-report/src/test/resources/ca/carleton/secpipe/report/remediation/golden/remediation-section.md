@@ -25,7 +25,7 @@
 - Fingerprint: `code:CWE-89:c3c3c3c3c3c3c3c3c3c3c3c3`
 - Outcome: still_present (fix unverified: the regression test was skipped after the patch)
 - Attempts: 1
-  1. still_present: strategy: strategy 1; adequacy 1/4 changed lines covered (not adequate): only one changed line is exercised
+  1. still_present: strategy: regression test skipped after patch: fix unverified; proposed: bind the value; adequacy 1/4 changed lines covered (not adequate): only one changed line is exercised
 - Patch (candidate, not verified): [patches/code-CWE-89-c3c3c3c3-attempt1.patch](patches/code-CWE-89-c3c3c3c3-attempt1.patch)
 
 #### 4. Report servlet injection

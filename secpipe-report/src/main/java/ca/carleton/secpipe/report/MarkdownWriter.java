@@ -173,8 +173,12 @@ final class MarkdownWriter {
     // Remediation
     // ------------------------------------------------------------------------------------------------------------
 
-    /** Note text (WO-M.3) that marks a still-present attempt whose regression test was skipped after the patch. */
-    static final String UNVERIFIED_MARKER = "fix unverified";
+    /**
+     * Text WO-M.3 writes for a still-present attempt whose regression test was skipped after the patch: it starts
+     * {@code fix_attempts[].strategy} on that attempt and is also in the run note
+     * {@code remediation of <fp> attempt <n>: <text> (not retried)}.
+     */
+    static final String UNVERIFIED_MARKER = "regression test skipped after patch: fix unverified";
     private static final String NOT_ATTEMPTED_PREFIX = "remediation not attempted";
 
     private static void remediationSection(StringBuilder md, ReportInputs in) {
@@ -207,7 +211,10 @@ final class MarkdownWriter {
                 .sorted(Comparator.comparingInt(Finding.FixAttempt::attempt)).toList();
         Finding.RemediationStatus status = status(c);
         boolean unverified = status == Finding.RemediationStatus.STILL_PRESENT
-                && notes.stream().anyMatch(note -> note.contains(fp) && note.contains(UNVERIFIED_MARKER));
+                && (attempts.stream().anyMatch(a -> a.outcome() == Finding.FixAttempt.Outcome.STILL_PRESENT
+                        && a.strategy().filter(st -> st.startsWith(UNVERIFIED_MARKER)).isPresent())
+                    || notes.stream().anyMatch(note -> note.startsWith("remediation of " + fp + " attempt ")
+                        && note.contains(UNVERIFIED_MARKER)));
 
         md.append("#### ").append(n).append(". ").append(text(c.title())).append("\n\n");
         md.append("- Fingerprint: ").append(code(fp)).append('\n');

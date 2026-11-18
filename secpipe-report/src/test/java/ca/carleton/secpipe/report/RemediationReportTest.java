@@ -13,11 +13,6 @@ import ca.carleton.secpipe.contracts.pipeline.PipelineState;
 import ca.carleton.secpipe.report.patch.FixedPatches;
 import ca.carleton.secpipe.report.patch.PatchSource;
 import ca.carleton.secpipe.report.patch.RemediationFixtures;
-import com.networknt.schema.Error;
-import com.networknt.schema.Schema;
-import com.networknt.schema.SchemaLocation;
-import com.networknt.schema.SchemaRegistry;
-import com.networknt.schema.SpecificationVersion;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -29,14 +24,14 @@ import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
-import tools.jackson.databind.node.ObjectNode;
 
 class RemediationReportTest {
 
     private static final ReportRenderer RENDERER = new DefaultReportRenderer();
     private static final PatchSource PATCHES = RemediationFixtures::patch;
-    private static final String UNVERIFIED_NOTE = "finding " + RemediationFixtures.FP_UNVERIFIED
-            + ": regression test skipped after patch: fix unverified";
+    /** Exactly the run note WO-M.3 writes (RemediationLoopNode). */
+    private static final String UNVERIFIED_NOTE = "remediation of " + RemediationFixtures.FP_UNVERIFIED
+            + " attempt 1: regression test skipped after patch: fix unverified (not retried)";
     private static final String NOT_ATTEMPTED_NOTE = "remediation not attempted for "
             + RemediationFixtures.FP_NOT_ATTEMPTED + ": no regression test available";
 
@@ -142,6 +137,20 @@ class RemediationReportTest {
     }
 
     @Test
+    void unverifiedIsDetectedFromTheM3RunNoteAloneAndNotFromAnUnrelatedNote() {
+        Finding.Confirmed plain = RemediationFixtures.stillPresent();
+        String fp = plain.fingerprint();
+        String note = "remediation of " + fp + " attempt 2: regression test skipped after patch: fix unverified"
+                + " (not retried)";
+        String withNote = bundle(inputs(List.of(plain), FixMode.SUGGEST, List.of(note))).files()
+                .get(ReportBundle.MARKDOWN);
+        assertTrue(withNote.contains("- Outcome: still_present (fix unverified"));
+        String without = bundle(inputs(List.of(plain), FixMode.SUGGEST, List.of("finding " + fp + ": fix unverified")))
+                .files().get(ReportBundle.MARKDOWN);
+        assertTrue(without.contains("- Outcome: still_present\n"));
+    }
+
+    @Test
     void notAttemptedShowsTheDisabledReasonWhenFixesAreOff() {
         ReportInputs in = inputs(List.of(RemediationFixtures.notAttempted()), FixMode.FALSE, List.of());
         String md = bundle(in).files().get(ReportBundle.MARKDOWN);
@@ -159,7 +168,7 @@ class RemediationReportTest {
     @Test
     void sarifFixesAppearOnlyOnFixedResultsAndValidateAgainstTheSchema() {
         String sarif = bundle(inputs()).files().get(ReportBundle.SARIF);
-        assertEquals(List.of(), SarifSchemaWithFixes.errors(sarif));
+        assertEquals(List.of(), SarifSchema.errors(sarif));
         JsonNode results = JsonMapper.builder().build().readTree(sarif).get("runs").get(0).get("results");
         int withFixes = 0;
         for (JsonNode r : results) {
@@ -178,12 +187,6 @@ class RemediationReportTest {
         }
         assertEquals(1, withFixes);
         assertEquals(RemediationFixtures.resource("remediation/golden/secpipe.sarif"), sarif);
-    }
-
-    @Test
-    void theBaseSchemaStillRejectsFixesSoTheExtendedOneIsWhatMakesThemValid() {
-        String sarif = bundle(inputs()).files().get(ReportBundle.SARIF);
-        assertFalse(SarifSchema.errors(sarif).isEmpty());
     }
 
     // ---------------------------------------------------------------- determinism, round trip
@@ -215,53 +218,5 @@ class RemediationReportTest {
         assertTrue(ContractJson.readFindings(json).stream()
                 .filter(f -> f.fingerprint().equals(RemediationFixtures.FP_NOT_ATTEMPTED)).findFirst().orElseThrow()
                 .secpipe().remediationStatus().isEmpty());
-    }
-
-    // ------------------------------------------------------------------------------------------ schema helper
-
-    /**
-     * The test-resource SARIF subset schema has no {@code fixes} on results (and the file is not owned by this work
-     * order), so the schema is extended here, in memory, with the SARIF 2.1.0 definitions of fix, artifactChange and
-     * replacement. Everything else is the unchanged subset schema.
-     */
-    static final class SarifSchemaWithFixes {
-        private static final String ID = "https://secpipe.dev/test/sarif-2.1.0-subset.schema.json";
-        private static final Schema SCHEMA = SchemaRegistry
-                .withDefaultDialect(SpecificationVersion.DRAFT_7,
-                        builder -> builder.schemas(Map.of(ID, extended())))
-                .getSchema(SchemaLocation.of(ID));
-
-        private SarifSchemaWithFixes() {
-        }
-
-        private static String extended() {
-            JsonMapper mapper = JsonMapper.builder().build();
-            ObjectNode root = (ObjectNode) mapper.readTree(Fixtures.resource("sarif-2.1.0-subset.schema.json"));
-            ObjectNode defs = (ObjectNode) root.get("definitions");
-            ((ObjectNode) defs.get("result").get("properties")).set("fixes", mapper.readTree(
-                    "{\"type\":\"array\",\"items\":{\"$ref\":\"#/definitions/fix\"}}"));
-            defs.set("fix", mapper.readTree("""
-                    {"type":"object","additionalProperties":false,"required":["artifactChanges"],"properties":{
-                      "description":{"$ref":"#/definitions/message"},
-                      "artifactChanges":{"type":"array","minItems":1,"items":{"$ref":"#/definitions/artifactChange"}}}}
-                    """));
-            defs.set("artifactChange", mapper.readTree("""
-                    {"type":"object","additionalProperties":false,"required":["artifactLocation","replacements"],
-                     "properties":{"artifactLocation":{"$ref":"#/definitions/artifactLocation"},
-                      "replacements":{"type":"array","minItems":1,"items":{"$ref":"#/definitions/replacement"}}}}
-                    """));
-            defs.set("replacement", mapper.readTree("""
-                    {"type":"object","additionalProperties":false,"required":["deletedRegion"],"properties":{
-                      "deletedRegion":{"$ref":"#/definitions/region"},
-                      "insertedContent":{"type":"object","additionalProperties":false,
-                        "properties":{"text":{"type":"string"},"binary":{"type":"string"}}}}}
-                    """));
-            return mapper.writeValueAsString(root);
-        }
-
-        static List<String> errors(String sarif) {
-            JsonNode tree = JsonMapper.builder().build().readTree(sarif);
-            return SCHEMA.validate(tree).stream().map(Error::toString).sorted().toList();
-        }
     }
 }

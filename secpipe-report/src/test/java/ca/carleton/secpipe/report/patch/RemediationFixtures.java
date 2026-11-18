@@ -92,9 +92,11 @@ public final class RemediationFixtures {
     /** Still present because the regression test was skipped after the patch (WO-M.3). */
     public static Finding.Confirmed unverified() {
         return with(FP_UNVERIFIED, "Export servlet injection", List.of(
-                attempt(1, "patches/code-CWE-89-c3c3c3c3-attempt1.patch", FixAttempt.Outcome.STILL_PRESENT,
-                        Optional.empty(), Optional.empty(), Optional.empty(), List.of(),
-                        Optional.of(new Adequacy(4, 1, false, Optional.of("only one changed line is exercised"))))),
+                new FixAttempt(1, Optional.of("patches/code-CWE-89-c3c3c3c3-attempt1.patch"),
+                        Optional.of("regression test skipped after patch: fix unverified; proposed: bind the value"),
+                        FixAttempt.Outcome.STILL_PRESENT, Optional.empty(), Optional.empty(), Optional.empty(),
+                        List.of(), Optional.of(new Adequacy(4, 1, false,
+                                Optional.of("only one changed line is exercised"))))),
                 Optional.of(RemediationStatus.STILL_PRESENT));
     }
 
