@@ -1,5 +1,5 @@
 ### WO-E.6: Evaluate remediation on the MVP sample apps (≥ 10 confirmed findings)
-Wave: 11   Depends on: WO-M.1, WO-M.2, WO-G.7   Blocks: none
+Wave: 12   Depends on: WO-M.1, WO-M.2, WO-M.3, WO-G.7   Blocks: none
 Milestone: Oral Jan 25
 Traces: FR-13, FR-14, FR-15 · Q, (evaluation §2.8 item 6)
 Suggested human owner: Elodie Abdo (reviewer: Abdul Babatunde)

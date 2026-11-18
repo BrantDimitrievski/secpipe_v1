@@ -231,8 +231,10 @@ public final class RemediationAgent implements Agent<RemediationAgent.Input, Rem
         }
         StringBuilder b = new StringBuilder();
         for (PreviousAttempt a : attempts) {
-            b.append("Attempt ").append(a.attempt()).append(" failed at: ").append(oneLine(a.failingStep()))
-                    .append('\n');
+            // the failing step quotes build and test output, so it is untrusted text too (WO-M.3)
+            b.append("Attempt ").append(a.attempt()).append(" failed at:\n");
+            b.append(renderer.untrusted("secpipe-attempts/attempt-" + a.attempt() + ".step", 1,
+                    lineCount(a.failingStep()), a.failingStep()));
             b.append("Its patch:\n");
             b.append(renderer.untrusted("secpipe-attempts/attempt-" + a.attempt() + ".diff", 1,
                     lineCount(a.patch()), a.patch()));

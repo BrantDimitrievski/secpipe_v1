@@ -80,7 +80,7 @@ class FixClassifierTest {
         Classification c = FixClassifier.classify(o);
         assertEquals(Outcome.STILL_PRESENT, c.outcome());
         assertEquals(Optional.of(false), c.regressionTestPassed());
-        for (RegressionResult r : List.of(RegressionResult.ERROR, RegressionResult.TIMEOUT, RegressionResult.NOT_RUN)) {
+        for (RegressionResult r : List.of(RegressionResult.ERROR, RegressionResult.NOT_RUN)) {
             assertEquals(Outcome.STILL_PRESENT, FixClassifier.classify(built().withRegressionTest(r)
                     .withSuitePassed(true).withRescan(new Rescan(false, List.of()))).outcome(), r.name());
         }
@@ -177,12 +177,45 @@ class FixClassifierTest {
                 Map.of("T#a()", SuiteBaseline.TestStatus.ERROR), 1, List.of(report))));
         assertEquals(RegressionResult.NOT_RUN, FixClassifier.regressionResult(new SuiteBaseline.Completed(
                 Map.of(), 0, List.of(report))));
-        assertEquals(RegressionResult.TIMEOUT, FixClassifier.regressionResult(new SuiteBaseline.NotRun(
-                SuiteBaseline.NotRun.Reason.TIMEOUT, "t", Set.of())));
-        assertEquals(RegressionResult.NOT_RUN, FixClassifier.regressionResult(new SuiteBaseline.NotRun(
-                SuiteBaseline.NotRun.Reason.REFUSED, "r", Set.of(Control.NETWORK_NONE))));
+        for (SuiteBaseline.NotRun.Reason reason : SuiteBaseline.NotRun.Reason.values()) {
+            assertEquals(RegressionResult.SANDBOX_UNAVAILABLE, FixClassifier.regressionResult(
+                    new SuiteBaseline.NotRun(reason, "r", Set.of(Control.NETWORK_NONE))), reason.name());
+        }
         assertEquals(RegressionResult.NOT_RUN, FixClassifier.regressionResult(new SuiteBaseline.BuildFailed(
                 true, "compile error", "")));
+    }
+
+    @Test
+    void sandboxRefusedOrDiedDuringTheRegressionTestIsSandboxUnavailable() {
+        Classification c = FixClassifier.classify(built().withRegressionTest(RegressionResult.SANDBOX_UNAVAILABLE));
+        assertEquals(Outcome.SANDBOX_UNAVAILABLE, c.outcome());
+        assertEquals(Step.SANDBOX, c.failedStep());
+        assertEquals(Optional.empty(), c.regressionTestPassed());
+        FixAttempt a = FixClassifier.toFixAttempt(1, Optional.of("patches/p.patch"), Optional.of("s"), c);
+        assertEquals(RemediationStatus.NOT_ATTEMPTED, FixClassifier.remediationStatus(List.of(a)));
+    }
+
+    @Test
+    void sandboxLostDuringTheSuiteIsSandboxUnavailableNotTestsBroken() {
+        Classification c = FixClassifier.classify(built().withRegressionTest(RegressionResult.PASSED)
+                .withSandboxLost());
+        assertEquals(Outcome.SANDBOX_UNAVAILABLE, c.outcome());
+        assertEquals(Step.SANDBOX, c.failedStep());
+    }
+
+    @Test
+    void postFixSkipIsStillPresentWithTheFixUnverifiedStrategy() {
+        Classification c = FixClassifier.classify(built().withRegressionTest(RegressionResult.SKIPPED));
+        FixAttempt a = FixClassifier.fixUnverified(2, Optional.of("patches/p.patch"), Optional.of("bind it"), c);
+        assertEquals(Outcome.STILL_PRESENT, a.outcome());
+        assertEquals(Optional.of(FixClassifier.FIX_UNVERIFIED + "; proposed: bind it"), a.strategy());
+        assertEquals(Optional.of(false), a.regressionTestPassed());
+        assertEquals(true, FixClassifier.isFixUnverified(a));
+        assertEquals(RemediationStatus.STILL_PRESENT, FixClassifier.remediationStatus(List.of(a)));
+        FixAttempt failed = attempt(1, built().withRegressionTest(RegressionResult.FAILED));
+        assertEquals(false, FixClassifier.isFixUnverified(failed));
+        assertThrows(IllegalArgumentException.class, () -> FixClassifier.fixUnverified(1, Optional.empty(),
+                Optional.empty(), FixClassifier.classify(allPass())));
     }
 
     private static FixAttempt attempt(int n, Observations o) {

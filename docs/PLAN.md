@@ -3830,6 +3830,7 @@ Design principles: reuse the existing sandbox path (DockerSandboxRunner, MavenWo
 | WO-E.6 | reactivated, trimmed | stretch → 11 | ≥ 10 confirmed findings on the MVP samples; real run is `[HUMAN]` (Docker + LLM key, gated by S.3) |
 | WO-D.1 | Traces line only | 7 | FR-13, FR-14 and Q no longer need its Limitations section as a placeholder trace |
 | WO-G.1, G.6, G.7, K.6, K.13, R.1, X.1, X.2 | Blocks line only | unchanged | point at the new and reactivated orders |
+| WO-M.3 | new (follow-up of the M.1 review) | — → 10 (parallel with R.4) | verifiable regression tests (testgen stubs record unsafe and safe APIs), post-fix skip = `still_present` + "fix unverified", `NotRun` = `sandbox_unavailable`, non-confirmed = `not_attempted`; M.2 moves to wave 11 and E.6 to wave 12, both now depend on M.3 |
 
 ### Wave table
 
