@@ -1,0 +1,25 @@
+{
+  "version": "2.1.0",
+  "runs": [
+    {
+      "tool": {"driver": {"name": "secpipe", "rules": [
+        {"id": "secpipe.cmdi", "properties": {"tags": ["external/cwe/cwe-78"]}}
+      ]}},
+      "results": [
+        {"ruleId": "x", "properties": {"secpipe": {"cwe": ["CWE-23"]}},
+         "locations": [{"physicalLocation": {"artifactLocation": {"uri": "src/main/java/org/owasp/benchmark/testcode/BenchmarkTest00001.java"}}}]},
+        {"ruleId": "x", "properties": {"secpipe": {"cwe": ["CWE-22"]}},
+         "suppressions": [{"kind": "external", "status": "accepted", "justification": "refuted"}],
+         "locations": [{"physicalLocation": {"artifactLocation": {"uri": "src/main/java/org/owasp/benchmark/testcode/BenchmarkTest00002.java"}}}]},
+        {"ruleId": "secpipe.cmdi", "ruleIndex": 0,
+         "locations": [{"physicalLocation": {"artifactLocation": {"uri": "src/main/java/org/owasp/benchmark/testcode/BenchmarkTest00003.java"}}}]},
+        {"ruleId": "secpipe.cmdi", "ruleIndex": 0,
+         "locations": [{"physicalLocation": {"artifactLocation": {"uri": "src/main/java/org/owasp/benchmark/testcode/BenchmarkTest00004.java"}}}]},
+        {"ruleId": "x", "properties": {"secpipe": {"cwe": ["CWE-326"]}},
+         "locations": [{"physicalLocation": {"artifactLocation": {"uri": "src/main/java/org/owasp/benchmark/testcode/BenchmarkTest00007.java"}}}]},
+        {"ruleId": "x", "properties": {"secpipe": {"cwe": ["CWE-327"]}},
+         "locations": [{"physicalLocation": {"artifactLocation": {"uri": "src/main/java/org/owasp/benchmark/testcode/BenchmarkTest00008.java"}}}]}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "description": "Hunter finds the SQL injection in UserDao when the prompt mentions it",
+  "match": {
+    "promptTemplateId": "hunter.v1",
+    "userPromptContains": ["UserDao.java"]
+  },
+  "responses": [
+    {"json": {"candidates": [{"cwe": "CWE-89", "file": "src/main/java/app/UserDao.java", "line": 42}]}}
+  ],
+  "inputTokens": 120,
+  "outputTokens": 40
+}
