@@ -1,0 +1,1 @@
+{"id":"m1","type":"message","role":"assistant","content":[{"type":"text","text":"{\"verdict\":"},{"type":"text","text":"\"ok\"}"}],"usage":{"input_tokens":21,"output_tokens":7}}
