@@ -1,0 +1,29 @@
+{
+  "description": "remediation loop: never fixed",
+  "match": {
+    "promptTemplateId": "remediation.v1",
+    "userPromptContains": [
+      "code:CWE-89:00000000000000000000c006"
+    ]
+  },
+  "responses": [
+    {
+      "json": {
+        "fingerprint": "code:CWE-89:00000000000000000000c006",
+        "invariant": "The username request parameter never changes the structure of the SQL query.",
+        "decision_point": {
+          "file": "src/main/java/com/shop/app/LoginServlet.java",
+          "line": 21,
+          "description": "query text is built by concatenating username",
+          "quote": "st.executeQuery("
+        },
+        "strategy": "Replace the concatenated Statement query with a PreparedStatement (still).",
+        "patch": "--- a/src/main/java/com/shop/app/LoginServlet.java\n+++ b/src/main/java/com/shop/app/LoginServlet.java\n@@ -22,7 +22,7 @@\n             if (rs.next()) {\n                 resp.getWriter().println(\"ok\");\n             } else {\n-                resp.sendError(401);\n+                resp.sendError(403);\n             }\n         } catch (SQLException e) {\n             resp.sendError(500);\n",
+        "files_changed": [
+          "src/main/java/com/shop/app/LoginServlet.java"
+        ],
+        "risk_notes": []
+      }
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "description": "remediation loop: edits the pom",
+  "match": {
+    "promptTemplateId": "remediation.v1",
+    "userPromptContains": [
+      "code:CWE-89:00000000000000000000c007"
+    ]
+  },
+  "responses": [
+    {
+      "json": {
+        "fingerprint": "code:CWE-89:00000000000000000000c007",
+        "invariant": "The username request parameter never changes the structure of the SQL query.",
+        "decision_point": {
+          "file": "src/main/java/com/shop/app/LoginServlet.java",
+          "line": 21,
+          "description": "query text is built by concatenating username",
+          "quote": "st.executeQuery("
+        },
+        "strategy": "Replace the concatenated Statement query with a PreparedStatement (pom).",
+        "patch": "--- a/pom.xml\n+++ b/pom.xml\n@@ -5,7 +5,7 @@\n     <modelVersion>4.0.0</modelVersion>\n \n     <groupId>com.shop</groupId>\n-    <artifactId>sqli-fixable</artifactId>\n+    <artifactId>sqli-fixable2</artifactId>\n     <version>0.1.0</version>\n     <packaging>jar</packaging>\n \n",
+        "files_changed": [
+          "pom.xml"
+        ],
+        "risk_notes": []
+      }
+    }
+  ]
+}
