@@ -6,10 +6,10 @@ disprover tries to refute each candidate. A generated JUnit 5 regression test, r
 sandbox, supplies the evidence. A remediation loop proposes fixes and verifies them. Reports are rendered only
 from schema-validated JSON (`findings.json`, `coverage-ledger.json`, `run-metadata.json`).
 
-SecPipe ships as a CLI (`secpipe.jar`) and as a composite GitHub Action (`action.yml`).
+SecPipe ships as a CLI (`secpipe.jar`). The composite GitHub Action (`action.yml`) is planned, not built.
 
-> **Status:** bootstrap skeleton (WO-0.1). The modules compile and CI runs, but there is no scanning logic yet.
-> `java -jar secpipe-cli/target/secpipe.jar --version` is the only working command until WO-K.13.
+> **Status:** CLI-only prototype. See [docs/user/guide.md](docs/user/guide.md) for usage, providers, outputs,
+> the demo script (`bash scripts/demo/demo.sh --no-docker`) and the Limitations (no GitHub Action, no remediation).
 
 ## Build
 
