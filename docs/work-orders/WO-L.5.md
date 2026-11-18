@@ -1,4 +1,5 @@
 ### WO-L.5: Implement the Copilot provider (Copilot CLI subprocess, no tools)
+Closed: not needed after S.2 NO-GO (WO-CC.1)
 Wave: 6   Depends on: WO-L.1, WO-S.2, WO-L.2   Blocks: WO-H.3, WO-E.10
 Milestone: Oral Jan 25
 Traces: FR-2, NFR-5 · O, (§2.7)

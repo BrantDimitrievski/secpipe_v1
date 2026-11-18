@@ -13,7 +13,7 @@ import java.util.Set;
 /**
  * Fully resolved run configuration. Precedence (WO-C.4): CLI flag > environment > secpipe.yml > defaults.
  * The API key is NOT a field: it is read from the environment by the provider factory at call time
- * (SECPIPE_API_KEY, or ANTHROPIC_API_KEY / OPENAI_API_KEY / COPILOT_GITHUB_TOKEN / GITHUB_TOKEN) and never stored (ADR-10).
+ * (SECPIPE_API_KEY, or its aliases ANTHROPIC_API_KEY / OPENAI_API_KEY / SECPIPE_LLM_KEY) and never stored (ADR-10).
  */
 public record SecPipeConfig(
         Path target,

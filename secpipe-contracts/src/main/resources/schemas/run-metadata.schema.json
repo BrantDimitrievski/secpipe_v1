@@ -168,7 +168,7 @@
     { "if": { "properties": { "terminal_state": { "const": "complete" } } }, "then": { "not": { "required": ["incomplete_reason"] }, "properties": { "validators": { "properties": { "findings": { "const": "pass" }, "ledger": { "const": "pass" } } } } } }
   ],
   "$defs": {
-    "providerMode": { "enum": ["none", "copilot", "anthropic", "openai", "openai-compatible", "ollama", "fake"] },
+    "providerMode": { "enum": ["none", "anthropic", "openai", "openai-compatible", "ollama", "fake"] },
     "role": { "enum": ["recon_summary", "hunter", "critic", "disprover", "testgen", "record_verifier", "remediation"] }
   }
 }
