@@ -8,10 +8,10 @@ branding: { icon: shield, color: blue }
 inputs:
   profile:          { description: "quick | standard | deep", required: false, default: quick }
   scope:            { description: "diff | full (diff falls back to full outside pull_request events)", required: false, default: diff }
-  llm-provider:     { description: "none | copilot | anthropic | openai | openai-compatible | ollama. copilot needs `permissions: copilot-requests: write` (org policy) or a COPILOT_GITHUB_TOKEN passed as api-key. GitHub Models was retired 2026-07-30, so there is no keyless AI default", required: false, default: none }
+  llm-provider:     { description: "none | anthropic | openai | openai-compatible | ollama. Hosted providers use your own key, passed as api-key. GitHub Models was retired 2026-07-30, so there is no keyless AI default", required: false, default: none }
   model:            { description: "Default model id for all roles (provider default if empty)", required: false, default: "" }
   models:           { description: "Per-role overrides, comma-separated role=model (roles: hunter, critic, disprover, testgen, record_verifier, remediation, recon_summary)", required: false, default: "" }
-  api-key:          { description: "Provider API key (or a Copilot fine-grained PAT with Copilot Requests permission for llm-provider=copilot); pass a secret. Never logged; masked with ::add-mask::", required: false, default: "" }
+  api-key:          { description: "Provider API key; pass a secret. Never logged; masked with ::add-mask::", required: false, default: "" }
   llm-base-url:     { description: "Base URL for openai-compatible or ollama", required: false, default: "" }
   max-agent-calls:  { description: "Hard cap on LLM calls (all retries count). Empty = profile default (quick 40, standard 200, deep 800)", required: false, default: "" }
   max-fix-attempts: { description: "Remediation retries per confirmed finding", required: false, default: "3" }
@@ -22,7 +22,7 @@ inputs:
   upload-sarif:     { description: "Upload SARIF to GitHub code scanning", required: false, default: "true" }
   sarif-category:   { description: "Code-scanning category", required: false, default: secpipe }
   incremental:      { description: "Restore the previous run's ledger/findings for carry-forward", required: false, default: "true" }
-  github-token:     { description: "Token for comments, suggestions, cache, and Copilot inference when the workflow grants copilot-requests: write", required: false, default: "${{ github.token }}" }
+  github-token:     { description: "Token for comments, suggestions, and cache", required: false, default: "${{ github.token }}" }
   secpipe-jar:      { description: "Path to a prebuilt secpipe.jar (self-test only); empty = build from the action source", required: false, default: "" }
 
 outputs:

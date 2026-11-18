@@ -262,6 +262,15 @@ Each license must be re-verified when its adapter work order starts.
 | OWASP ZAP | Apache-2.0 | stretch | DAST |
 
 ### ADR-10 — AI provider strategy
+> **Retirement note (WO-CC.1, 2026-11-17).** The `copilot` mode in this ADR is **retired**. Spike S.2 measured
+> NO-GO ([`docs/spikes/S2-copilot.md`](spikes/S2-copilot.md)): with no tools allowed, the Copilot CLI still read a
+> file outside its working directory and ran shell commands. Every `copilot` provision below (the mode, the
+> `secpipe-llm-copilot` factory, the `copilot` fallback step, the Copilot quick-start lines, model ids, data-use
+> and token-count notes, and the evaluation's `copilot` arm) is void. The modes are `none | anthropic | openai |
+> openai-compatible | ollama` (+ CI-only `fake`). There is no zero-setup GitHub-native provider: the Action
+> defaults to `none` unless the user supplies a key, the fallback chain is configured provider → `none`, and
+> fork PRs stay at `none`. See "Appendix — Migration notes".
+
 - **Context.** §2.7 of the brief made GitHub Models (`GITHUB_TOKEN` + `models: read`) the zero-setup Action
   default. **That service was retired on 2026-07-30.** `models.github.ai` no longer serves inference, and
   `actions/ai-inference` v3 removed it. GitHub's stated replacement for AI inside Actions is the **Copilot
@@ -552,12 +561,12 @@ secpipe --version | --help
 | `--profile` | `quick\|standard\|deep` / `standard` (CLI), `quick` (Action) | `profile` |
 | `--scope` | `diff\|full` / `full` | `scope` |
 | `--base-ref`, `--head-ref` | git refs / auto from `GITHUB_BASE_REF` or `origin/HEAD` | diff scope |
-| `--llm-provider` | `none\|copilot\|anthropic\|openai\|openai-compatible\|ollama` / `none` | `llmProvider` |
+| `--llm-provider` | `none\|anthropic\|openai\|openai-compatible\|ollama` / `none` (`copilot` removed by WO-CC.1) | `llmProvider` |
 | `--model` | id | `defaultModel` |
 | `--model-for ROLE=ID` | repeatable | `modelForRole` |
 | `--model-tier ID=TIER` | repeatable; `strong\|standard\|small` | `tierOverrides` |
 | `--llm-base-url` | URL | `llmBaseUrl` |
-| *(API key)* | **env only**: `SECPIPE_API_KEY` (aliases `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `SECPIPE_LLM_KEY`); `COPILOT_GITHUB_TOKEN` (or `GITHUB_TOKEN` with `copilot-requests: write`) for copilot | never a flag |
+| *(API key)* | **env only**: `SECPIPE_API_KEY` (aliases `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `SECPIPE_LLM_KEY`) | never a flag |
 | `--tools`, `--exclude-tools` | comma ids | tools |
 | `--max-agent-calls` | int / quick 40, standard 200, deep 800 | budget |
 | `--max-fix-attempts` | int / 3 | FR-14 |
@@ -3624,6 +3633,31 @@ other argument prints `error:` and `hint:` lines and exits 2. WO-K.13 replaces t
 
 ---
 
+## Appendix — Migration notes
+
+### 2026-11-17 — WO-CC.1: `copilot` provider mode removed
+- **Reason.** Spike S.2 decided NO-GO ([`docs/spikes/S2-copilot.md`](spikes/S2-copilot.md)): the Copilot CLI's
+  no-tools guarantee does not hold (with no `--allow-tool` it read a file outside its empty working directory and
+  ran `uname -r`), and fork PRs get no Copilot auth.
+- **Removed.** `ProviderMode.COPILOT`; `"copilot"` from the `llm-provider` enum in `config.schema.json` and the
+  `providerMode` enum in `run-metadata.schema.json`; the Copilot wording in `action.yml`'s `llm-provider`,
+  `api-key` and `github-token` descriptions (input names, defaults and outputs unchanged); `COPILOT_GITHUB_TOKEN`
+  from the key-environment hints (the `SECPIPE_LLM_KEY` alias was added there); the `copilot` provisions in ADR-10
+  and §4.3. WO-L.5 (`secpipe-llm-copilot`) is closed as not needed.
+- **Remaining set.** `none`, `anthropic`, `openai`, `openai-compatible`, `ollama` (+ CI-only `fake`). The Action
+  defaults to `none` unless a key is supplied; fork PRs stay at `none`.
+- **Old configs.** `llm-provider: copilot` in an old `secpipe.yml` (or `--llm-provider copilot`, or
+  `SECPIPE_LLM_PROVIDER=copilot`) now fails with the usual problem line plus
+  `hint: copilot was removed after spike S.2 (no-tools guarantee does not hold); use anthropic, openai,
+  openai-compatible, ollama or none`. An old `run-metadata.json` with `providerMode` `copilot` no longer validates.
+- **Not edited.** The embedded copies of these contract files in Part 4 §4.4 still show `copilot`; WO-CC.1 did
+  not own them. The files in the repository are authoritative. WO-H.1, WO-H.3, WO-H.6, WO-L.7 and WO-E.10 moved
+  to `docs/work-orders/stretch/` in the lean re-plan and were left as they were; whoever revives one must drop
+  its `copilot` provisions first (this note and ADR-10's retirement note take precedence). The empty
+  `secpipe-llm-copilot` skeleton module is also left in place for a later clean-up order.
+
+---
+
 ## Re-plan 2026-11-17 (lean)
 
 **Reason.** Finish the remaining work in about 2 days of agent time; the owner (Brant) approved a lean, CLI-only plan: detect (analyzers) → normalize/score → deterministic refuter + adversarial disprover → generated JUnit test → sandbox evidence → report, plus the OWASP Benchmark scorecard. Dropped and folded orders were moved unchanged to `docs/work-orders/stretch/` (outside `scripts/check-plan.py`'s scope; it globs `docs/work-orders/WO-*.md` non-recursively). ADR-03's prefetch wording was corrected after spike S.3 (see ADR-03).
@@ -3634,7 +3668,7 @@ other argument prints `error:` and `hint:` lines and exits 2. WO-K.13 replaces t
 |---|---|---|---|
 | WO-K.1 | kept (unchanged text) | 2 | in progress; only Blocks updated to the kept set |
 | WO-V.1 | kept (unchanged text) | 2 | in progress; only Blocks updated |
-| WO-CC.1 | kept (added verbatim from the approved draft) | 2 | in progress; removes `copilot` after S.2 NO-GO |
+| WO-CC.1 | kept (merged to main as 9be0d69 during this re-plan) | 2 | done; only Blocks updated to the kept set (WO-L.1) |
 | WO-P.2 | kept, absorbs P.8 | 2 | detection core; knowledge base needed by normalize and scoring |
 | WO-X.1 | kept, absorbs X.3 + X.4 | 2 | one sandbox order using S.3 findings (tmpfs disk limit, named containers) |
 | WO-E.1 | kept | 2 | Benchmark scorecard is the headline metric |
@@ -3724,7 +3758,7 @@ other argument prints `error:` and `hint:` lines and exits 2. WO-K.13 replaces t
 | Wave | Work orders (parallel) | Notes |
 |---|---|---|
 | 0–1 | 0.1, C.1–C.5, P.0, S.2 (merged); S.3 (PR #98 pending laptop checks) | done |
-| 2 | K.1, V.1, CC.1 (in progress); P.2, X.1, E.1 | 6 |
+| 2 | CC.1 (merged); K.1, V.1 (in progress); P.2, X.1, E.1 | 6 |
 | 3 | K.4, K.5, K.6, K.8, L.1, R.1 | 6 |
 | 4 | K.9, P.6, L.2, G.1, G.5, X.2 | 6 |
 | 5 | G.4, G.6 | 2 |

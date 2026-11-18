@@ -12,7 +12,7 @@
     "scope": { "enum": ["diff", "full"] },
     "base-ref": { "$ref": "#/$defs/text" },
     "head-ref": { "$ref": "#/$defs/text" },
-    "llm-provider": { "enum": ["none", "copilot", "anthropic", "openai", "openai-compatible", "ollama", "fake"] },
+    "llm-provider": { "enum": ["none", "anthropic", "openai", "openai-compatible", "ollama", "fake"] },
     "model": { "$ref": "#/$defs/text" },
     "model-for": {
       "oneOf": [
