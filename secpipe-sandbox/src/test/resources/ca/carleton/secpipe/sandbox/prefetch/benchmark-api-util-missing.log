@@ -1,0 +1,3 @@
+[ERROR] Failed to execute goal org.apache.maven.plugins:maven-dependency-plugin:3.7.0:build-classpath (default-cli) on project benchmark: Could not resolve dependencies for project org.owasp:benchmark:war:1.2: The following artifacts could not be resolved: org.apache.directory.api:api-util:jar:2.1.7 (absent): Cannot access central (https://repo.maven.apache.org/maven2) in offline mode and the artifact org.apache.directory.api:api-util:jar:2.1.7 has not been downloaded from it before. -> [Help 1]
+[ERROR] 
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
