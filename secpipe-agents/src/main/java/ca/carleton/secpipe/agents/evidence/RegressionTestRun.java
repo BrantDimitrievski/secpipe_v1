@@ -57,7 +57,6 @@ final class RegressionTestRun {
 
     private static final Pattern FQCN = Pattern.compile("[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*");
     private static final Set<String> SKIP_DIRS = Set.of(".git", "target");
-    private static final Pattern WHITESPACE = Pattern.compile("\\s+");
     private static final Pattern THROWABLE_PREFIX = Pattern.compile("^[A-Za-z_$][\\w$.]*(Exception|Error):\\s*");
     private static final String ASSUMPTION_PREFIX = "Assumption failed:";
 
@@ -178,14 +177,9 @@ final class RegressionTestRun {
         return new Observation(o.kind(), o.detail(), report, Set.of());
     }
 
-    /** True when the whitespace-normalised {@code message} contains the whitespace-normalised expected failure. */
+    /** Same as {@link FailureMatch#matches(String, String)}. */
     static boolean matches(String message, String expectedFailure) {
-        String expected = normalize(expectedFailure == null ? "" : expectedFailure);
-        return !expected.isEmpty() && normalize(message).contains(expected);
-    }
-
-    static String normalize(String s) {
-        return WHITESPACE.matcher(s).replaceAll(" ").strip();
+        return FailureMatch.matches(message, expectedFailure);
     }
 
     /**

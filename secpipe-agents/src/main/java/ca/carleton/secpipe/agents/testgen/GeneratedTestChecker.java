@@ -11,6 +11,8 @@ import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.PackageDeclaration;
 import com.github.javaparser.ast.body.TypeDeclaration;
 import com.github.javaparser.ast.expr.AnnotationExpr;
+import com.github.javaparser.ast.expr.BinaryExpr;
+import com.github.javaparser.ast.expr.EnclosedExpr;
 import com.github.javaparser.ast.expr.Expression;
 import com.github.javaparser.ast.expr.FieldAccessExpr;
 import com.github.javaparser.ast.expr.MethodCallExpr;
@@ -25,6 +27,7 @@ import com.github.javaparser.ast.type.ClassOrInterfaceType;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -112,6 +115,14 @@ public final class GeneratedTestChecker {
     private static final Set<String> ASSERTION_ERRORS = Set.of("AssertionError", "java.lang.AssertionError",
             "AssertionFailedError", "org.opentest4j.AssertionFailedError");
     private static final int MIN_PARTIAL_MESSAGE = 12;
+    /** JUnit 5 assertions whose message is the last argument when there are at least 3 (expected, actual, ...). */
+    private static final Set<String> MESSAGE_LAST_AT_LEAST_3 = Set.of("assertEquals", "assertNotEquals",
+            "assertSame", "assertNotSame", "assertArrayEquals", "assertIterableEquals", "assertLinesMatch",
+            "assertInstanceOf");
+    /** JUnit 5 assertions whose message is the last argument only at exactly this arity. */
+    private static final Map<String, Integer> MESSAGE_LAST_AT_ARITY = Map.of("assertTrue", 2, "assertFalse", 2,
+            "assertNull", 2, "assertNotNull", 2, "assertDoesNotThrow", 2, "assertThrows", 3,
+            "assertThrowsExactly", 3, "assertTimeout", 3, "assertTimeoutPreemptively", 3);
     private static final String USE_ASSUMPTIONS = "; setup checks must use Assumptions.assumeTrue/assumeFalse";
     private static final Pattern WHITESPACE = Pattern.compile("\\s+");
     private static final Pattern ESCAPING = Pattern.compile("(^|.*[/\\\\])\\.\\.([/\\\\].*|$)");
@@ -226,27 +237,43 @@ public final class GeneratedTestChecker {
                 && ASSERTION_SCOPES.contains(m.getScope().map(Expression::toString).orElse(""));
     }
 
-    private static boolean isAssertion(MethodCallExpr m) {
+    /**
+     * The index of the message argument of a JUnit 5 {@code Assertions} call, by method and overload arity, or empty
+     * when the call has no message argument (or is not an assertion). Expected/actual operands, executables and
+     * suppliers are never a message position; {@code assertAll} (heading first, then executables) is not checked.
+     */
+    static Optional<Integer> messageIndex(MethodCallExpr m) {
+        if (!ASSERTION_SCOPES.contains(m.getScope().map(Expression::toString).orElse(""))) {
+            return Optional.empty();
+        }
         String name = m.getNameAsString();
-        return (name.startsWith("assert") && !name.equals("assertThat") || name.equals("fail"))
-                && ASSERTION_SCOPES.contains(m.getScope().map(Expression::toString).orElse(""));
+        int n = m.getArguments().size();
+        if (name.equals("fail")) {
+            // fail(String), fail(String, Throwable), fail(Supplier<String>); fail(Throwable) has no literal message
+            return n >= 1 ? Optional.of(0) : Optional.empty();
+        }
+        if (MESSAGE_LAST_AT_LEAST_3.contains(name)) {
+            // (expected, actual, message) or (expected, actual, delta, message); a 3-arg numeric delta has no literal
+            return n >= 3 ? Optional.of(n - 1) : Optional.empty();
+        }
+        Integer arity = MESSAGE_LAST_AT_ARITY.get(name);
+        return arity != null && n == arity ? Optional.of(n - 1) : Optional.empty();
     }
 
     /**
-     * An assertion whose message argument (the last one) contains string literals, none of which reports
-     * {@code expected_failure}, can only fail for a reason other than the vulnerability: it is a setup check.
+     * An assertion whose message argument contains string literals, none of which reports {@code expected_failure},
+     * can only fail for a reason other than the vulnerability: it is a setup check. Lambda and method-reference
+     * arguments (executables, suppliers) are never inspected.
      */
     private static void assertionMessages(CompilationUnit cu, String expectedFailure, Set<Violation> out) {
         String expected = normalize(expectedFailure);
         for (MethodCallExpr m : cu.findAll(MethodCallExpr.class)) {
-            if (!isAssertion(m) || m.getArguments().isEmpty()
-                    || m.getArguments().size() < 2 && !m.getNameAsString().equals("fail")) {
+            Optional<Integer> index = messageIndex(m);
+            if (index.isEmpty()) {
                 continue;
             }
-            Expression message = m.getArgument(m.getArguments().size() - 1);
             List<String> literals = new ArrayList<>();
-            message.walk(StringLiteralExpr.class, l -> literals.add(normalize(l.getValue())));
-            message.walk(TextBlockLiteralExpr.class, l -> literals.add(normalize(l.getValue())));
+            messageLiterals(m.getArgument(index.get()), literals);
             if (literals.isEmpty()) {
                 continue;
             }
@@ -257,6 +284,28 @@ public final class GeneratedTestChecker {
                         + literals.get(0) + "\" does not report expected_failure" + USE_ASSUMPTIONS));
             }
         }
+    }
+
+    /** String literals of a message expression: literals, {@code +} concatenation, parentheses, format calls. */
+    private static void messageLiterals(Expression e, List<String> out) {
+        if (e instanceof StringLiteralExpr s) {
+            out.add(normalize(s.getValue()));
+        } else if (e instanceof TextBlockLiteralExpr t) {
+            out.add(normalize(t.getValue()));
+        } else if (e instanceof BinaryExpr b && b.getOperator() == BinaryExpr.Operator.PLUS) {
+            messageLiterals(b.getLeft(), out);
+            messageLiterals(b.getRight(), out);
+        } else if (e instanceof EnclosedExpr p) {
+            messageLiterals(p.getInner(), out);
+        } else if (e instanceof MethodCallExpr c && (c.getNameAsString().equals("formatted")
+                || c.getNameAsString().equals("format") && c.getScope().map(Expression::toString)
+                .filter(sc -> sc.equals("String") || sc.equals("java.lang.String")).isPresent())) {
+            c.getScope().ifPresent(sc -> messageLiterals(sc, out));
+            if (c.getNameAsString().equals("format") && !c.getArguments().isEmpty()) {
+                messageLiterals(c.getArgument(0), out);
+            }
+        }
+        // lambdas, method references, variables and other calls are not inspected
     }
 
     private static String normalize(String s) {

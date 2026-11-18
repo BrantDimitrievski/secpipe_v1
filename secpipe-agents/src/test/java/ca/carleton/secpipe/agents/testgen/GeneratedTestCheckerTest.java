@@ -143,8 +143,13 @@ class GeneratedTestCheckerTest {
         String src = """
                 package secpipe.generated;
 
+                import static org.junit.jupiter.api.Assertions.assertAll;
+                import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
                 import static org.junit.jupiter.api.Assertions.assertEquals;
                 import static org.junit.jupiter.api.Assertions.assertFalse;
+                import static org.junit.jupiter.api.Assertions.assertNotNull;
+                import static org.junit.jupiter.api.Assertions.assertThrows;
+                import static org.junit.jupiter.api.Assertions.assertTrue;
                 import static org.junit.jupiter.api.Assertions.fail;
                 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
@@ -184,7 +189,7 @@ class GeneratedTestCheckerTest {
         List<Violation> v = setupChecks(result("        assert rc == 0 : \"stub did not compile\";\n"));
         assertThat(v).hasSize(1);
         assertThat(v.get(0).detail()).contains("assert statement").contains("Assumptions");
-        assertThat(v.get(0).line()).isEqualTo(18);
+        assertThat(v.get(0).line()).isEqualTo(23);
     }
 
     @Test
@@ -209,5 +214,36 @@ class GeneratedTestCheckerTest {
         assertThat(setupChecks(result("        assertEquals(0, rc);\n"))).isEmpty();
         // the vulnerability assertion in the template reports expected_failure and is accepted
         assertThat(setupChecks(result(""))).isEmpty();
+    }
+
+    @Test
+    void assertThrowsWithAPayloadLiteralInItsExecutableIsAccepted() {
+        assertThat(setupChecks(result(
+                "        assertThrows(SecurityException.class, () -> sql.concat(\"../../etc/passwd\"));\n"))).isEmpty();
+        assertThat(setupChecks(result("        Assertions.assertThrows(IllegalStateException.class,\n"
+                + "                () -> { throw new IllegalStateException(\"boom\"); });\n"))).isEmpty();
+        assertThat(setupChecks(result("        assertAll(\"heading\", () -> assumeTrue(rc == 0));\n"))).isEmpty();
+        assertThat(setupChecks(result("        assertDoesNotThrow(() -> sql.concat(\"x\"));\n"))).isEmpty();
+        assertThat(setupChecks(result("        assertTrue(rc == 0, () -> \"stub did not compile\");\n"))).isEmpty();
+    }
+
+    @Test
+    void assertEqualsWithoutAMessageIsAcceptedWhateverItsOperands() {
+        assertThat(setupChecks(result("        assertEquals(\"SELECT 1\", sql);\n"))).isEmpty();
+        assertThat(setupChecks(result("        assertEquals(sql, \"SELECT 1\");\n"))).isEmpty();
+        assertThat(setupChecks(result("        assertEquals(1.0, 1.0, 0.01);\n"))).isEmpty();
+    }
+
+    @Test
+    void assertionMessagesThatDoNotReportTheExpectedFailureAreStillRejected() {
+        assertThat(setupChecks(result(
+                "        assertEquals(\"SELECT 1\", sql, \"msg without the expected text\");\n")))
+                .extracting(Violation::detail).singleElement().asString().contains("assertEquals");
+        assertThat(setupChecks(result("        assertThrows(SecurityException.class, () -> sql.concat(\"x\"),\n"
+                + "                \"loader did not refuse\");\n"))).hasSize(1);
+        assertThat(setupChecks(result("        assertNotNull(sql, \"query was \" + \"not built\");\n"))).hasSize(1);
+        assertThat(setupChecks(result("        assertEquals(1.0, 1.0, 0.01, \"delta check\");\n"))).hasSize(1);
+        assertThat(setupChecks(result("        assertEquals(\"a\", sql,"
+                + " \"attacker-controlled username reached the SQL \" + \"text\");\n"))).isEmpty();
     }
 }
