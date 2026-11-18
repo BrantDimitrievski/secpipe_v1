@@ -1,0 +1,24 @@
+{
+  "description": "Expected remediation result when fixtures/remediation/sqli-fixable runs through the remediation loop with a working Docker sandbox and the fake LLM (WO-M.1, RemediationLoopSandboxIT).",
+  "findings": [
+    {
+      "file": "src/main/java/com/shop/app/LoginServlet.java",
+      "cwe": "CWE-89",
+      "fix_strategy": "PreparedStatement",
+      "remediation_status": "fixed",
+      "max_attempts": 2,
+      "last_attempt": {
+        "outcome": "fixed",
+        "regression_test_passed": true,
+        "suite_passed": true,
+        "rescan_clean": true
+      }
+    }
+  ],
+  "baseline_passing_tests": [
+    "com.shop.app.LoginServletTest#answersServerErrorWhenNoDatabaseIsConfigured()",
+    "com.shop.app.LoginServletTest#isMappedToLogin()",
+    "com.shop.app.TagFilterTest#answersServerErrorWhenNoDatabaseIsConfigured()",
+    "com.shop.app.TagFilterTest#isMappedToProductTags()"
+  ]
+}

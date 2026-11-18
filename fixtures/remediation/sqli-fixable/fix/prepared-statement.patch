@@ -1,0 +1,23 @@
+--- a/src/main/java/com/shop/app/LoginServlet.java
++++ b/src/main/java/com/shop/app/LoginServlet.java
+@@ -8,7 +8,7 @@
+ import java.sql.Connection;
+ import java.sql.ResultSet;
+ import java.sql.SQLException;
+-import java.sql.Statement;
++import java.sql.PreparedStatement;
+ 
+ @WebServlet("/login")
+ public class LoginServlet extends HttpServlet {
+@@ -17,8 +17,9 @@
+     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+         String username = req.getParameter("username");
+         try (Connection conn = Db.get()) {
+-            Statement st = conn.createStatement();
+-            ResultSet rs = st.executeQuery("select id from users where username = '" + username + "'");
++            PreparedStatement st = conn.prepareStatement("select id from users where username = ?");
++            st.setString(1, username);
++            ResultSet rs = st.executeQuery();
+             if (rs.next()) {
+                 resp.getWriter().println("ok");
+             } else {
