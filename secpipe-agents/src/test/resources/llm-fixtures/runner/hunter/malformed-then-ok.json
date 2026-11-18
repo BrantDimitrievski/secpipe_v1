@@ -1,0 +1,28 @@
+{
+  "description": "Prose first (discarded), then valid JSON",
+  "match": {
+    "userPromptContains": [
+      "CASE_MALFORMED_THEN_OK"
+    ]
+  },
+  "responses": [
+    {
+      "text": "Sure! Here is my analysis: no issues found."
+    },
+    {
+      "json": {
+        "coverage_id": "cov:0123456789abcdef0123456789abcdef",
+        "status": "covered",
+        "reviewed_paths": [
+          "src/main/java/com/shop/app/OrderController.java"
+        ],
+        "local_checks": [
+          "Traced id param to repository; ownership check at OrderController.java:40 applies to all handlers"
+        ],
+        "candidates": [],
+        "unresolved": [],
+        "hardening_notes": []
+      }
+    }
+  ]
+}

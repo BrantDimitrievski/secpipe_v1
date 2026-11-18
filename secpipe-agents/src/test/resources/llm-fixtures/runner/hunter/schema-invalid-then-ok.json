@@ -1,0 +1,37 @@
+{
+  "description": "Missing required local_checks, then valid",
+  "match": {
+    "userPromptContains": [
+      "CASE_SCHEMA_INVALID_THEN_OK"
+    ]
+  },
+  "responses": [
+    {
+      "json": {
+        "coverage_id": "cov:0123456789abcdef0123456789abcdef",
+        "status": "covered",
+        "reviewed_paths": [
+          "src/main/java/com/shop/app/OrderController.java"
+        ],
+        "candidates": [],
+        "unresolved": [],
+        "hardening_notes": []
+      }
+    },
+    {
+      "json": {
+        "coverage_id": "cov:0123456789abcdef0123456789abcdef",
+        "status": "covered",
+        "reviewed_paths": [
+          "src/main/java/com/shop/app/OrderController.java"
+        ],
+        "local_checks": [
+          "Traced id param to repository; ownership check at OrderController.java:40 applies to all handlers"
+        ],
+        "candidates": [],
+        "unresolved": [],
+        "hardening_notes": []
+      }
+    }
+  ]
+}
