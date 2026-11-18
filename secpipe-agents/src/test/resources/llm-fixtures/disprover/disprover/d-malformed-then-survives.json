@@ -1,0 +1,56 @@
+{
+  "description": "disprover d-malformed-then-survives",
+  "match": {
+    "promptTemplateId": "disprover.v1",
+    "userPromptContains": [
+      "CASE_MALFORMED"
+    ]
+  },
+  "responses": [
+    {
+      "text": "Sure! Here is my verdict: confirmed"
+    },
+    {
+      "json": {
+        "fingerprint": "code:CWE-89:000000000000000000000004",
+        "verdict": "confirmed",
+        "entrypoint_valid": true,
+        "sink_valid": true,
+        "controls_examined": [],
+        "root_cause": "Request parameter concatenated into SQL.",
+        "intended_behavior": "Only items with the requested tag are returned.",
+        "trace": [
+          {
+            "kind": "entrypoint",
+            "file": "src/main/java/com/shop/app/TagFilter.java",
+            "line": 15,
+            "scope": "TagFilter#search(HttpServletRequest)",
+            "description": "request parameter tag"
+          },
+          {
+            "kind": "sink",
+            "file": "src/main/java/com/shop/app/TagFilter.java",
+            "line": 19,
+            "scope": "TagFilter#search(HttpServletRequest)",
+            "description": "executeQuery"
+          }
+        ],
+        "evidence": [
+          {
+            "file": "src/main/java/com/shop/app/TagFilter.java",
+            "line": 17,
+            "description": "string concatenation",
+            "quote": "String sql"
+          }
+        ],
+        "conditions": [],
+        "proposed_severity": {
+          "likelihood": "high",
+          "impact": "high",
+          "likelihood_reason": "Unauthenticated parameter.",
+          "impact_reason": "Arbitrary SQL."
+        }
+      }
+    }
+  ]
+}

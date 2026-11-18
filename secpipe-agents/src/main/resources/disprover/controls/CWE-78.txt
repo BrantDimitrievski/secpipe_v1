@@ -1,0 +1,4 @@
+CWE-78 (OS command injection) controls:
+- ProcessBuilder / Runtime.exec(String[]) with a fixed executable and no shell (no "sh -c", "cmd /c").
+- Strict allowlist of argument values mapped to constants.
+Not a control: quoting by hand, blacklisting ";", "|" or "&" when a shell interprets the string.

@@ -1,0 +1,5 @@
+CWE-22 (path traversal) controls:
+- Canonicalise (Path.normalize()/toRealPath()) and then check startsWith(baseDir) before the file operation.
+- Allowlist of file names or an id-to-file map; the untrusted value never forms part of the path.
+- FilenameUtils.getName / Path.getFileName() that strips every directory component, plus rejection of "..".
+Not a control: removing "../" once, checking only the extension, checks performed after the file is opened.
