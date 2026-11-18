@@ -1,0 +1,46 @@
+{
+  "description": "disprover f-no-control",
+  "match": {
+    "promptTemplateId": "disprover.v1",
+    "userPromptContains": [
+      "CASE_NO_CONTROL"
+    ]
+  },
+  "responses": [
+    {
+      "json": {
+        "fingerprint": "code:CWE-89:000000000000000000000006",
+        "verdict": "rejected",
+        "entrypoint_valid": true,
+        "sink_valid": true,
+        "controls_examined": [],
+        "refutation_pattern": "value_overwritten",
+        "trace": [
+          {
+            "kind": "entrypoint",
+            "file": "src/main/java/com/shop/app/TagFilter.java",
+            "line": 15,
+            "scope": "TagFilter#search(HttpServletRequest)",
+            "description": "request parameter tag"
+          },
+          {
+            "kind": "sink",
+            "file": "src/main/java/com/shop/app/TagFilter.java",
+            "line": 19,
+            "scope": "TagFilter#search(HttpServletRequest)",
+            "description": "executeQuery"
+          }
+        ],
+        "evidence": [
+          {
+            "file": "src/main/java/com/shop/app/TagFilter.java",
+            "line": 16,
+            "description": "constant assignment",
+            "quote": "tag = \"featured\";"
+          }
+        ],
+        "reason": "The tainted value is overwritten with a constant before the sink."
+      }
+    }
+  ]
+}

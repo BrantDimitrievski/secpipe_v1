@@ -1,0 +1,10 @@
+{
+  "description": "disprover e-outage",
+  "match": {
+    "promptTemplateId": "disprover.v1",
+    "userPromptContains": [
+      "CASE_OUTAGE"
+    ]
+  },
+  "error": "provider unavailable (fake outage)"
+}

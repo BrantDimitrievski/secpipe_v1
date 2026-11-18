@@ -1,0 +1,4 @@
+No family-specific catalogue is available. Look for: input validation or allowlists that cover the value at the
+sink, type conversion that removes the dangerous characters, framework controls (parameter binding, auto-escaping,
+authorization annotations), values overwritten with constants, dead branches, and sinks that do not actually
+interpret the value.

@@ -1,0 +1,4 @@
+CWE-611 (XML external entities) controls:
+- DocumentBuilderFactory/SAXParserFactory/XMLInputFactory with disallow-doctype-decl true or external entities
+  and DTD loading disabled, or FEATURE_SECURE_PROCESSING plus ACCESS_EXTERNAL_DTD/SCHEMA set to "".
+Not a control: setting only setExpandEntityReferences(false).
