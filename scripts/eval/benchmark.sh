@@ -40,7 +40,7 @@ done
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SCAN_CMD=(java -jar "$REPO_ROOT/secpipe-cli/target/secpipe.jar" scan "$BENCH_DIR"
-  "${AI_FLAGS[@]}" --fail-on none --deny-path "$DENY_GLOB" --format json,sarif -o "$OUT/scan")
+  "${AI_FLAGS[@]}" --fail-on none --deny-path "$DENY_GLOB" --format "json,sarif" -o "$OUT/scan")
 SCORE_CMD=(java -cp "$REPO_ROOT/secpipe-eval/target/secpipe-eval.jar" ca.carleton.secpipe.eval.benchmark.BenchmarkScorecard
   --expected "$EXPECTED_DIR/$EXPECTED_FILE" --findings "$OUT/scan/findings.json" --sarif "$OUT/scan/secpipe.sarif" --out "$OUT")
 
