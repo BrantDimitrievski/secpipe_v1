@@ -1,0 +1,2 @@
+ca.carleton.secpipe.llm.openai.OpenAiProviderFactory
+ca.carleton.secpipe.llm.openai.OpenAiCompatibleProviderFactory
