@@ -1,0 +1,1 @@
+[ERROR] Plugin org.apache.maven.plugins:maven-compiler-plugin:3.13.0 or one of its dependencies could not be resolved: Cannot access central (https://repo.maven.apache.org/maven2) in offline mode and the artifact org.apache.maven.plugins:maven-compiler-plugin:jar:3.13.0 has not been downloaded from it before. -> [Help 1]
