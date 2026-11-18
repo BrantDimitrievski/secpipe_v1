@@ -1,0 +1,46 @@
+[
+  {
+    "verdict": "rejected",
+    "fingerprint": "code:CWE-89:0f0e0d0c0b0a090807060504",
+    "title": "SQL injection claim in TagFilter.search",
+    "description": "Tool flagged a concatenated query; the tainted value is overwritten with a constant before use.",
+    "claimed_root_cause": "Request parameter concatenated into SQL.",
+    "trace": [
+      {
+        "kind": "entrypoint",
+        "file": "src/main/java/com/shop/app/TagFilter.java",
+        "line": 14,
+        "scope": "TagFilter#search(HttpServletRequest)",
+        "description": "getParameter(\"tag\")"
+      },
+      {
+        "kind": "sink",
+        "file": "src/main/java/com/shop/app/TagFilter.java",
+        "line": 19,
+        "scope": "TagFilter#search(HttpServletRequest)",
+        "description": "executeQuery"
+      }
+    ],
+    "evidence": [
+      {
+        "file": "src/main/java/com/shop/app/TagFilter.java",
+        "line": 16,
+        "description": "tag = \"featured\"; overwrites the request value"
+      }
+    ],
+    "reason": "Value overwritten with a constant at line 16 before reaching the sink; no tainted data reaches executeQuery.",
+    "secpipe": {
+      "category": "code",
+      "origin": "tool",
+      "tool_sources": [
+        {
+          "tool": "builtin",
+          "rule_id": "SP-JAVA-SQLI"
+        }
+      ],
+      "cwe": [
+        "CWE-89"
+      ]
+    }
+  }
+]

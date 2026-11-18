@@ -1,0 +1,119 @@
+[
+  {
+    "verdict": "confirmed",
+    "fingerprint": "dep:pkg:maven/commons-collections/commons-collections@3.2.1:CVE-2015-7501",
+    "title": "SQL injection in LoginServlet.doPost",
+    "description": "The username request parameter is concatenated into a SQL query executed with Statement.executeQuery.",
+    "root_cause": "Untrusted request input is concatenated into a SQL string instead of being bound as a parameter.",
+    "intended_behavior": "Only the matching user row is returned; input cannot alter query structure.",
+    "trace": [
+      {
+        "kind": "entrypoint",
+        "file": "src/main/java/com/example/vulnlab/LoginServlet.java",
+        "line": 21,
+        "scope": "LoginServlet#doPost(HttpServletRequest,HttpServletResponse)",
+        "description": "request.getParameter(\"username\")"
+      },
+      {
+        "kind": "sink",
+        "file": "src/main/java/com/example/vulnlab/LoginServlet.java",
+        "line": 27,
+        "scope": "LoginServlet#doPost(HttpServletRequest,HttpServletResponse)",
+        "description": "stmt.executeQuery(query) with concatenated username"
+      }
+    ],
+    "evidence": [
+      {
+        "file": "src/main/java/com/example/vulnlab/LoginServlet.java",
+        "line": 26,
+        "description": "String query = \"SELECT * FROM users WHERE name='\" + username + \"'\""
+      }
+    ],
+    "conditions": [
+      {
+        "kind": "authentication_level",
+        "description": "Unauthenticated: login endpoint."
+      }
+    ],
+    "execution": {
+      "attacker_perspective": "Unauthenticated HTTP client",
+      "payloads": [
+        "' OR '1'='1"
+      ],
+      "instructions": [
+        "Run secpipe.generated.LoginServletSqliSecurityTest in the SecPipe sandbox"
+      ],
+      "observed_result": "resolved: commons-collections:commons-collections:3.2.1 on the runtime classpath"
+    },
+    "remediation": {
+      "strategy": "Use PreparedStatement with a ? placeholder for username."
+    },
+    "severity": {
+      "likelihood": {
+        "score": "high",
+        "reason": "Unauthenticated endpoint, direct parameter use."
+      },
+      "impact": {
+        "score": "critical",
+        "reason": "Full read access to the users table."
+      },
+      "overall_severity": "critical"
+    },
+    "confidence": {
+      "score": "high",
+      "reason": "Disprover could not refute; regression test failed as expected."
+    },
+    "secpipe": {
+      "category": "dependency",
+      "origin": "tool",
+      "tool_sources": [
+        {
+          "tool": "builtin",
+          "rule_id": "SP-JAVA-SQLI",
+          "tool_severity": "critical",
+          "file": "src/main/java/com/example/vulnlab/LoginServlet.java",
+          "line": 27
+        },
+        {
+          "tool": "semgrep",
+          "rule_id": "secpipe.java.sqli.concat"
+        }
+      ],
+      "cwe": [
+        "CWE-502"
+      ],
+      "owasp": "A03:2021",
+      "verification": {
+        "disprover": {
+          "kind": "llm",
+          "agent_id": "disprover-1a2b3c4d",
+          "provider": "fake",
+          "model": "fake-strong",
+          "tier": "strong"
+        },
+        "record_verifier": {
+          "kind": "llm",
+          "agent_id": "record_verifier-5e6f7a8b",
+          "provider": "fake",
+          "model": "fake-strong",
+          "tier": "strong"
+        },
+        "guardrail_applied": false
+      },
+      "ledger_units": [
+        "cov:0123456789abcdef0123456789abcdef"
+      ],
+      "dependency": {
+        "purl": "pkg:maven/commons-collections/commons-collections@3.2.1",
+        "group": "commons-collections",
+        "artifact": "commons-collections",
+        "version": "3.2.1",
+        "fixed_version": "3.2.2",
+        "reachable": "yes"
+      },
+      "cve": [
+        "CVE-2015-7501"
+      ]
+    }
+  }
+]
