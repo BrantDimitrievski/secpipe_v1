@@ -57,6 +57,16 @@ class DockerSandboxRunnerSandboxTest {
     }
 
     @Test
+    void imageJunitConsoleJarMatchesTheInRepoPin(@TempDir Path scratch) throws Exception {
+        Path pin = Path.of("..", "sandbox-images", "runner", "junit-platform-console-standalone.sha256");
+        String expected = Files.readString(pin).strip();
+        Result r = runner.run(new Spec("", List.of("sh", "-c", "sha256sum \"$(readlink -f \"$JUNIT_CONSOLE_JAR\")\""),
+            scratch, List.of(), Map.of(), SMALL, Network.NONE, ALL, List.of(), "x1 junit pin"));
+        assertEquals(0, r.exitCode(), r.stderrTail());
+        assertEquals(expected, r.stdoutTail().strip().split("\\s+")[0], "sha256 of the image's JUnit console jar");
+    }
+
+    @Test
     void timedOutContainerIsKilledAndGone(@TempDir Path scratch) throws Exception {
         Limits quick = new Limits(1.0, 256, 128, 16, 64, Duration.ofSeconds(5));
         String purpose = "x1 timeout " + System.nanoTime();
