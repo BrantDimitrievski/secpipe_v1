@@ -3667,7 +3667,7 @@ other argument prints `error:` and `hint:` lines and exits 2. WO-K.13 replaces t
 | Work order | Decision | New wave | Reason |
 |---|---|---|---|
 | WO-K.1 | kept (unchanged text) | 2 | in progress; only Blocks updated to the kept set |
-| WO-V.1 | kept (unchanged text) | 2 | in progress; only Blocks updated |
+| WO-V.1 | kept (merged to main as 749d128 during this re-plan) | 2 | done; only Blocks updated to the kept set |
 | WO-CC.1 | kept (merged to main as 9be0d69 during this re-plan) | 2 | done; only Blocks updated to the kept set (WO-L.1) |
 | WO-P.2 | kept, absorbs P.8 | 2 | detection core; knowledge base needed by normalize and scoring |
 | WO-X.1 | kept, absorbs X.3 + X.4 | 2 | one sandbox order using S.3 findings (tmpfs disk limit, named containers) |
@@ -3758,7 +3758,7 @@ other argument prints `error:` and `hint:` lines and exits 2. WO-K.13 replaces t
 | Wave | Work orders (parallel) | Notes |
 |---|---|---|
 | 0–1 | 0.1, C.1–C.5, P.0, S.2 (merged); S.3 (PR #98 pending laptop checks) | done |
-| 2 | CC.1 (merged); K.1, V.1 (in progress); P.2, X.1, E.1 | 6 |
+| 2 | CC.1, V.1 (merged); K.1 (in progress); P.2, X.1, E.1 | 6 |
 | 3 | K.4, K.5, K.6, K.8, L.1, R.1 | 6 |
 | 4 | K.9, P.6, L.2, G.1, G.5, X.2 | 6 |
 | 5 | G.4, G.6 | 2 |
