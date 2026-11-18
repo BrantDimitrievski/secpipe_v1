@@ -6,6 +6,7 @@ import ca.carleton.secpipe.contracts.pipeline.GraphRunner;
 import ca.carleton.secpipe.contracts.pipeline.PipelineState;
 import ca.carleton.secpipe.contracts.pipeline.RunContext;
 import ca.carleton.secpipe.contracts.spi.SandboxRunner;
+import ca.carleton.secpipe.core.detect.DetectRescanner;
 import ca.carleton.secpipe.core.engine.DefaultRunContext;
 import ca.carleton.secpipe.core.engine.DefaultRunLog;
 import ca.carleton.secpipe.core.engine.EngineValidators;
@@ -35,7 +36,8 @@ import java.util.function.Consumer;
 /**
  * Assembles one run of the real pipeline (WO-K.13): the graph runner over {@code PipelineGraph} with the engine
  * validators, the {@link RunContext} services (LLM client, budget, sandbox, clock, redacting log) and the initial
- * state. {@code PipelineGraph} stays the only source of the topology; nodes load by FQCN.
+ * state. The rescanner is {@link DetectRescanner} (WO-K.15): detect + normalize on a working copy with the run's
+ * adapters (discovered through ServiceLoader, as the detect node does). {@code PipelineGraph} stays the only source of the topology; nodes load by FQCN.
  */
 public final class PipelineAssembly {
 
@@ -94,6 +96,7 @@ public final class PipelineAssembly {
                 .budget(budget)
                 .clock(clock)
                 .log(log)
+                .rescanner(new DetectRescanner(config, List.of(), env, out.resolve(WORK_DIR), clock, log))
                 .build();
 
         Path target = config.target();

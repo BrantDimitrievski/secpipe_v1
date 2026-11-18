@@ -1,0 +1,9 @@
+{
+  "description": "Provider outage",
+  "match": {
+    "userPromptContains": [
+      "code:CWE-89:00000000000000000000b005"
+    ]
+  },
+  "error": "simulated provider outage"
+}

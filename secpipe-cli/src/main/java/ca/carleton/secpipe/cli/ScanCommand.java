@@ -109,6 +109,9 @@ final class ScanCommand implements Callable<Integer> {
         } catch (InvalidPathException e) {
             return usage("invalid path: " + e.getInput(), "check the --config path");
         }
+        if (cfg.enableFixes() == SecPipeConfig.FixMode.PR) {
+            return usage("--enable-fixes pr needs the GitHub Action (not built)", "use suggest or false");
+        }
         if (cfg.printPrompts()) {
             return usage("--print-prompts is not implemented in this build",
                     "omit --print-prompts; use --no-ai to make sure no prompt is sent");
