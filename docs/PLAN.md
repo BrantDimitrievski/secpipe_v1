@@ -3656,6 +3656,23 @@ other argument prints `error:` and `hint:` lines and exits 2. WO-K.13 replaces t
   its `copilot` provisions first (this note and ADR-10's retirement note take precedence). The empty
   `secpipe-llm-copilot` skeleton module is also left in place for a later clean-up order.
 
+### 2026-11-17 — WO-CC.2: `SourceIndex`, `Location` and `ReconFacts` become contracts
+- **Reason.** The lean re-plan moved WO-V.3 (which defined `SourceIndex`) to stretch, yet WO-K.4, WO-G.1, WO-G.4 and
+  WO-G.5 still need a source view and recon facts, and `secpipe-agents` cannot depend on `secpipe-core`.
+- **Added (additive, nothing removed).** `contracts.spi.SourceIndex` (read-only, repo-relative POSIX paths;
+  `files()`, `exists`, `lines`, `line`; static `requireRelativePath`); `contracts.recon.Location` (`file`, `line`
+  ≥ 1, `Optional<String> scope` as `Class#method(ParamTypes)`); `contracts.recon.ReconFacts` (`entrySurfaces`,
+  `sinksByFamily` keyed `CWE-n`; sorted, de-duplicated, immutable); `contracts.json.ReconFactsCodec` (strict,
+  schema-validated read, byte-stable write); `schemas/recon-facts.schema.json`.
+- **Moved.** `ReconFacts` lives in `secpipe-contracts`, not `secpipe-core/.../core/recon`. `ReconFacts.load(workDir)`
+  from the old WO-K.4 text is replaced by `ReconFactsCodec.read(workDir.resolve(ReconFactsCodec.FILE_NAME))`.
+  WO-K.4 still implements `FileSourceIndex implements SourceIndex` in `core/recon` and writes `recon-facts.json`.
+- **WO-K.4 text fixes.** Seed ledger units as `planned` (the ledger has no `unexamined` status); `CoverageIds` is
+  `contracts/ids/CoverageIds.java`; recon is Part 5 §A2. WO-CC.2 is recorded as a prerequisite in WO-K.4's notes
+  rather than its "Depends on" line, because both are wave 3 and `check-plan.py` rejects same-wave dependencies.
+- **Not edited.** WO-G.4's "Context to read first" still names `secpipe-core/.../core/recon/ReconFacts.java`; read
+  `secpipe-contracts/.../contracts/recon/ReconFacts.java` instead (this note takes precedence).
+
 ---
 
 ## Re-plan 2026-11-17 (lean)

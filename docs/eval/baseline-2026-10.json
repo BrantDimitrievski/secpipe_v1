@@ -1,0 +1,11 @@
+{
+  "average": {
+    "fpr": 46.0,
+    "score": 23.8,
+    "tpr": 82.4
+  },
+  "benchmark": "OWASP Benchmark v1.2",
+  "cwes": ["22", "78", "89", "327", "328"],
+  "date": "2026-10",
+  "source": "capstone-mvp-1 October 2026 run, as stated in docs/work-orders/WO-E.1.md"
+}

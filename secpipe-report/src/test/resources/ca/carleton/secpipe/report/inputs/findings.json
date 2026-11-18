@@ -1,0 +1,64 @@
+[
+  {
+    "verdict": "confirmed",
+    "fingerprint": "code:CWE-89:3f9a1c0d5e7b2a4c6d8e0f12",
+    "title": "SQL injection in LoginServlet.doPost",
+    "description": "The username request parameter is concatenated into a SQL query executed with Statement.executeQuery.",
+    "root_cause": "Untrusted request input is concatenated into a SQL string instead of being bound as a parameter.",
+    "intended_behavior": "Only the matching user row is returned; input cannot alter query structure.",
+    "trace": [
+      { "kind": "entrypoint", "file": "src/main/java/com/example/vulnlab/LoginServlet.java", "line": 21, "scope": "LoginServlet#doPost(HttpServletRequest,HttpServletResponse)", "description": "request.getParameter(\"username\")" },
+      { "kind": "sink", "file": "src/main/java/com/example/vulnlab/LoginServlet.java", "line": 27, "scope": "LoginServlet#doPost(HttpServletRequest,HttpServletResponse)", "description": "stmt.executeQuery(query) with concatenated username" }
+    ],
+    "evidence": [ { "file": "src/main/java/com/example/vulnlab/LoginServlet.java", "line": 26, "description": "String query = \"SELECT * FROM users WHERE name='\" + username + \"'\"" } ],
+    "conditions": [ { "kind": "authentication_level", "description": "Unauthenticated: login endpoint." } ],
+    "execution": {
+      "attacker_perspective": "Unauthenticated HTTP client",
+      "payloads": ["' OR '1'='1"],
+      "instructions": ["Run secpipe.generated.LoginServletSqliSecurityTest in the SecPipe sandbox"],
+      "observed_result": "te-0a1b2c3d4e5f: test failed as expected; captured SQL contained the injected OR clause"
+    },
+    "remediation": { "strategy": "Use PreparedStatement with a ? placeholder for username." },
+    "severity": {
+      "likelihood": { "score": "high", "reason": "Unauthenticated endpoint, direct parameter use." },
+      "impact": { "score": "critical", "reason": "Full read access to the users table." },
+      "overall_severity": "critical"
+    },
+    "confidence": { "score": "high", "reason": "Disprover could not refute; regression test failed as expected." },
+    "secpipe": {
+      "category": "code",
+      "origin": "tool",
+      "tool_sources": [ { "tool": "builtin", "rule_id": "SP-JAVA-SQLI", "tool_severity": "critical", "file": "src/main/java/com/example/vulnlab/LoginServlet.java", "line": 27 }, { "tool": "semgrep", "rule_id": "secpipe.java.sqli.concat" } ],
+      "cwe": ["CWE-89"],
+      "owasp": "A03:2021",
+      "test_evidence": [ { "id": "te-0a1b2c3d4e5f", "phase": "pre_fix", "test_file": "src/test/java/secpipe/generated/LoginServletSqliSecurityTest.java", "test_class": "secpipe.generated.LoginServletSqliSecurityTest", "outcome": "failed_as_expected", "runs": 3, "observed_result": "AssertionFailedError: query contained OR '1'='1'" } ],
+      "fix_attempts": [ { "attempt": 1, "patch_artifact": "patches/code-CWE-89-3f9a1c0d.patch", "strategy": "PreparedStatement", "outcome": "fixed", "regression_test_passed": true, "suite_passed": true, "rescan_clean": true, "new_fingerprints": [], "adequacy": { "changed_lines_total": 3, "changed_lines_covered": 3, "adequate": true } } ],
+      "remediation_status": "fixed",
+      "verification": { "disprover": { "kind": "llm", "agent_id": "disprover-1a2b3c4d", "provider": "fake", "model": "fake-strong", "tier": "strong" }, "record_verifier": { "kind": "llm", "agent_id": "record_verifier-5e6f7a8b", "provider": "fake", "model": "fake-strong", "tier": "strong" }, "guardrail_applied": false },
+      "ledger_units": ["cov:0123456789abcdef0123456789abcdef"]
+    }
+  },
+  {
+    "verdict": "needs_validation",
+    "fingerprint": "code:CWE-78:aa11bb22cc33dd44ee55ff66",
+    "title": "Possible command injection in PingServlet",
+    "description": "Host parameter reaches Runtime.exec; no verifier configured.",
+    "claimed_root_cause": "Request parameter concatenated into an exec string.",
+    "trace": [ { "kind": "entrypoint", "file": "src/main/java/com/example/vulnlab/PingServlet.java", "line": 12, "scope": "PingServlet#doGet(HttpServletRequest,HttpServletResponse)", "description": "getParameter(\"host\")" }, { "kind": "sink", "file": "src/main/java/com/example/vulnlab/PingServlet.java", "line": 16, "scope": "PingServlet#doGet(HttpServletRequest,HttpServletResponse)", "description": "Runtime.getRuntime().exec(\"ping \" + host)" } ],
+    "evidence": [ { "file": "src/main/java/com/example/vulnlab/PingServlet.java", "line": 16, "description": "exec with concatenated host" } ],
+    "blockers": ["No verifier configured (llm-provider=none); unverified tool finding"],
+    "validation_plan": { "local": "Re-run with an LLM provider configured so the disprover and test generator can validate." },
+    "secpipe": { "category": "code", "origin": "tool", "tool_sources": [ { "tool": "builtin", "rule_id": "SP-JAVA-CMDI" } ], "cwe": ["CWE-78"], "tool_severity_hint": "critical", "confidence_hint": "medium" }
+  },
+  {
+    "verdict": "rejected",
+    "fingerprint": "code:CWE-89:0f0e0d0c0b0a090807060504",
+    "title": "SQL injection claim in TagFilter.search",
+    "description": "Tool flagged a concatenated query; the tainted value is overwritten with a constant before use.",
+    "claimed_root_cause": "Request parameter concatenated into SQL.",
+    "trace": [ { "kind": "entrypoint", "file": "src/main/java/com/shop/app/TagFilter.java", "line": 14, "scope": "TagFilter#search(HttpServletRequest)", "description": "getParameter(\"tag\")" }, { "kind": "sink", "file": "src/main/java/com/shop/app/TagFilter.java", "line": 19, "scope": "TagFilter#search(HttpServletRequest)", "description": "executeQuery" } ],
+    "evidence": [ { "file": "src/main/java/com/shop/app/TagFilter.java", "line": 16, "description": "tag = \"featured\"; overwrites the request value" } ],
+    "reason": "Value overwritten with a constant at line 16 before reaching the sink; no tainted data reaches executeQuery.",
+    "secpipe": { "category": "code", "origin": "tool", "tool_sources": [ { "tool": "builtin", "rule_id": "SP-JAVA-SQLI" } ], "cwe": ["CWE-89"], "verification": { "disprover": { "kind": "deterministic", "rule": "refuter.value_overwritten" } } }
+  }
+]
