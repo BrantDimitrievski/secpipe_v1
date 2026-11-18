@@ -1,0 +1,31 @@
+{
+  "description": "Diff that edits the regression test instead of the code, every time",
+  "match": {
+    "userPromptContains": [
+      "code:CWE-89:00000000000000000000b004"
+    ],
+    "promptTemplateId": "remediation.v1"
+  },
+  "responses": [
+    {
+      "json": {
+        "fingerprint": "code:CWE-89:00000000000000000000b004",
+        "invariant": "The username request parameter never changes the structure of the SQL query.",
+        "decision_point": {
+          "file": "src/main/java/com/shop/app/LoginServlet.java",
+          "line": 21,
+          "description": "query text is built by concatenating username",
+          "quote": "st.executeQuery("
+        },
+        "strategy": "Replace the concatenated Statement query with a PreparedStatement that binds username as a parameter.",
+        "patch": "--- a/src/test/java/secpipe/generated/LoginServletSqliSecurityTest.java\n+++ b/src/test/java/secpipe/generated/LoginServletSqliSecurityTest.java\n@@ -1,3 +1,3 @@\n package secpipe.generated;\n-\n+// disabled\n import org.junit.jupiter.api.Test;\n",
+        "files_changed": [
+          "src/test/java/secpipe/generated/LoginServletSqliSecurityTest.java"
+        ],
+        "risk_notes": [
+          "Usernames containing quotes now match literally."
+        ]
+      }
+    }
+  ]
+}
