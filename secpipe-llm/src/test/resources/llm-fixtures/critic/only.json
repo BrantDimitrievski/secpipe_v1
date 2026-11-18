@@ -1,0 +1,4 @@
+{
+  "match": {"promptTemplateId": "critic.v1"},
+  "responses": [{"json": {"verdict": "keep"}}]
+}
