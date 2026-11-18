@@ -69,6 +69,12 @@ import java.util.stream.Stream;
  * suite) takes one {@link Budget#tryAcquireSandboxRun()}. When a budget runs out the record keeps its status
  * (attempts made so far are kept) and the run notes it. Without a usable sandbox a confirmed record gets
  * {@code remediation_status=not_attempted} with one {@code sandbox_unavailable} attempt.
+ *
+ * <p>WO-M.3: a regression test that is <b>skipped</b> after the patch is recorded as {@code still_present} with
+ * strategy {@link FixClassifier#FIX_UNVERIFIED} (plus a run note); it is not sent to the agent as a failure and the
+ * record is not retried. A sandbox that refuses or dies ({@link SuiteBaseline.NotRun}) during the regression test or
+ * the suite gives a {@code sandbox_unavailable} attempt and stops that record. Every non-confirmed code record
+ * without a status gets {@code remediation_status=not_attempted} whenever the node is enabled.
  */
 public final class RemediationLoopNode implements PipelineNode {
 
@@ -185,17 +191,45 @@ public final class RemediationLoopNode implements PipelineNode {
             return StateDelta.empty();
         }
         Map<String, Finding.Confirmed> todo = new TreeMap<>();
+        List<Finding> notAttempted = new ArrayList<>();
         for (Finding f : state.records().values()) {
-            if (f instanceof Finding.Confirmed c && c.secpipe().category() == Finding.Category.CODE) {
+            if (f.secpipe().category() != Finding.Category.CODE) {
+                continue;
+            }
+            if (f instanceof Finding.Confirmed c) {
                 todo.put(c.fingerprint(), c);
+            } else if (f.secpipe().remediationStatus().isEmpty()) {
+                notAttempted.add(withStatus(f, Finding.RemediationStatus.NOT_ATTEMPTED));
             }
         }
-        if (todo.isEmpty()) {
+        if (todo.isEmpty() && notAttempted.isEmpty()) {
             return StateDelta.empty();
         }
         Run run = new Run(state, settings, services);
-        run.run(todo);
+        notAttempted.forEach(f -> run.out.put(f.fingerprint(), f));
+        if (!todo.isEmpty()) {
+            run.run(todo);
+        }
         return run.delta();
+    }
+
+    /** {@code f} with {@code remediation_status} set (non-confirmed records: never remediated). */
+    static Finding withStatus(Finding f, Finding.RemediationStatus status) {
+        Finding.SecPipeExt e = f.secpipe();
+        Finding.SecPipeExt ext = new Finding.SecPipeExt(e.category(), e.origin(), e.toolSources(), e.cwe(),
+                e.cve(), e.owasp(), e.dependency(), e.toolSeverityHint(), e.confidenceHint(), e.testEvidence(),
+                e.fixAttempts(), Optional.of(status), e.recommendedRemediation(), e.verification(), e.ledgerUnits(),
+                e.firstSeenRun(), e.carriedForwardFrom());
+        return switch (f) {
+            case Finding.Confirmed c -> new Finding.Confirmed(c.fingerprint(), c.title(), c.description(),
+                    c.rootCause(), c.intendedBehavior(), c.trace(), c.evidence(), c.conditions(), c.execution(),
+                    c.remediation(), c.severity(), c.confidence(), ext);
+            case Finding.NeedsValidation n -> new Finding.NeedsValidation(n.fingerprint(), n.title(),
+                    n.description(), n.claimedRootCause(), n.trace(), n.evidence(), n.blockers(),
+                    n.validationPlan(), ext);
+            case Finding.Rejected r -> new Finding.Rejected(r.fingerprint(), r.title(), r.description(),
+                    r.claimedRootCause(), r.trace(), r.evidence(), r.reason(), ext);
+        };
     }
 
     /** One node invocation. */
@@ -356,10 +390,21 @@ public final class RemediationLoopNode implements PipelineNode {
                 }
                 Attempt a = result.get();
                 writePatch(patchArtifact, fix.patch());
+                if (a.unverified()) {
+                    attempts.add(FixClassifier.fixUnverified(n, Optional.of(patchArtifact),
+                            Optional.of(fix.strategy()), a.classification()));
+                    note("remediation of " + fp + " attempt " + n + ": " + FixClassifier.FIX_UNVERIFIED
+                            + " (not retried)");
+                    break;
+                }
                 attempts.add(FixClassifier.toFixAttempt(n, Optional.of(patchArtifact), Optional.of(fix.strategy()),
                         a.classification()));
                 svc.log().info("remediate: " + fp + " attempt " + n + ": "
                         + a.classification().outcome().name().toLowerCase(Locale.ROOT));
+                if (a.classification().outcome() == FixAttempt.Outcome.SANDBOX_UNAVAILABLE) {
+                    note("remediation of " + fp + " stopped at attempt " + n + ": " + a.failingStep());
+                    break;
+                }
                 for (String newFp : a.classification().newFingerprints()) {
                     introduced(newFp, a.rescanned().get(newFp), patchArtifact);
                 }
@@ -383,7 +428,7 @@ public final class RemediationLoopNode implements PipelineNode {
             SuiteBaseline.freshCopy(pristine, regressionCopy);
             List<String> problems = applyProblems(regressionCopy, patch, test.path());
             if (!problems.isEmpty()) {
-                return Optional.of(new Attempt(FixClassifier.classify(obs.withPatchApplied(false)),
+                return Optional.of(Attempt.of(FixClassifier.classify(obs.withPatchApplied(false)),
                         "refused: " + String.join("; ", problems), String.join("\n", problems), Map.of()));
             }
             List<String> touched = UnifiedDiff.apply(regressionCopy, patch);
@@ -396,14 +441,22 @@ public final class RemediationLoopNode implements PipelineNode {
             SuiteBaseline.TestRun reg = SuiteBaseline.runTests(runner, ws, regressionCopy, Optional.of(fqcn),
                     "regression test " + fqcn + " (fix attempt " + n + ")");
             if (reg instanceof SuiteBaseline.BuildFailed bf) {
-                return Optional.of(new Attempt(FixClassifier.classify(obs.withCompiled(false)),
+                return Optional.of(Attempt.of(FixClassifier.classify(obs.withCompiled(false)),
                         "build broken: " + bf.detail(), bf.logTail(), Map.of()));
             }
             obs = obs.withCompiled(true);
             FixClassifier.RegressionResult rr = FixClassifier.regressionResult(reg);
             obs = obs.withRegressionTest(rr);
+            if (rr == FixClassifier.RegressionResult.SANDBOX_UNAVAILABLE) {
+                return Optional.of(Attempt.of(FixClassifier.classify(obs.withSandboxLost()),
+                        "sandbox unavailable during the regression test: " + describe(reg), describe(reg), Map.of()));
+            }
+            if (rr == FixClassifier.RegressionResult.SKIPPED) {
+                return Optional.of(new Attempt(FixClassifier.classify(obs), FixClassifier.FIX_UNVERIFIED,
+                        describe(reg), Map.of(), true));
+            }
             if (rr != FixClassifier.RegressionResult.PASSED) {
-                return Optional.of(new Attempt(FixClassifier.classify(obs), "regression test did not pass ("
+                return Optional.of(Attempt.of(FixClassifier.classify(obs), "regression test did not pass ("
                         + rr.name().toLowerCase(Locale.ROOT) + "): the vulnerability is still present",
                         describe(reg), Map.of()));
             }
@@ -416,13 +469,18 @@ public final class RemediationLoopNode implements PipelineNode {
             }
             SuiteBaseline.TestRun suite = SuiteBaseline.runTests(runner, ws, suiteCopy, Optional.empty(),
                     SuiteBaseline.PURPOSE_PREFIX + " (fix attempt " + n + ")");
+            if (suite instanceof SuiteBaseline.NotRun) {
+                return Optional.of(Attempt.of(FixClassifier.classify(obs.withSandboxLost()),
+                        "sandbox unavailable during the project tests: " + describe(suite), describe(suite),
+                        Map.of()));
+            }
             boolean suitePassed = suite instanceof SuiteBaseline.Completed done && baseline.suitePassed(done);
             obs = obs.withSuitePassed(suitePassed);
             if (!suitePassed) {
                 String broken = suite instanceof SuiteBaseline.Completed done
                         ? "baseline tests no longer pass: " + String.join(", ", baseline.brokenTests(done))
                         : "project tests did not run: " + describe(suite);
-                return Optional.of(new Attempt(FixClassifier.classify(obs), "tests broken: " + broken,
+                return Optional.of(Attempt.of(FixClassifier.classify(obs), "tests broken: " + broken,
                         broken, Map.of()));
             }
             Set<String> scope = new TreeSet<>(touched);
@@ -435,7 +493,7 @@ public final class RemediationLoopNode implements PipelineNode {
             } catch (InterruptedException e) {
                 throw e;
             } catch (Exception e) {
-                return Optional.of(new Attempt(FixClassifier.classify(obs), "rescan failed: " + e.getMessage(),
+                return Optional.of(Attempt.of(FixClassifier.classify(obs), "rescan failed: " + e.getMessage(),
                         String.valueOf(e.getMessage()), Map.of()));
             }
             obs = obs.withRescan(FixClassifier.Rescan.of(rescanned.keySet(), fp, baseline));
@@ -446,7 +504,7 @@ public final class RemediationLoopNode implements PipelineNode {
                         + String.join(", ", c.newFingerprints());
                 default -> "none";
             };
-            return Optional.of(new Attempt(c, step, step, rescanned));
+            return Optional.of(Attempt.of(c, step, step, rescanned));
         }
 
         private List<String> applyProblems(Path copy, String patch, String testPath) {
@@ -514,8 +572,8 @@ public final class RemediationLoopNode implements PipelineNode {
             String rootCause = blank(c.claimedRootCause()) ? description : c.claimedRootCause();
             Finding.SecPipeExt ext = new Finding.SecPipeExt(c.category(), c.origin(), c.toolSources(), c.cwe(),
                     c.cve(), Optional.empty(), c.dependency(), c.toolSeverityHint(), c.confidenceHint(), List.of(),
-                    List.of(), Optional.empty(), Optional.empty(), Optional.empty(), List.of(), Optional.empty(),
-                    Optional.empty());
+                    List.of(), Optional.of(Finding.RemediationStatus.NOT_ATTEMPTED), Optional.empty(),
+                    Optional.empty(), List.of(), Optional.empty(), Optional.empty());
             out.put(newFp, new Finding.NeedsValidation(newFp, title, description, rootCause, c.trace(),
                     List.copyOf(evidence), List.of(INTRODUCED_PREFIX + patchArtifact + INTRODUCED_SUFFIX),
                     new Finding.ValidationPlan(Optional.of(PLAN_LOCAL), Optional.empty()), ext));
@@ -565,7 +623,11 @@ public final class RemediationLoopNode implements PipelineNode {
 
     /** What one attempt observed: classification, failing step, log for the next prompt, rescanned candidates. */
     private record Attempt(FixClassifier.Classification classification, String failingStep, String log,
-                           Map<String, Candidate> rescanned) {
+                           Map<String, Candidate> rescanned, boolean unverified) {
+        static Attempt of(FixClassifier.Classification classification, String failingStep, String log,
+                          Map<String, Candidate> rescanned) {
+            return new Attempt(classification, failingStep, log, rescanned, false);
+        }
     }
 
     /** {@code <family>-<first 12 hash chars>} for code fingerprints, else a file-name-safe form. */

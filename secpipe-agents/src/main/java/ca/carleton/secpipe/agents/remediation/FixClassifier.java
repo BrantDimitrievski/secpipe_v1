@@ -13,24 +13,35 @@ import java.util.TreeSet;
  * (apply, compile, regression test, suite, rescan) and stops at the first failing step; the observations it made
  * become one frozen {@code fix_attempts[].outcome} and, over all attempts, the final {@code remediation_status}.
  *
- * <p>Precedence (first match wins): no usable sandbox → {@code sandbox_unavailable}; patch not applied →
- * {@code refused}; build failed → {@code build_broken}; regression test not passed (failed, errored, timed out,
- * <b>skipped</b>, not run) → {@code still_present}; a baseline-passing test no longer passes →
+ * <p>Precedence (first match wins): no usable sandbox, or the sandbox refused or died during the regression test
+ * or the suite ({@link SuiteBaseline.NotRun}) → {@code sandbox_unavailable}; patch not applied →
+ * {@code refused}; build failed → {@code build_broken}; regression test not passed (failed, errored,
+ * <b>skipped</b>, no tests) → {@code still_present}; a baseline-passing test no longer passes →
  * {@code tests_broken};
  * rescan missing or the original fingerprint still present → {@code still_present}; a new fingerprint →
  * {@code newly_introduced_findings}; otherwise {@code fixed}. {@code fixed} therefore always carries
  * {@code regression_test_passed}, {@code suite_passed} and {@code rescan_clean} = true (validator rule F8).
+ *
+ * <p>A regression test that is <b>skipped</b> after the patch (WO-M.3) stays {@code still_present} (frozen enum),
+ * but the attempt's {@code strategy} starts with {@link #FIX_UNVERIFIED}: the fix could not be verified, which is
+ * not the same as a failed fix. See {@link #fixUnverified}.
  */
 public final class FixClassifier {
 
     private FixClassifier() {
     }
 
+    /** Marker at the start of {@code fix_attempts[].strategy} (and in the run note) for a post-fix skip. */
+    public static final String FIX_UNVERIFIED = "regression test skipped after patch: fix unverified";
+
     /** The step an attempt failed at (passed to the next attempt's prompt); {@code NONE} for a fixed attempt. */
     public enum Step { SANDBOX, APPLY, COMPILE, REGRESSION_TEST, SUITE, RESCAN, NONE }
 
-    /** Result of the regression-test step. Only {@code PASSED} counts as a pass. */
-    public enum RegressionResult { PASSED, FAILED, ERROR, SKIPPED, TIMEOUT, NOT_RUN }
+    /**
+     * Result of the regression-test step. Only {@code PASSED} counts as a pass. {@code SANDBOX_UNAVAILABLE}: the
+     * sandbox refused or died (timeout, resource limit, no report), so nothing was learnt about the fix.
+     */
+    public enum RegressionResult { PASSED, FAILED, ERROR, SKIPPED, NOT_RUN, SANDBOX_UNAVAILABLE }
 
     /** Result of the rescan step: whether the record's fingerprint is still detected, and fingerprints not in the
      *  baseline (sorted, unique). */
@@ -66,6 +77,11 @@ public final class FixClassifier {
         public static Observations sandboxUnavailable() {
             return new Observations(false, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(),
                     Optional.empty());
+        }
+
+        /** The sandbox refused or died at a later step (regression test or suite not run). */
+        public Observations withSandboxLost() {
+            return new Observations(false, patchApplied, compiled, regressionTest, suitePassed, rescan);
         }
 
         public Observations withPatchApplied(boolean applied) {
@@ -108,7 +124,7 @@ public final class FixClassifier {
         Optional<Boolean> suite = o.suitePassed();
         Optional<Boolean> clean = o.rescan().map(Rescan::clean);
         List<String> newFps = o.rescan().map(Rescan::newFingerprints).orElse(List.of());
-        if (!o.sandboxAvailable()) {
+        if (!o.sandboxAvailable() || o.regressionTest().orElse(null) == RegressionResult.SANDBOX_UNAVAILABLE) {
             return new Classification(FixAttempt.Outcome.SANDBOX_UNAVAILABLE, Step.SANDBOX, Optional.empty(),
                     Optional.empty(), Optional.empty(), List.of());
         }
@@ -148,6 +164,25 @@ public final class FixClassifier {
         }
         return new FixAttempt(attempt, patchArtifact, strategy, c.outcome(), c.regressionTestPassed(),
                 c.suitePassed(), c.rescanClean(), c.newFingerprints(), Optional.empty());
+    }
+
+    /**
+     * The entry for an attempt whose regression test was skipped after the patch: {@code still_present} with
+     * {@code strategy} = {@link #FIX_UNVERIFIED} followed by the agent's strategy.
+     */
+    public static FixAttempt fixUnverified(int attempt, Optional<String> patchArtifact, Optional<String> strategy,
+                                           Classification c) {
+        if (c.outcome() != FixAttempt.Outcome.STILL_PRESENT || c.failedStep() != Step.REGRESSION_TEST) {
+            throw new IllegalArgumentException("fix unverified needs a still_present regression-test step: " + c);
+        }
+        String s = FIX_UNVERIFIED + strategy.filter(x -> !x.isBlank()).map(x -> "; proposed: " + x).orElse("");
+        return toFixAttempt(attempt, patchArtifact, Optional.of(s), c);
+    }
+
+    /** Whether {@code a} is a post-fix skip ("fix unverified"), counted apart from failed fixes (WO-E.6). */
+    public static boolean isFixUnverified(FixAttempt a) {
+        return a.outcome() == FixAttempt.Outcome.STILL_PRESENT
+                && a.strategy().map(s -> s.startsWith(FIX_UNVERIFIED)).orElse(false);
     }
 
     /** A planned attempt that could not run because the sandbox is unusable. */
@@ -196,8 +231,7 @@ public final class FixClassifier {
                 yield done.exitCode() == 0 ? RegressionResult.PASSED : RegressionResult.ERROR;
             }
             case SuiteBaseline.BuildFailed bf -> RegressionResult.NOT_RUN;
-            case SuiteBaseline.NotRun nr -> nr.reason() == SuiteBaseline.NotRun.Reason.TIMEOUT
-                    ? RegressionResult.TIMEOUT : RegressionResult.NOT_RUN;
+            case SuiteBaseline.NotRun nr -> RegressionResult.SANDBOX_UNAVAILABLE;
         };
     }
 }

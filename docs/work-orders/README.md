@@ -13,9 +13,9 @@
 | **L** LLM | L.1 (+L.7, +K.10, redaction) [W3]; L.2 (+L.3) [W4]; L.5 closed |
 | **G** Agents | G.1 [W4]; G.5 [W4]; G.4, G.6 [W5]; G.7 [W6]; G.10, G.11 [W8] |
 | **X** Sandbox | X.1 (+X.3, +X.4) [W2]; X.2 [W4] |
-| **M** Remediation | M.1 [W9]; M.2 [W10] |
+| **M** Remediation | M.1 [W9]; M.3 [W10]; M.2 [W11] |
 | **R** Reports | R.1 (+R.2 as Markdown) [W3]; R.4 [W10] |
-| **E** Evaluation | E.1 [W2]; E.6 [W11] |
+| **E** Evaluation | E.1 [W2]; E.6 [W12] |
 | **D** Docs | D.1 (+D.3) [W7] |
 
 Dropped and folded orders are kept unchanged in `docs/work-orders/stretch/` (not scheduled; not checked by

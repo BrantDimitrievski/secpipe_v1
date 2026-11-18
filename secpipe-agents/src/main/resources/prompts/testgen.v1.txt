@@ -15,11 +15,22 @@ Test rules (a test that breaks any of them is discarded and a fresh generator is
 - Assert on observable sink input or effect: capture what reaches the sink with a recording stub (for example a
   java.lang.reflect.Proxy implementing the JDBC interface, or a fake collaborator) and assert the payload did not
   change the sink's meaning. Never assert on log text.
+- The test must also PASS on a correct fix, so the recording stub must record BOTH the unsafe and the safe API of
+  the sink family, for example SQL: Statement.executeQuery(String) / execute(String) AND
+  Connection.prepareStatement(String) + setString/setObject + executeQuery() / execute(); OS command:
+  a single command string AND an argument list (recorded by a fake, never executed); path: string
+  concatenation AND a validated or normalized Path. Record the command/query/path text and the bound parameters
+  separately.
+- Assert on the attacker-visible effect: the payload reaching the command, query or path text. A payload that is
+  bound as a parameter, passed as a separate argument, or rejected by validation is the safe outcome and must pass.
+- Use Assumptions only for environment setup (a stub compiled, a class loaded). Never assume that the unsafe API
+  was called or that a specific API was used: a correct parameterized or validated fix must not make the test skip.
 - Exactly one kind of check may fail: the vulnerability assertion, an Assertions.assert* call whose message
-  contains your `expected_failure` text verbatim. Every setup check (a stub compiled, a class loaded, the sink was
-  reached) must be a JUnit assumption (org.junit.jupiter.api.Assumptions.assumeTrue/assumeFalse with a message),
-  never an assertion, a Java `assert` statement, or `if (...) fail(...)` / `throw new AssertionError(...)`. A
-  failure whose message does not contain `expected_failure` is not accepted as evidence.
+  contains your `expected_failure` text verbatim. Every setup check (a stub compiled, a class loaded, the sink
+  family was reached through either its unsafe or its safe API) must be a JUnit assumption
+  (org.junit.jupiter.api.Assumptions.assumeTrue/assumeFalse with a message), never an assertion, a Java `assert`
+  statement, or `if (...) fail(...)` / `throw new AssertionError(...)`. A failure whose message does not contain
+  `expected_failure` is not accepted as evidence.
 - No network of any kind (no java.net, javax.net, sockets, HTTP clients, JNDI, RMI).
 - No file access outside a JUnit @TempDir: no absolute paths, no `..` in paths the test itself opens.
 - No System.exit, Runtime.halt, process creation, Thread.sleep, or reflection on SecPipe classes.

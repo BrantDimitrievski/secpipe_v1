@@ -48,7 +48,8 @@ import java.util.TreeMap;
  * (fixtures in {@code llm-fixtures/remediation-loop}). The fakes look at the patched {@code LoginServlet.java} of each
  * scratch copy: {@code prepareStatement(} makes the regression test pass, {@code createStatement} keeps the original
  * finding detected, and the markers {@code BROKEN_BUILD}, {@code BREAKS_SUITE} and {@code NEW_VULN} break the build,
- * a baseline test, or add a finding.
+ * a baseline test, or add a finding. WO-M.3 markers: {@code SKIPS_REGRESSION} skips the regression test (failed
+ * assumption), {@code SANDBOX_DIES_REGRESSION} / {@code SANDBOX_DIES_SUITE} time the sandbox out in that run.
  */
 class RemediationLoopNodeTest {
 
@@ -101,13 +102,20 @@ class RemediationLoopNodeTest {
                             "[ERROR] COMPILATION ERROR : LoginServlet.java:[22,1] not a statement", "", List.of(),
                             Duration.ofSeconds(1), EnumSet.allOf(Control.class));
                 }
-                String body = login.contains("prepareStatement(") ? ""
+                if (login.contains("SANDBOX_DIES_REGRESSION")) {
+                    return died();
+                }
+                String body = login.contains("SKIPS_REGRESSION") ? "<skipped message=\"login query did not run\"/>"
+                        : login.contains("prepareStatement(") ? ""
                         : "<failure message=\"attacker-controlled username reached the SQL text\"/>";
                 return report(spec, "<testcase classname=\"" + REGRESSION_CLASS
                         + "\" name=\"usernamePayloadMustNotReachTheQueryText()\">" + body + "</testcase>");
             }
             assertTrue(purpose.startsWith(SuiteBaseline.PURPOSE_PREFIX), purpose);
             assertFalse(Files.exists(spec.scratchDir().resolve(REGRESSION_PATH)), "suite copy has no regression test");
+            if (login.contains("SANDBOX_DIES_SUITE")) {
+                return died();
+            }
             StringBuilder cases = new StringBuilder();
             for (String id : BASELINE) {
                 String[] parts = id.split("#");
@@ -116,6 +124,10 @@ class RemediationLoopNodeTest {
                         .append("\">").append(broken ? "<failure message=\"broken\"/>" : "").append("</testcase>");
             }
             return report(spec, cases.toString());
+        }
+
+        private static Result died() {
+            return new Result(-1, true, "", "", List.of(), Duration.ofSeconds(600), EnumSet.allOf(Control.class));
         }
 
         private static Result report(Spec spec, String cases) {
@@ -367,6 +379,7 @@ class RemediationLoopNodeTest {
                 .filter(f -> f.fingerprint().equals(FP_NEW)).findFirst().orElseThrow());
         assertEquals(List.of("introduced by candidate fix patches/CWE-89-000000000000-attempt1.patch; not validated"),
                 nv.blockers());
+        assertEquals(Optional.of(RemediationStatus.NOT_ATTEMPTED), nv.secpipe().remediationStatus());
         assertTrue(Files.isRegularFile(tmp.resolve("out/patches/CWE-89-000000000000-attempt1.patch")));
         assertEquals(List.of(FP_NEW, fp), d.putRecords().stream().map(Finding::fingerprint).sorted().toList());
         assertValid(d.putRecords());
@@ -486,20 +499,101 @@ class RemediationLoopNodeTest {
     }
 
     @Test
-    void recordsThatAreNotConfirmedAreLeftAlone() throws Exception {
+    void nonConfirmedCodeRecordsAreMarkedNotAttemptedWithoutAnySandboxRun() throws Exception {
         target = tmp.resolve("target");
         SuiteBaseline.freshCopy(FIXTURE, target);
         Finding.Confirmed c = confirmed(fp("c001"));
         Finding.NeedsValidation nv = new Finding.NeedsValidation(fp("c009"), "t", "d", "r", c.trace(), c.evidence(),
                 List.of("sandbox unavailable"), new Finding.ValidationPlan(Optional.of("x"), Optional.empty()),
                 c.secpipe());
+        Finding.Rejected rj = new Finding.Rejected(fp("c00a"), "t", "d", "r", c.trace(), c.evidence(),
+                "input is validated", c.secpipe());
         FakeSandbox sb = new FakeSandbox();
-        StateDelta d = RemediationLoopNode.evaluate(state(nv), new RemediationLoopNode.Settings(
+        FakeLlmClient client = fake();
+        StateDelta d = RemediationLoopNode.evaluate(state(nv, rj), new RemediationLoopNode.Settings(
                 SecPipeConfig.FixMode.SUGGEST, 3, true, false, target, tmp.resolve("w"), tmp.resolve("o")),
-                new RemediationLoopNode.Services(fake(), Optional.of(sb), new FakeRescanner(nv.fingerprint()),
+                new RemediationLoopNode.Services(client, Optional.of(sb), new FakeRescanner(nv.fingerprint()),
                         new CallBudget(200, 25), new Log(), (r, w) -> Optional.of(regressionTest())));
-        assertEquals(StateDelta.empty(), d);
+
+        assertEquals(List.of(nv.fingerprint(), rj.fingerprint()),
+                d.putRecords().stream().map(Finding::fingerprint).toList());
+        d.putRecords().forEach(f -> {
+            assertEquals(Optional.of(RemediationStatus.NOT_ATTEMPTED), f.secpipe().remediationStatus(),
+                    f.fingerprint());
+            assertTrue(f.secpipe().fixAttempts().isEmpty(), f.fingerprint());
+        });
+        assertInstanceOf(Finding.NeedsValidation.class, d.putRecords().get(0));
+        assertInstanceOf(Finding.Rejected.class, d.putRecords().get(1));
         assertTrue(sb.specs.isEmpty());
+        assertEquals(0, client.calls().size());
+        // the hand-made rejected input has no disprover verification (F6), so only the needs_validation record is
+        // validated; the node only adds remediation_status to both
+        assertValid(List.of(d.putRecords().get(0)));
+    }
+
+    @Test
+    void nonConfirmedRecordsAreLeftAloneWhenFixesAreOff() throws Exception {
+        Finding.Confirmed c = confirmed(fp("c001"));
+        Finding.NeedsValidation nv = new Finding.NeedsValidation(fp("c009"), "t", "d", "r", c.trace(), c.evidence(),
+                List.of("sandbox unavailable"), new Finding.ValidationPlan(Optional.of("x"), Optional.empty()),
+                c.secpipe());
+        StateDelta d = RemediationLoopNode.evaluate(state(nv), new RemediationLoopNode.Settings(
+                SecPipeConfig.FixMode.FALSE, 3, true, false, tmp, tmp.resolve("w"), tmp.resolve("o")),
+                new RemediationLoopNode.Services(fake(), Optional.of(new FakeSandbox()),
+                        new FakeRescanner(nv.fingerprint()), new CallBudget(200, 25), new Log(),
+                        (r, w) -> Optional.of(regressionTest())));
+        assertEquals(StateDelta.empty(), d);
+    }
+
+    @Test
+    void regressionTestSkippedAfterThePatchIsStillPresentButMarkedFixUnverifiedAndNotRetried() throws Exception {
+        String fp = fp("c010");
+        StateDelta d = run(confirmed(fp), 3);
+
+        Finding.Confirmed c = only(d, fp);
+        assertEquals(List.of(FixAttempt.Outcome.STILL_PRESENT), outcomes(c));
+        FixAttempt a = c.secpipe().fixAttempts().get(0);
+        assertTrue(a.strategy().orElseThrow().startsWith(FixClassifier.FIX_UNVERIFIED), a.toString());
+        assertTrue(a.strategy().orElseThrow().contains("PreparedStatement"), "the agent's strategy is kept");
+        assertTrue(FixClassifier.isFixUnverified(a));
+        assertEquals(Optional.of(false), a.regressionTestPassed());
+        assertEquals(Optional.of(RemediationStatus.STILL_PRESENT), c.secpipe().remediationStatus());
+        assertEquals(1, llm.calls().size(), "no further attempt after a post-fix skip");
+        assertEquals(1, sandbox.runs("regression test"));
+        assertEquals(1, sandbox.runs(SuiteBaseline.PURPOSE_PREFIX), "only the baseline suite ran");
+        assertTrue(d.notes().stream().anyMatch(n -> n.contains(FixClassifier.FIX_UNVERIFIED)), d.notes().toString());
+        assertTrue(Files.isRegularFile(tmp.resolve("out/patches/CWE-89-000000000000-attempt1.patch")));
+        assertValid(d.putRecords());
+    }
+
+    @Test
+    void sandboxDyingDuringTheRegressionTestIsSandboxUnavailableNotStillPresent() throws Exception {
+        String fp = fp("c011");
+        StateDelta d = run(confirmed(fp), 3);
+
+        Finding.Confirmed c = only(d, fp);
+        assertEquals(List.of(FixAttempt.Outcome.SANDBOX_UNAVAILABLE), outcomes(c));
+        assertEquals(Optional.of(RemediationStatus.NOT_ATTEMPTED), c.secpipe().remediationStatus());
+        assertEquals(1, llm.calls().size(), "the record is not retried once the sandbox died");
+        assertEquals(Map.of(fp, 0), d.fixAttemptsByFingerprint());
+        assertTrue(d.notes().stream().anyMatch(n -> n.contains("sandbox unavailable during the regression test")),
+                d.notes().toString());
+        assertValid(d.putRecords());
+    }
+
+    @Test
+    void sandboxDyingDuringTheSuiteIsSandboxUnavailableNotTestsBroken() throws Exception {
+        String fp = fp("c012");
+        StateDelta d = run(confirmed(fp), 3);
+
+        Finding.Confirmed c = only(d, fp);
+        assertEquals(List.of(FixAttempt.Outcome.SANDBOX_UNAVAILABLE), outcomes(c));
+        assertEquals(Optional.of(RemediationStatus.NOT_ATTEMPTED), c.secpipe().remediationStatus());
+        assertEquals(1, llm.calls().size());
+        assertEquals(1, rescanner.copies.size(), "no rescan after the sandbox died (only the baseline rescan)");
+        assertTrue(d.notes().stream().anyMatch(n -> n.contains("sandbox unavailable during the project tests")),
+                d.notes().toString());
+        assertValid(d.putRecords());
     }
 
     @Test

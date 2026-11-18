@@ -1,5 +1,5 @@
 ### WO-M.2: Implement test adequacy (FR-15) with JaCoCo on changed lines
-Wave: 10   Depends on: WO-M.1, WO-X.1, WO-G.6   Blocks: WO-E.6
+Wave: 11   Depends on: WO-M.1, WO-M.3, WO-X.1, WO-G.6   Blocks: WO-E.6
 Milestone: Oral Jan 25
 Traces: FR-15, FR-6 · B, Q
 Suggested human owner: Elaine Huang (reviewer: Elodie Abdo)
