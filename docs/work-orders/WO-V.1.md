@@ -1,5 +1,5 @@
 ### WO-V.1: Implement the findings validator (schema + rules F1–F9)
-Wave: 2   Depends on: WO-C.1, WO-C.5   Blocks: WO-K.13, WO-R.1, WO-K.9, WO-K.11
+Wave: 2   Depends on: WO-C.1, WO-C.5   Blocks: WO-K.9, WO-R.1, WO-K.13
 Milestone: Prototype 2 Dec 5
 Traces: FR-4, FR-8, FR-9 · F, I, P
 Suggested human owner: Elaine Huang (reviewer: Brant Dimitrievski)

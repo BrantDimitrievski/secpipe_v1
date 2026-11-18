@@ -1,25 +1,24 @@
 ## Part 7 — Work orders
 
-### Index (epic → work orders; wave in brackets; ★ = critical path)
+### Index (lean re-plan 2026-11-17; wave in brackets; see `docs/PLAN.md` "Re-plan 2026-11-17 (lean)")
 
 | Epic | Work orders |
 |---|---|
-| **0** Bootstrap & CI | ★0.1 [W0], 0.2 [W5] |
-| **S** Spikes | S.1 LangGraph4j, S.2 Copilot CLI provider (GitHub Models retired), S.3 Sandbox/Maven, S.4 Joern [W1] |
-| **C** Contracts | C.1, C.2, ★C.3, C.4, ★C.5 [W1] |
-| **P** MVP ports | P.0 [W1]; P.1, P.2, P.3, P.8 [W2]; P.6, P.7 [W4]; P.4, P.5 [W5] |
-| **V** Validators | V.1, V.2, V.3 [W2] |
-| **K** Core | K.1, K.7 [W2]; K.3, K.4, K.5, K.6, ★K.8, K.10, K.13 [W3]; K.9, K.11 [W4]; K.2 [W5]; K.12 [W9]; K.14 [W13] |
-| **L** LLM | ★L.1 [W2]; L.6 [W3]; L.2 [W4]; L.3, L.7 [W5]; L.4, L.5, L.8 [W6] |
-| **G** Agents | ★G.1 [W3]; ★G.4, ★G.5, G.6 [W4]; ★G.7 [W5]; G.8 [W6]; ★G.10 [W7]; G.2, G.9 [W8]; G.3 [W9] |
-| **X** Sandbox | X.4 [W2]; X.1 [W3]; X.2, X.3 [W4] (feeds ★G.7) |
-| **R** Reports | R.1 [W3]; R.2 [W5]; R.3 [W8]; R.4 [W9] |
-| **M** Remediation | ★M.1 [W8]; ★M.2 [W9] |
-| **A** New adapters | A.2 [W6]; A.1 [W8]; A.3, A.4 [W12] |
-| **H** GitHub Action | H.1 [W8]; H.2, H.3 [W9]; H.4, H.5, H.6 [W10] |
-| **Y** Self-security | Y.2 [W8]; Y.1 [W9]; Y.3 [W13] |
-| **E** Evaluation | E.1 [W2]; ★E.2 [W5]; ★E.6 [W10]; E.5, E.8, E.9 [W12]; E.3, E.4, E.7, E.10 [W13] |
-| **D** Docs | D.2 [W6]; D.1 [W10]; ★D.3 [W11]; D.4 [W14] |
+| **0** Bootstrap | 0.1 [W0] (merged) |
+| **S** Spikes | S.2 [W1] (merged); S.3 [W1] (PR #98, laptop checks pending) |
+| **C** Contracts | C.1–C.5 [W1] (merged); CC.1 [W2] (merged) |
+| **P** MVP ports | P.0 [W1] (merged); P.2 (+P.8) [W2]; P.6 [W4] |
+| **V** Validators | V.1 [W2] |
+| **K** Core | K.1 [W2]; K.4, K.5 (+V.2 invariants), K.6, K.8 [W3]; K.9 (+K.11) [W4]; K.13 (+K.3, +0.2) [W6] |
+| **L** LLM | L.1 (+L.7, +K.10, redaction) [W3]; L.2 (+L.3) [W4]; L.5 closed |
+| **G** Agents | G.1 [W4]; G.5 [W4]; G.4, G.6 [W5]; G.7 [W6] |
+| **X** Sandbox | X.1 (+X.3, +X.4) [W2]; X.2 [W4] |
+| **R** Reports | R.1 (+R.2 as Markdown) [W3] |
+| **E** Evaluation | E.1 [W2] |
+| **D** Docs | D.1 (+D.3) [W7] |
+
+Dropped and folded orders are kept unchanged in `docs/work-orders/stretch/` (not scheduled; not checked by
+`scripts/check-plan.py`). Bringing one back requires a re-plan.
 
 Path shorthand used in the ownership lists: none. Every path is written in full from the repo root.
 

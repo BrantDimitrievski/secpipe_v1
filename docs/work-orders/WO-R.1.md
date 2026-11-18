@@ -1,55 +1,33 @@
-### WO-R.1: Implement JSON and SARIF writers and the report node
-Wave: 3   Depends on: WO-V.1, WO-C.1, WO-C.2   Blocks: WO-0.2, WO-R.2, WO-H.1, WO-R.3, WO-R.4
+### WO-R.1: Implement JSON and SARIF writers, the Markdown report, and the report node
+Wave: 3   Depends on: WO-V.1, WO-C.1, WO-C.2   Blocks: WO-K.13
 Milestone: Prototype 2 Dec 5
-Traces: FR-4, FR-9, FR-10 · F, G, S
+Traces: FR-4, FR-9, FR-10, FR-11 · F, G, S
 Suggested human owner: Abdul Babatunde (reviewer: Elaine Huang)
 Size: M
 
-Goal (2–3 sentences): `ReportNode` writes `findings.json`, `coverage-ledger.json`, `run-metadata.json` (all
-byte-stable), and `secpipe.sarif` (SARIF 2.1.0, mapped per ADR-05). Rejected records go to `suppressions`,
-verdict and evidence to `properties.secpipe`, fingerprints to `partialFingerprints`. Other renderers plug in
-through `ReportRenderer` ServiceLoader without touching the node.
+Goal (2–3 sentences): `ReportNode` writes schema-validated `findings.json`, `coverage-ledger.json`, `run-metadata.json`, a SARIF 2.1.0 file, and `report.md` (replacing the HTML report of old R.2). Every output renders only from the validated JSON and is byte-stable for the same input.
 
-Context to read first (exact paths only): `docs/PLAN.md` ADR-05, §2.2-S; contracts `json/ContractJson.java`,
-`json/LedgerCodec.java`, `json/RunMetadataCodec.java`; MVP `src/main/java/ca/carleton/secpipe/report/SarifReporter.java`.
+Context to read first (exact paths only): contracts `pipeline/PipelineState.java`, `pipeline/RunMetadata.java`, `ContractJson.java`; `secpipe-validators/src/main/java/ca/carleton/secpipe/validators/FindingsValidator.java`; `secpipe-cli/src/main/java/ca/carleton/secpipe/cli/demo/DemoReport.java`
 
-Files you own (create/modify — nothing else): `secpipe-report/src/main/java/ca/carleton/secpipe/report/ReportNode.java`,
-`secpipe-report/src/main/java/ca/carleton/secpipe/report/ReportRenderer.java`, `secpipe-report/src/main/java/ca/carleton/secpipe/report/JsonOutputs.java`, `secpipe-report/src/main/java/ca/carleton/secpipe/report/SarifWriter.java`,
-`secpipe-report/src/main/resources/META-INF/services/ca.carleton.secpipe.report.ReportRenderer`,
-`secpipe-report/src/test/java/ca/carleton/secpipe/report/{ReportNode,JsonOutputs,SarifWriter}*Test.java`,
-`secpipe-report/src/test/resources/ca/carleton/secpipe/report/sarif/**`.
+Files you own (create/modify — nothing else): `secpipe-report/src/main/java/ca/carleton/secpipe/report/**`, `secpipe-report/src/main/resources/**`, `secpipe-report/src/test/**`.
 
-Files you may read but not modify: contracts, validators.
+Files you may read but not modify: contracts, validators, demo slice.
 
-Interfaces consumed: `PipelineState`, `RunMetadata`   Interfaces produced: `ReportNode`, the
-`ReportRenderer { String format(); void render(ReportInputs in, Path outDir) }` SPI, `ReportInputs` (records,
-ledger, metadata, coverage summary).
+Interfaces consumed: `PipelineState`, `RunMetadata`, `FindingsValidator`   Interfaces produced: `ReportNode`; `ReportRenderer` SPI (`json`, `sarif`, `markdown`); `ReportInputs`.
 
 Implementation notes:
-- **SARIF:**
-  - `tool.driver.name=secpipe`, with rules keyed by CWE family plus title;
-  - `results[].ruleId=CWE-xx`, `message.text`=title + claimed/root cause;
-  - locations from the sink trace step; `codeFlows` from the trace;
-  - `partialFingerprints["secpipeFingerprint/v1"]`;
-  - level: confirmed severity critical/high → `error`, medium → `warning`, low/info → `note`;
-    needs_validation → `warning` + `properties.tags:["needs-validation"]`; rejected → `note` +
-    `suppressions:[{kind:"external",status:"accepted",justification:reason}]`;
-  - `properties.secpipe` = `{verdict, confidence, test_evidence: [ids/outcomes], remediation_status}`.
-- **Header in `runs[0].properties`:** the AI mode, effective provider, terminal state.
-- The SARIF must validate against the official 2.1.0 schema. Vendor the schema JSON under test resources
-  (OASIS licence permits it; note it in `THIRD_PARTY_NOTICES` via PR comment for D.2).
-- Sort results by fingerprint.
-- `ReportRenderer`s run after the JSON/SARIF; a renderer failure → a note, not a crash.
+- Validate before writing; a validation failure writes nothing and returns an `incomplete_reason`.
+- Markdown: summary counts by severity/status, one section per finding (location, trace, evidence, remediation text), coverage summary.
+- SARIF: one rule per CWE family, `partialFingerprints.secpipe/v1` = fingerprint, rejected findings as suppressed results.
+- Sorted by fingerprint / `coverage_id`; no timestamps beyond `run-metadata.json`.
 
-Tests to write: SARIF schema validation; each verdict mapping; rejected → suppressed; byte-identical
-output on two runs; the JSON outputs validate.
+Tests to write: golden-file tests for each format on a hand-made `PipelineState`; SARIF validates against the 2.1.0 schema in test resources; determinism.
 
 Acceptance criteria (all must pass):
 - [ ] `./mvnw -q -B -pl secpipe-report -am test` → ≥ 10 tests, 0 failures
-- [ ] A test validates the written `secpipe.sarif` against the vendored `sarif-schema-2.1.0.json`
-- [ ] A test asserts a `rejected` record appears with exactly one `suppressions` entry and is never level `error`
+- [ ] A test asserts two renders of the same input are byte-identical for all five files
+- [ ] `./mvnw -q -B verify` → exit 0 (CI `ci` check green)
 
-Out of scope: HTML (R.2), PR comment (R.3), patches (R.4).
+Out of scope: HTML report, PR comment, patches (stretch).
 
-Handoff note for next agent: Renderers receive only `ReportInputs` (verified records + ledger + metadata).
-No raw candidates, so prose can never change a verdict (feature S).
+Handoff note for next agent: K.13 replaces `DemoReport` with `ReportNode`.

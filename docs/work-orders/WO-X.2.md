@@ -1,52 +1,34 @@
 ### WO-X.2: Implement Maven prefetch and offline workspace preparation
-Wave: 4   Depends on: WO-X.1, WO-P.3   Blocks: WO-G.7, WO-A.1, WO-M.1
+Wave: 4   Depends on: WO-X.1   Blocks: WO-G.7
 Milestone: Prototype 2 Dec 5
 Traces: FR-12, NFR-5 · J
 Suggested human owner: Elodie Abdo (reviewer: Abdul Babatunde)
 Size: M
 
-Goal (2–3 sentences): `MavenWorkspace` runs the two-phase Maven flow from ADR-03. First a pre-flight
-refuses build extensions unless allowed. Then a network-enabled, secret-free prefetch container resolves
-dependencies and plugins into a per-project cache. Then an offline scratch copy runs with
-`maven.repo.local.tail` (read-only). It also implements the OSV adapter's `TransitiveResolver` (full
-dependency tree, computed in the sandbox).
+Goal (2–3 sentences): `MavenWorkspace` copies the target into scratch, runs the network-enabled, secret-free `MavenPrefetch` phase, and then provides offline commands against a read-only local-repo tail. An incomplete prefetch is a named `prefetch-incomplete` blocker, never a test failure.
 
-Context to read first (exact paths only): `docs/spikes/S3-sandbox.md`; `secpipe-sandbox/src/main/java/ca/carleton/secpipe/sandbox/DockerSandboxRunner.java`;
-`secpipe-adapter-osv/src/main/java/ca/carleton/secpipe/adapter/osv/TransitiveResolver.java`; `docs/PLAN.md` ADR-03.
+Context to read first (exact paths only): `docs/PLAN.md` ADR-03; `docs/spikes/S3-sandbox.md` (branch `origin/wo-s.3-sandbox-spike`, section "Two-phase Maven"); `secpipe-sandbox/src/main/java/ca/carleton/secpipe/sandbox/DockerSandboxRunner.java`; contracts `spi/SandboxRunner.java`
 
-Files you own (create/modify — nothing else): `secpipe-sandbox/src/main/java/ca/carleton/secpipe/sandbox/MavenWorkspace.java`,
-`secpipe-sandbox/src/main/java/ca/carleton/secpipe/sandbox/BuildExtensionPreflight.java`, `secpipe-sandbox/src/main/java/ca/carleton/secpipe/sandbox/SandboxTransitiveResolver.java`,
-`secpipe-sandbox/src/main/resources/META-INF/services/ca.carleton.secpipe.adapter.osv.TransitiveResolver`,
-`secpipe-sandbox/src/test/java/ca/carleton/secpipe/sandbox/{MavenWorkspace,BuildExtensionPreflight,SandboxTransitiveResolver}*.java`.
+Files you own (create/modify — nothing else): `secpipe-sandbox/src/main/java/ca/carleton/secpipe/sandbox/MavenWorkspace.java`, `secpipe-sandbox/src/main/java/ca/carleton/secpipe/sandbox/BuildExtensionPreflight.java`, `secpipe-sandbox/src/test/java/ca/carleton/secpipe/sandbox/{MavenWorkspace,BuildExtensionPreflight}*.java`, `secpipe-sandbox/src/test/resources/ca/carleton/secpipe/sandbox/prefetch/**`.
 
-Files you may read but not modify: sandbox runner, osv adapter. (The `secpipe-sandbox` pom already depends
-on `secpipe-adapter-osv` per WO-0.1; if not, stop and report.)
+Files you may read but not modify: sandbox runner, contracts.
 
-Interfaces consumed: `SandboxRunner`, `TransitiveResolver`   Interfaces produced: `MavenWorkspace.prepare(Path target) →
-Prepared(cacheDir, scratchCopy)`, `MavenWorkspace.offlineCommand(String... goals)`, `SandboxTransitiveResolver`.
+Interfaces consumed: `SandboxRunner`   Interfaces produced: `MavenWorkspace.prepare(Path target) → Prepared(cacheDir, scratchCopy)` or `PrefetchIncomplete(missing)`; `MavenWorkspace.offlineCommand(String... goals)`.
 
 Implementation notes:
-- **Pre-flight:** parse `pom.xml` and `.mvn/extensions.xml` for `<extensions>true</extensions>` or
-  extensions entries → refuse with `--allow-build-extensions` as the hint. Also reject `<repositories>`
-  using `http:` (not https).
-- **Prefetch command:** `mvn -B -q -Dmaven.repo.local=/cache/m2 dependency:go-offline
-  dependency:resolve-plugins -DskipTests -Dmaven.test.skip=true`. Network `PREFETCH_ONLY`; mounts: the
-  scratch copy (rw) and the cache (rw); no other mounts; env from the allowlist only.
-- **Cache key:** the SHA-256 of all pom files; reused across runs at `~/.secpipe/cache/m2/<key>`.
-- **Offline:** copy the target into a fresh scratch for every execution (never reuse a scratch across
-  attempts). The cache is mounted ro at `/cache/m2`, with local repo `/scratch/m2` and tail `/cache/m2`.
-- **`TransitiveResolver`:** offline `mvn -o dependency:list -DoutputFile=/scratch/deps.txt
-  -DincludeScope=runtime` → promote → parse.
+- Prefetch goals: `dependency:go-offline dependency:resolve-plugins dependency:resolve` (all scopes), per the corrected ADR-03.
+- After prefetch, an offline `dependency:build-classpath` dry check; "Could not resolve dependencies" → `prefetch-incomplete` blocker naming the missing artifact.
+- Keep the extensions pre-flight: `<extensions>true</extensions>` or `.mvn/extensions.xml` → refuse unless `--allow-build-extensions`.
+- Dropped: the OSV transitive resolver (P.3 is stretch).
 
-Tests to write: pre-flight refusal cases; the command construction; cache key stability.
-(`@Tag("sandbox")`) prefetch + offline compile of `fixtures/e2e/sqli-min`; the transitive list includes
-the servlet-api provided scope excluded.
+Tests to write: `BuildExtensionPreflightTest`; `MavenWorkspaceTest` with a fake `SandboxRunner` (complete, incomplete → blocker); `[DOCKER]` MVP `vulnerable-java-app` prefetch → offline compile.
 
 Acceptance criteria (all must pass):
 - [ ] `./mvnw -q -B -pl secpipe-sandbox -am test -Dtest='MavenWorkspace*Test,BuildExtensionPreflight*Test'` → ≥ 8 tests, 0 failures
-- [ ] [DOCKER] `./mvnw -q -B -Psandbox -pl secpipe-sandbox -am verify -Dtest='MavenWorkspaceIT'` → the offline compile succeeds with `--network none` (paste the log)
+- [ ] [DOCKER] MVP `vulnerable-java-app`: prefetch then offline compile passes
+- [ ] [DOCKER] OWASP Benchmark (pinned, `SECPIPE_SPIKE_BENCHMARK`, with `--allow-build-extensions`): prefetch → offline compile passes, or emits a named `prefetch-incomplete` blocker
+- [ ] `./mvnw -q -B verify` → exit 0 (CI `ci` check green)
 
-Out of scope: Gradle (stretch).
+Out of scope: Gradle (stretch Z.2).
 
-Handoff note for next agent: Every later sandbox execution uses `offlineCommand`. Never run Maven with
-network after prefetch.
+Handoff note for next agent: G.7 calls `prepare` once per run and reuses the cache for every test.

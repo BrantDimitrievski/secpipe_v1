@@ -1,5 +1,5 @@
 ### WO-CC.1: Remove the `copilot` provider mode after the S.2 NO-GO
-Wave: 2   Depends on: WO-C.2, WO-C.4, WO-S.2   Blocks: WO-H.1, WO-H.3, WO-H.6, WO-L.7, WO-E.10
+Wave: 2   Depends on: WO-C.2, WO-C.4, WO-S.2   Blocks: WO-L.1
 Milestone: Prototype 2 Dec 5
 Traces: NFR-5, ADR-10 · N, O
 Suggested human owner: Clinton Odinamadu (reviewer: Brant Dimitrievski)

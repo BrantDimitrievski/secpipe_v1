@@ -1,50 +1,35 @@
-### WO-K.13: Build the CLI (picocli) and assemble the pipeline
-Wave: 3   Depends on: WO-K.1, WO-C.4, WO-P.1, WO-V.1, WO-V.2, WO-L.1   Blocks: WO-0.2, WO-H.1, WO-D.1, WO-E.8, WO-E.9
+### WO-K.13: Build the CLI, setup, and pipeline assembly; make the e2e fixture scan a CI test
+Wave: 6   Depends on: WO-K.1, WO-C.4, WO-V.1, WO-K.4, WO-K.5, WO-K.6, WO-K.8, WO-K.9, WO-G.5, WO-G.4, WO-R.1, WO-L.1   Blocks: WO-D.1
 Milestone: Prototype 2 Dec 5
-Traces: FR-4, NFR-1, NFR-6 · A, P, S
+Traces: FR-1, FR-4, NFR-1, NFR-2, NFR-6 · A, P, S
 Suggested human owner: Abdul Babatunde (reviewer: Clinton Odinamadu)
 Size: M
 
-Goal (2–3 sentences): Implement every command and flag in §4.3 with the MVP's error and hint style. Wire
-`ConfigResolver` → `PlainGraphRunner` → exit codes. The validators are injected, the sandbox and graph
-runners come through ServiceLoader, and the LLM client comes through `LlmClients.assemble`. Write `$GITHUB_OUTPUT` keys in Actions. Port the launchers and `install.sh`.
+Goal (2–3 sentences): `secpipe scan` (picocli) resolves config and environment (setup, folded from K.3), assembles the real pipeline through `PipelineAssembly`, and writes `findings.json`, `coverage-ledger.json`, `run-metadata.json`, SARIF and `report.md`. The e2e fixture scan (folded from 0.2) becomes a normal test run by `./mvnw verify`. When it produces the same report as the demo slice, delete `cli/demo/**`.
 
-Context to read first (exact paths only): `docs/PLAN.md` §4.3; MVP `src/main/java/ca/carleton/secpipe/cli/*.java`,
-`bin/secpipe`, `bin/secpipe.cmd`, `install.sh`; `secpipe-contracts/src/main/java/ca/carleton/secpipe/contracts/config/ConfigResolver.java`;
-`secpipe-core/src/main/java/ca/carleton/secpipe/core/engine/PlainGraphRunner.java`, `DefaultRunContext.java`.
+Context to read first (exact paths only): `docs/PLAN.md` §4.3 (frozen flags and exit codes); contracts `config/ConfigResolver.java`, `pipeline/PipelineGraph.java`; `secpipe-cli/src/main/java/ca/carleton/secpipe/cli/demo/DemoScan.java`; `secpipe-core/src/main/java/ca/carleton/secpipe/core/engine/PlainGraphRunner.java`; `scripts/ci-fixture-scan.sh`
 
-Files you own (create/modify — nothing else): `secpipe-cli/src/main/java/ca/carleton/secpipe/cli/**` (except
-the `e2e` test package), `secpipe-cli/src/test/java/ca/carleton/secpipe/cli/*.java`, `bin/secpipe`,
-`bin/secpipe.cmd`, `install.sh`.
+Files you own (create/modify — nothing else): `secpipe-cli/**`, `secpipe-core/src/main/java/ca/carleton/secpipe/core/setup/**`, `secpipe-core/src/test/java/ca/carleton/secpipe/core/setup/**`, `fixtures/e2e/sqli-min/expected.json`, `fixtures/e2e/sqli-min/llm/**`, `ci/fixture-scan.enabled`.
 
 Files you may read but not modify: all modules.
 
-Interfaces consumed: everything public   Interfaces produced: the `secpipe` CLI, `PipelineAssembly.build(config)
-→ (GraphRunner, RunContext, initial state)` (used by eval harnesses).
+Interfaces consumed: everything public   Interfaces produced: the `secpipe` CLI (`scan`, `--help`, `--version`); `PipelineAssembly.build(config) → (GraphRunner, RunContext, initial state)`; `SetupNode`.
 
 Implementation notes:
-- **Subcommands:** `scan`, `validate`, `doctor`, `diff`, `report`, `github`.
-  - `github` delegates to `secpipe-github` when present (reflective ServiceLoader `CliExtension`), else
-    prints "not built" with exit 2.
-  - `report --from` and `diff` call report/incremental classes reflectively in the same way, until those
-    WOs exist (prints "available after WO-R.2/K.12").
-- **Fake provider gate:** `SECPIPE_ALLOW_FAKE_LLM=1`, plus `SECPIPE_FAKE_LLM_DIR`.
-- **`$GITHUB_OUTPUT` keys:** `sarif_path`, `findings_path`, `report_path`, `run_status`, `confirmed`,
-  `needs_validation`, `rejected`, `ai_mode`, `out_dir`, `state_dir`, `exit_code`, `can_upload_sarif`.
-- **Paths with spaces** must work (a portability check).
-- The terminal summary is ported from MVP `TerminalSummary`, adapted to verdicts.
+- Implement only the §4.3 flags that the lean pipeline uses; flag names and exit codes stay exactly as frozen.
+- Wire `EngineValidators(FindingsValidator, LedgerInvariants::check)`, `LlmClients.assemble(...)`, and the sandbox (absent → evidence stays `needs_validation`).
+- E2E test (`cli/e2e/**`): scan `fixtures/e2e/sqli-min` with `FakeLlmClient`, no Docker, compare `findings.json` to `expected.json` (fingerprints + statuses).
+- Create `ci/fixture-scan.enabled` so `scripts/ci-fixture-scan.sh` runs; errors follow the one-line problem + `hint:` style.
+- Delete `cli/demo/**` and its tests in the same PR once the e2e report matches the demo's `report.md` findings.
 
-Tests to write: every flag parses to the expected config key (table-driven); unknown flag → exit 2 with a
-hint; `validate` exit codes; `doctor` output contains each check; `$GITHUB_OUTPUT` written when
-`GITHUB_ACTIONS=true` (temp file); a path with spaces.
+Tests to write: `ScanCommandTest` (flags, exit codes), `SetupNodeTest` (config + env resolution), `E2eFixtureScanTest`, a `SecretLeakAssertions` check on all outputs.
 
 Acceptance criteria (all must pass):
-- [ ] `./mvnw -q -B -pl secpipe-cli -am verify` → exit 0
-- [ ] `java -jar secpipe-cli/target/secpipe.jar scan --help | grep -c -- '--'` → ≥ 30
-- [ ] `java -jar secpipe-cli/target/secpipe.jar validate findings secpipe-contracts/src/test/resources/examples/findings-invalid-nv-with-severity.json; echo $?` → `1`
-- [ ] `java -jar secpipe-cli/target/secpipe.jar scan fixtures/e2e/sqli-min --no-ai --no-sandbox -o /tmp/sp; echo $?` → `0` or `1` (not `2`), and the engine checkpoint `/tmp/sp/.work/state.json` exists (nodes may be skipped as "not installed" at this wave; `report` writes the JSON outputs once WO-R.1 is merged)
+- [ ] `./mvnw -q -B -pl secpipe-cli -am test -Dtest='ScanCommand*Test,SetupNode*Test,E2eFixtureScan*Test'` → ≥ 10 tests, 0 failures
+- [ ] `bash scripts/ci-fixture-scan.sh` → green (not "skipped")
+- [ ] `git ls-files secpipe-cli/src | grep -c /demo/` → `0`
+- [ ] `./mvnw -q -B verify` → exit 0 (CI `ci` check green)
 
-Out of scope: GitHub REST (WO-H.2), report rendering (R.*).
+Out of scope: `doctor`, `diff`, install scripts, Action wiring (stretch).
 
-Handoff note for next agent: `PipelineAssembly` is the one place that wires concrete classes. Eval WOs reuse
-it with `disabledNodes` for ablations.
+Handoff note for next agent: G.7 lands in the same wave: with no Docker, the evidence node must leave the e2e `findings.json` unchanged (survivors stay `needs_validation`).

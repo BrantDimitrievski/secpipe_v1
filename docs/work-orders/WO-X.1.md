@@ -1,52 +1,35 @@
-### WO-X.1: Implement `DockerSandboxRunner` (enforce-or-refuse)
-Wave: 3   Depends on: WO-S.3, WO-X.4   Blocks: WO-X.2, WO-X.3, WO-G.7, WO-D.2, WO-A.1, WO-Y.2
+### WO-X.1: Implement `DockerSandboxRunner` (enforce-or-refuse) with pinned image and safe promotion
+Wave: 2   Depends on: WO-S.3   Blocks: WO-X.2, WO-G.7
 Milestone: Prototype 2 Dec 5
-Traces: FR-12, NFR-5, NFR-6 · J
+Traces: FR-12, NFR-5, NFR-6 · J, K
 Suggested human owner: Elodie Abdo (reviewer: Elaine Huang)
-Size: L
+Size: M
 
-Goal (2–3 sentences): Implement the `SandboxRunner` contract via the `docker` CLI with every control from
-ADR-03. `probe()` checks the controls against the S.3 matrix and a live self-test. `run()` refuses when any
-required control is unenforceable, enforces the wall clock with kill and cleanup, and returns bounded output
-tails. It is registered via ServiceLoader.
+Goal (2–3 sentences): `DockerSandboxRunner` drives the `docker` CLI with every `SandboxRunner.Control` enforced or refused after a live `probe()`, following spike S.3. It folds in the pinned runner image (old X.4) and `ArtifactPromoter` (old X.3), which copies only declared, regular, size-capped files out of the scratch tar stream.
 
-Context to read first (exact paths only): `docs/spikes/S3-sandbox.md`; contracts `spi/SandboxRunner.java`;
-`docs/PLAN.md` ADR-03; `sandbox-images/runner/Dockerfile`.
+Context to read first (exact paths only): contracts `spi/SandboxRunner.java`; `docs/spikes/S3-sandbox.md` (on branch `origin/wo-s.3-sandbox-spike`: `git show origin/wo-s.3-sandbox-spike:docs/spikes/S3-sandbox.md`); `spikes/sandbox/Dockerfile` (same branch); `docs/PLAN.md` ADR-03
 
-Files you own (create/modify — nothing else): `secpipe-sandbox/src/main/java/ca/carleton/secpipe/sandbox/DockerSandboxRunner.java`,
-`secpipe-sandbox/src/main/java/ca/carleton/secpipe/sandbox/DockerCli.java`, `secpipe-sandbox/src/main/java/ca/carleton/secpipe/sandbox/ControlProbe.java`, `secpipe-sandbox/src/main/java/ca/carleton/secpipe/sandbox/EnvAllowlist.java`,
-`secpipe-sandbox/src/main/resources/META-INF/services/ca.carleton.secpipe.contracts.spi.SandboxRunner`,
-`secpipe-sandbox/src/test/java/ca/carleton/secpipe/sandbox/{DockerSandboxRunner,ControlProbe,EnvAllowlist}*.java`.
+Files you own (create/modify — nothing else): `secpipe-sandbox/src/main/java/ca/carleton/secpipe/sandbox/DockerSandboxRunner.java`, `secpipe-sandbox/src/main/java/ca/carleton/secpipe/sandbox/DockerCli.java`, `secpipe-sandbox/src/main/java/ca/carleton/secpipe/sandbox/ControlProbe.java`, `secpipe-sandbox/src/main/java/ca/carleton/secpipe/sandbox/EnvAllowlist.java`, `secpipe-sandbox/src/main/java/ca/carleton/secpipe/sandbox/ArtifactPromoter.java`, `secpipe-sandbox/src/main/resources/META-INF/services/ca.carleton.secpipe.contracts.spi.SandboxRunner`, `secpipe-sandbox/src/main/resources/sandbox/runner-image.txt`, `sandbox-images/runner/**`, `secpipe-sandbox/src/test/java/ca/carleton/secpipe/sandbox/{DockerSandboxRunner,ControlProbe,EnvAllowlist,ArtifactPromoter}*.java`.
 
-Files you may read but not modify: contracts.
+Files you may read but not modify: contracts, the S.3 spike branch.
 
-Interfaces consumed: `SandboxRunner`   Interfaces produced: `DockerSandboxRunner`, `EnvAllowlist.DEFAULT` (`PATH`,
-`LANG`, `LC_ALL`, `TZ=UTC`, `HOME=/tmp/home`, `MAVEN_OPTS`, `JAVA_TOOL_OPTIONS` cleared).
+Interfaces consumed: `SandboxRunner`   Interfaces produced: `DockerSandboxRunner`, `ControlProbe`, `EnvAllowlist.DEFAULT`, `ArtifactPromoter.promote(tarStream, declared, outDir)`.
 
 Implementation notes:
-- **Command:** `docker run --rm --name secpipe-<runId>-<n> --network none --read-only --tmpfs
-  /tmp:rw,nosuid,size=512m --user 10001:10001 --cap-drop ALL --security-opt no-new-privileges --pids-limit
-  N --memory Mm --cpus C --ulimit fsize=…`, plus `-v scratch:/scratch:rw` and each mount with `:ro`.
-  `--env-file` is a temp file built from the allowlist only (deleted after).
-- **The host env is never inherited.** No `-e` with host values. API keys can't reach the sandbox.
-- **Disk limit:** enforce with a size-capped scratch (pre-check free space + a watcher that kills the
-  container on overflow), or report it unenforceable per the S.3 result.
-- **Wall clock:** `Process.waitFor(timeout)`, then `docker kill` and `docker rm -f`.
-- **Output:** stdout/stderr tails capped at 64 KiB each.
-- **Windows paths:** convert via `DockerCli.hostPath(Path)` per the S.3 notes.
+- `DISK_LIMIT` via size-capped tmpfs scratch (`--tmpfs /scratch:rw,nosuid,nodev,size=<diskMb>m,uid=10001,gid=10001`); files go in/out as a tar stream; size `--memory` to cover disk + JVM.
+- Always `--name` the container; on timeout `docker kill <name>` then `docker rm -f` (killing the CLI leaves it running).
+- `probe()` tests controls on the live engine (flag acceptance is not proof); an unenforceable required control → `SandboxRefusedException`.
+- Env via `--env-file` `KEY=VALUE` lines only; `--memory-swap` = `--memory`; exit 137 → resource-limit outcome; `--ulimit fsize` in bytes.
+- Image: S.3 Dockerfile with base images pinned by digest, JUnit console jar checked by an in-repo sha256, `ENTRYPOINT []`, uid/gid 10001.
 
-Tests to write: (unit) command-line construction for each control; refusal when probe lacks a required
-control; env file contents exclude a planted `SECPIPE_API_KEY`. (`@Tag("sandbox")`) network blocked; ro
-mount write fails; fork bomb contained; timeout kill; a non-root uid.
+Tests to write: `DockerCli` argument building (every control → flags) without Docker; `EnvAllowlistTest`; `ArtifactPromoterTest` (symlink, hard link, oversize, undeclared rejected); `[DOCKER]` `@Tag("sandbox")` probe + timeout-kill tests.
 
 Acceptance criteria (all must pass):
-- [ ] `./mvnw -q -B -pl secpipe-sandbox -am test` → ≥ 10 tests, 0 failures (no Docker)
-- [ ] [DOCKER] `./mvnw -q -B -Psandbox -pl secpipe-sandbox -am verify` → all `@Tag("sandbox")` tests pass on ubuntu-latest (CI job `sandbox` in `ci.yml` runs this profile) 
-- [ ] A test asserts `SECPIPE_API_KEY=planted-secret` in the host env never appears in the generated command line or env file
+- [ ] `./mvnw -q -B -pl secpipe-sandbox -am test -Dtest='DockerSandboxRunner*Test,ControlProbe*Test,EnvAllowlist*Test,ArtifactPromoter*Test'` → ≥ 15 tests, 0 failures
+- [ ] [DOCKER] `./mvnw -q -B -Psandbox -pl secpipe-sandbox -am verify` → probe reports all 13 controls enforced on Linux; a timed-out container is gone (`docker ps -a` by name is empty)
+- [ ] [HUMAN] laptop columns of S.3 (macOS/Windows) confirm or mark controls unenforceable
+- [ ] `./mvnw -q -B verify` → exit 0 (CI `ci` check green)
 
-Session split (L-size; same branch, one PR): **Session A** — `DockerCli`, `EnvAllowlist`, command-line construction, and the unit tests (no Docker). Commit and push; stop. **Session B** (fresh session, same kickoff + "continue <WO-ID> part B") — `ControlProbe`, `DockerSandboxRunner.run` (refusal, wall clock, tails), services file, and the `@Tag("sandbox")` tests. Then run all acceptance commands and open the PR.
+Out of scope: gVisor/rootless backends, image publishing workflow (stretch).
 
-Out of scope: Maven specifics (X.2), promotion (X.3).
-
-Handoff note for next agent: Use `Spec.required` to demand controls. Default required set = all 13 except
-`DISK_LIMIT` when S.3 says it is unenforceable on the host (then the blocker text must say so).
+Handoff note for next agent: X.2 builds the two-phase Maven flow on top; G.7 is the only node that runs tests.

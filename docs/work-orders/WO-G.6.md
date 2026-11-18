@@ -1,51 +1,32 @@
 ### WO-G.6: Implement the regression-test generator agent
-Wave: 4   Depends on: WO-G.1   Blocks: WO-G.7, WO-M.2
+Wave: 5   Depends on: WO-G.1   Blocks: WO-G.7
 Milestone: Prototype 2 Dec 5
-Traces: FR-6 · A, F, Q
+Traces: FR-6 · A, F
 Suggested human owner: Elaine Huang (reviewer: Clinton Odinamadu)
 Size: M
 
-Goal (2–3 sentences): `TestGenAgent` produces one JUnit 5 class (`secpipe.generated…*SecurityTest`) that
-fails on the vulnerable code by asserting on the observable sink input or effect, and passes after a
-correct fix. It is built from the provisional record, the sink method source, and the involved classes'
-signatures. It includes static pre-checks (package, class name, no network/process/sleep APIs) before
-anything runs.
+Goal (2–3 sentences): `TestGenAgent` writes one JUnit 5 test per survivor that fails while the vulnerability exists (exploit payload reaches the sink). `GeneratedTestChecker` statically rejects tests that use network, files outside scratch, reflection on SecPipe, or `System.exit`.
 
-Context to read first (exact paths only): `docs/PLAN.md` Part 5 §A8; contracts `schemas/agent/testgen-result.schema.json`,
-`agent/AgentOutputs.java` (TestGenResult); `secpipe-agents/src/main/java/ca/carleton/secpipe/agents/runner/AgentRunner.java`; MVP `src/main/resources/knowledge/test-templates.json`
-(payload lists only).
+Context to read first (exact paths only): `docs/PLAN.md` Part 5 §A9; `secpipe-agents/src/main/java/ca/carleton/secpipe/agents/runner/AgentRunner.java`; contracts `agents/TestGenResult.java`; `fixtures/e2e/sqli-min/`
 
-Files you own (create/modify — nothing else): `secpipe-agents/src/main/java/ca/carleton/secpipe/agents/testgen/**`,
-`secpipe-agents/src/main/resources/prompts/testgen.v1.txt`, `secpipe-agents/src/main/resources/testgen/payloads.json`,
-`secpipe-agents/src/test/java/ca/carleton/secpipe/agents/testgen/**`, `secpipe-agents/src/test/resources/llm-fixtures/testgen/**`.
+Files you own (create/modify — nothing else): `secpipe-agents/src/main/java/ca/carleton/secpipe/agents/testgen/**`, `secpipe-agents/src/main/resources/prompts/testgen.v1.txt`, `secpipe-agents/src/main/resources/testgen/**`, `secpipe-agents/src/test/java/ca/carleton/secpipe/agents/testgen/**`, `secpipe-agents/src/test/resources/llm-fixtures/testgen/**`.
 
 Files you may read but not modify: runner, disprover.
 
-Interfaces consumed: `AgentRunner`   Interfaces produced: `TestGenAgent`, `TestGenContextBuilder`,
-`GeneratedTestChecker.check(source) → List<Violation>` (static rules).
+Interfaces consumed: `AgentRunner`, survivor drafts   Interfaces produced: `TestGenAgent`, `TestGenContextBuilder`, `GeneratedTestChecker.check(source) → List<Violation>`.
 
 Implementation notes:
-- **Static rules:** package must start `secpipe.generated`; exactly one top-level class matching the
-  name; imports may not include `java.net`, `java.lang.ProcessBuilder` (except when CWE-78 and used only
-  as a type in assertions), `Thread.sleep`, `System.exit`, or file writes outside
-  `@TempDir`/`System.getProperty("java.io.tmpdir")`. Size ≤ 200 lines.
-- **Test seams by CWE** (the prompt guidance):
-  - CWE-89: a JDBC `Connection` proxy (`java.lang.reflect.Proxy`) capturing the SQL string;
-  - CWE-78: inject a recording `ProcessLauncher` if the code allows it; otherwise assert on the command
-    string built (when accessible);
-  - CWE-22: `@TempDir` canary outside the base dir;
-  - CWE-327/328: assert on the algorithm name passed to the factory.
-- Port the payload lists from the MVP templates.
-- In mode `none`: not invoked (see Part 5).
+- Payload hints per family come from `testgen/payloads.json`.
+- A test that fails `GeneratedTestChecker` is treated as malformed: fresh re-run, never edited.
+- The test must assert on observable sink behaviour (e.g. a recording stub), not on log text.
 
-Tests to write: static checker table; fake agent output → `TestGenResult` → checker passes; a bad output
-(uses `java.net.URL`) → violation → the runner treats it as a grounding failure (retry); context-builder
-caps.
+Tests to write: fake-LLM fixtures (valid test, forbidden API → re-run, malformed → dropped); `GeneratedTestCheckerTest` per rule.
 
 Acceptance criteria (all must pass):
-- [ ] `./mvnw -q -B -pl secpipe-agents -am test -Dtest='TestGen*Test,GeneratedTestChecker*Test'` → ≥ 10 tests, 0 failures
+- [ ] `./mvnw -q -B -pl secpipe-agents -am test -Dtest='TestGen*Test,GeneratedTestChecker*Test'` → ≥ 8 tests, 0 failures
+- [ ] A test asserts a generated test using `java.net` is rejected
+- [ ] `./mvnw -q -B verify` → exit 0 (CI `ci` check green)
 
-Out of scope: running tests (G.7).
+Out of scope: running the tests (G.7), test adequacy (M.2, stretch).
 
-Handoff note for next agent: G.7 compiles and runs `TestGenResult.source` in the sandbox. Checker violations
-must never reach the sandbox.
+Handoff note for next agent: G.7 compiles and runs the source in the sandbox.
