@@ -12,8 +12,14 @@ DOCKER=1
 while [ $# -gt 0 ]; do
     case "$1" in
         --no-docker) DOCKER=0 ;;
-        --out) OUT="$2"; shift ;;
-        --jar) JAR="$2"; shift ;;
+        --out|--jar)
+            if [ $# -lt 2 ]; then
+                echo "error: $1 needs a value" >&2
+                echo "hint: usage: demo.sh [--no-docker] [--out DIR] [--jar FILE]" >&2
+                exit 2
+            fi
+            if [ "$1" = "--out" ]; then OUT="$2"; else JAR="$2"; fi
+            shift ;;
         *) echo "error: unknown option $1" >&2; echo "hint: usage: demo.sh [--no-docker] [--out DIR] [--jar FILE]" >&2; exit 2 ;;
     esac
     shift

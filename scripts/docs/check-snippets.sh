@@ -18,10 +18,10 @@ java -jar "$JAR" --version
 java -jar "$JAR" --help >/dev/null
 
 help_text="$(java -jar "$JAR" scan --help)"
-# Documented as accepted-but-unused or as exit-2 in the Limitations section; not required in the options table.
+# Skip flags of other commands: --root (validate), --no-docker (demo.sh).
 for flag in $(grep -oE '`--[a-z][a-z-]+' "$GUIDE" | tr -d '`' | sort -u); do
     case "$flag" in
-        --version|--help|--root) continue ;;
+        --version|--help|--root|--no-docker) continue ;;
     esac
     if ! grep -q -e "$flag" <<<"$help_text"; then
         echo "error: guide mentions $flag but 'scan --help' does not list it" >&2
