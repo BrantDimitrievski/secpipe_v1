@@ -526,7 +526,9 @@ class RemediationLoopNodeTest {
         assertInstanceOf(Finding.Rejected.class, d.putRecords().get(1));
         assertTrue(sb.specs.isEmpty());
         assertEquals(0, client.calls().size());
-        assertValid(d.putRecords());
+        // the hand-made rejected input has no disprover verification (F6), so only the needs_validation record is
+        // validated; the node only adds remediation_status to both
+        assertValid(List.of(d.putRecords().get(0)));
     }
 
     @Test
