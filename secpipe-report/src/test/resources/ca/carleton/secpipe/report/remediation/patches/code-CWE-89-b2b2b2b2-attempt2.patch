@@ -1,0 +1,7 @@
+--- a/src/main/java/com/example/vulnlab/AdminServlet.java
++++ b/src/main/java/com/example/vulnlab/AdminServlet.java
+@@ -10,3 +10,3 @@
+ void run() {
+-    exec(a);
++    exec(sanitize(a));
+ }
