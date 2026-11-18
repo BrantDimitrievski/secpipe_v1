@@ -1,7 +1,6 @@
 package ca.carleton.secpipe.core.detect;
 
 import ca.carleton.secpipe.contracts.finding.Candidate;
-import ca.carleton.secpipe.contracts.finding.Finding;
 import ca.carleton.secpipe.contracts.ledger.LedgerUnit;
 import ca.carleton.secpipe.contracts.spi.AnalyzerAdapter;
 import ca.carleton.secpipe.core.knowledge.KnowledgeBase;
@@ -69,34 +68,15 @@ final class LedgerSettlement {
         if (reviewed.isEmpty()) {
             return Optional.empty();
         }
-        boolean hit = candidates.stream().anyMatch(c -> sitsIn(c, family, reviewed));
+        boolean hit = candidates.stream().anyMatch(c -> SettlementMatch.sitsIn(kb, c, family, reviewed));
         return Optional.of(new LedgerUnit.Update(unit.coverageId(),
                 hit ? LedgerUnit.Status.CANDIDATE : LedgerUnit.Status.COVERED, Optional.empty(),
                 List.copyOf(reviewed), List.copyOf(checks), List.of(), List.of(), List.copyOf(tools),
                 Optional.empty()));
     }
 
-    private boolean sitsIn(Candidate c, String family, Set<String> files) {
-        boolean sameFamily = c.cwe().stream().anyMatch(cwe -> family.equals(kb.family(cwe)));
-        if (!sameFamily) {
-            return false;
-        }
-        for (Finding.TraceStep step : c.trace()) {
-            if (step.file() != null && files.contains(step.file())) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     /** True if {@code file} equals a starting path or lies under one treated as a directory. */
     static boolean underAny(String file, List<String> startingPaths) {
-        for (String p : startingPaths) {
-            String dir = p.endsWith("/") ? p : p + "/";
-            if (file.equals(p) || file.startsWith(dir)) {
-                return true;
-            }
-        }
-        return false;
+        return SettlementMatch.underAny(file, startingPaths);
     }
 }
