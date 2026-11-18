@@ -1,0 +1,83 @@
+{
+  "families": {
+    "CWE-22": {
+      "name": "Path Traversal",
+      "impactClass": "FILE_ACCESS",
+      "members": [
+        "CWE-22",
+        "CWE-23",
+        "CWE-36",
+        "CWE-73"
+      ],
+      "description": "A pathname is built from external input without neutralizing sequences such as '../', so it can resolve to a location outside the restricted directory.",
+      "remediation": "Resolve the path against a fixed base directory, canonicalize it and reject it unless it still starts with the base directory. Prefer mapping user input to an allow-list of file names."
+    },
+    "CWE-78": {
+      "name": "OS Command Injection",
+      "impactClass": "INJECTION",
+      "members": [
+        "CWE-78",
+        "CWE-77",
+        "CWE-88"
+      ],
+      "description": "An operating system command is built from external input, letting an attacker run arbitrary commands with the application's privileges.",
+      "remediation": "Do not pass user input to Runtime.exec or a shell. Use a Java API for the task, or validate the input against a strict allow-list and pass it as a separate argument to ProcessBuilder without invoking a shell."
+    },
+    "CWE-89": {
+      "name": "SQL Injection",
+      "impactClass": "INJECTION",
+      "members": [
+        "CWE-89",
+        "CWE-564",
+        "CWE-943"
+      ],
+      "description": "An SQL command is built from external input without neutralization, so the input can change the query's logic, read or modify data, or run administrative operations.",
+      "remediation": "Use parameterized queries (PreparedStatement with ? placeholders, JPA named parameters, or Spring JdbcTemplate arguments). Never concatenate input into SQL. Apply least-privilege database accounts."
+    },
+    "CWE-327": {
+      "name": "Broken or Risky Cryptographic Algorithm",
+      "impactClass": "CRYPTOGRAPHIC_WEAKNESS",
+      "members": [
+        "CWE-327",
+        "CWE-326",
+        "CWE-310",
+        "CWE-757",
+        "CWE-780"
+      ],
+      "description": "The code uses a broken or risky cryptographic algorithm or mode (DES, RC4, ECB, old TLS versions), which can expose sensitive data.",
+      "remediation": "Use modern authenticated encryption such as AES/GCM/NoPadding with a random 12-byte IV and 256-bit keys, and TLS 1.2+."
+    },
+    "CWE-328": {
+      "name": "Weak Hash",
+      "impactClass": "CRYPTOGRAPHIC_WEAKNESS",
+      "members": [
+        "CWE-328",
+        "CWE-916",
+        "CWE-759",
+        "CWE-760"
+      ],
+      "description": "A weak hash algorithm (MD5, SHA-1) is used where collision or preimage resistance is needed, such as for passwords or integrity checks.",
+      "remediation": "Use SHA-256 or better for integrity, and a slow salted password hash (bcrypt, scrypt, Argon2 or PBKDF2) for passwords."
+    },
+    "CWE-798": {
+      "name": "Hard-coded Credentials",
+      "impactClass": "CREDENTIAL_EXPOSURE",
+      "members": [
+        "CWE-798",
+        "CWE-321",
+        "CWE-259"
+      ],
+      "description": "Credentials such as passwords, API keys or tokens are embedded in the source code, where anyone with repository or binary access can read and reuse them.",
+      "remediation": "Remove the secret from the code and git history, rotate it, and read it at runtime from environment variables, a secrets manager or the platform's credential store."
+    },
+    "CWE-502": {
+      "name": "Deserialization of Untrusted Data",
+      "impactClass": "UNSAFE_DESERIALIZATION",
+      "members": [
+        "CWE-502"
+      ],
+      "description": "Untrusted data is deserialized with a mechanism that can instantiate arbitrary classes, enabling gadget-chain attacks up to remote code execution.",
+      "remediation": "Do not deserialize untrusted data with ObjectInputStream, XMLDecoder or unrestricted polymorphic JSON. Use data-only formats (JSON into fixed DTOs) or apply an allow-list ObjectInputFilter."
+    }
+  }
+}
