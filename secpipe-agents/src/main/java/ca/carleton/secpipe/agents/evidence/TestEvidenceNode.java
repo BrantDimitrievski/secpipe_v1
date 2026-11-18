@@ -49,10 +49,12 @@ import java.util.TreeMap;
  * <ul>
  *   <li>For every survivor draft whose record is absent or {@code needs_validation} (the disprover writes
  *   "awaiting regression test evidence"), it generates a JUnit 5 regression test with {@link TestGenAgent} and runs it
- *   offline in the sandbox (all 13 controls). A failing assertion makes the record {@code confirmed} with
+ *   offline in the sandbox (all 13 controls). A failing assertion whose message contains the generated test's
+ *   {@code expected_failure} makes the record {@code confirmed} with
  *   {@code observed_result}; everything else replaces it with a {@code needs_validation} record naming the exact
- *   blocker (sandbox unavailable, refused controls, prefetch incomplete, build extensions, test passed, compile error
- *   twice, timeout, resource limit, test error, no test generated, sandbox-run budget).</li>
+ *   blocker (sandbox unavailable, refused controls, prefetch incomplete, build extensions, test passed, unexpected
+ *   failure, setup assumption failed, compile error twice, timeout, resource limit, test error, no test generated,
+ *   sandbox-run budget).</li>
  *   <li>Every fingerprinted code candidate with neither a record nor a draft gets a {@code needs_validation} record
  *   with blocker {@code not verified: llm-provider=<mode>}, so unrefuted candidates are reported, never dropped.</li>
  * </ul>
@@ -75,6 +77,9 @@ public final class TestEvidenceNode implements PipelineNode {
     static final String BUDGET = "sandbox run budget exhausted (--max-sandbox-runs=";
     static final String NO_ENTRYPOINT = "regression test failed as expected, but no trace from an entrypoint to the "
             + "sink is available to confirm it";
+
+    static final String UNEXPECTED_FAILURE = "unexpected failure: ";
+    static final String SETUP_ASSUMPTION = "setup assumption failed: ";
 
     /** Max generations per survivor: the first plus one regeneration after a compile error. */
     static final int MAX_GENERATIONS = 2;
@@ -304,6 +309,8 @@ public final class TestEvidenceNode implements PipelineNode {
                         + "unpatched code: " + obs.detail()) : Optional.empty();
                 String blocker = switch (obs.kind()) {
                     case FAILED_AS_EXPECTED -> NO_ENTRYPOINT;
+                    case UNEXPECTED_FAILURE -> UNEXPECTED_FAILURE + obs.detail();
+                    case SKIPPED -> SETUP_ASSUMPTION + obs.detail();
                     case PASSED -> TEST_PASSED;
                     case COMPILE_ERROR -> COMPILE_TWICE;
                     case TIMEOUT -> TIMEOUT;
@@ -356,6 +363,8 @@ public final class TestEvidenceNode implements PipelineNode {
     static TestEvidence.Outcome outcome(RegressionTestRun.Kind kind) {
         return switch (kind) {
             case FAILED_AS_EXPECTED -> TestEvidence.Outcome.FAILED_AS_EXPECTED;
+            case UNEXPECTED_FAILURE -> TestEvidence.Outcome.ERROR;
+            case SKIPPED -> TestEvidence.Outcome.NOT_RUN;
             case PASSED -> TestEvidence.Outcome.PASSED;
             case COMPILE_ERROR -> TestEvidence.Outcome.COMPILE_ERROR;
             case TIMEOUT -> TestEvidence.Outcome.TIMEOUT;

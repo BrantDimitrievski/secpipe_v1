@@ -40,8 +40,10 @@ import javax.xml.parsers.DocumentBuilderFactory;
  * controls, {@code --network none}) and the test class is run with the JUnit console launcher of the runner image, so
  * the target POM is never edited. Only the JUnit XML report is declared for promotion.
  *
- * <p>Only a failing assertion ({@code <failure>}) confirms. Compile errors, other exceptions, timeouts and resource
- * limits never do.
+ * <p>Only a failing assertion ({@code <failure>}) whose message contains testgen's {@code expected_failure} (after
+ * whitespace normalisation, WO-G.11) confirms. Any other failure is {@link Kind#UNEXPECTED_FAILURE}; a failed JUnit
+ * assumption ({@code <skipped>}) is {@link Kind#SKIPPED}. Compile errors, other exceptions ({@code <error>}), timeouts
+ * and resource limits never confirm.
  */
 final class RegressionTestRun {
 
@@ -55,9 +57,12 @@ final class RegressionTestRun {
 
     private static final Pattern FQCN = Pattern.compile("[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*");
     private static final Set<String> SKIP_DIRS = Set.of(".git", "target");
+    private static final Pattern THROWABLE_PREFIX = Pattern.compile("^[A-Za-z_$][\\w$.]*(Exception|Error):\\s*");
+    private static final String ASSUMPTION_PREFIX = "Assumption failed:";
 
     /** How a run ended. */
-    enum Kind { FAILED_AS_EXPECTED, PASSED, COMPILE_ERROR, ERROR, TIMEOUT, RESOURCE_LIMIT, REFUSED }
+    enum Kind { FAILED_AS_EXPECTED, UNEXPECTED_FAILURE, SKIPPED, PASSED, COMPILE_ERROR, ERROR, TIMEOUT, RESOURCE_LIMIT,
+        REFUSED }
 
     /** The classified result; {@code report} is the promoted JUnit XML on the host when there was one. */
     record Observation(Kind kind, String detail, Optional<Path> report, Set<Control> missing) {
@@ -121,10 +126,14 @@ final class RegressionTestRun {
         Path report = scratch.resolve(REPORT);
         Optional<Path> promoted = result.promoted().stream().filter(p -> p.normalize().equals(report.normalize()))
                 .findFirst();
-        return classify(result, promoted);
+        return classify(result, promoted, test.expectedFailure());
     }
 
-    static Observation classify(Result result, Optional<Path> report) {
+    /**
+     * Classifies a sandbox run. {@code expectedFailure} is testgen's {@code expected_failure}: a {@code <failure>}
+     * confirms only when its message contains it (whitespace-normalised string containment, no LLM).
+     */
+    static Observation classify(Result result, Optional<Path> report, String expectedFailure) {
         if (result.timedOut()) {
             return Observation.of(Kind.TIMEOUT, "wall-clock limit reached after " + result.elapsed().toSeconds()
                     + " s");
@@ -151,10 +160,15 @@ final class RegressionTestRun {
         Observation o;
         if (r.tests() == 0) {
             o = Observation.of(Kind.ERROR, "no test ran (exit " + result.exitCode() + ")");
-        } else if (!r.failures().isEmpty()) {
-            o = Observation.of(Kind.FAILED_AS_EXPECTED, r.failures().get(0));
         } else if (!r.errors().isEmpty()) {
-            o = Observation.of(Kind.ERROR, "test errored: " + r.errors().get(0));
+            o = Observation.of(Kind.ERROR, "test errored: " + r.errors().get(0).summary());
+        } else if (!r.failures().isEmpty()) {
+            Optional<Issue> unexpected = r.failures().stream().filter(f -> !matches(f.message(), expectedFailure))
+                    .findFirst();
+            o = unexpected.map(f -> Observation.of(Kind.UNEXPECTED_FAILURE, f.firstLine()))
+                    .orElseGet(() -> Observation.of(Kind.FAILED_AS_EXPECTED, r.failures().get(0).summary()));
+        } else if (!r.skipped().isEmpty()) {
+            o = Observation.of(Kind.SKIPPED, r.skipped().get(0).firstLine());
         } else if (result.exitCode() == 0) {
             o = Observation.of(Kind.PASSED, r.tests() + " test(s) passed");
         } else {
@@ -163,8 +177,26 @@ final class RegressionTestRun {
         return new Observation(o.kind(), o.detail(), report, Set.of());
     }
 
-    /** Test count and first-line summaries of failures (assertions) and errors (other exceptions). */
-    record Report(int tests, List<String> failures, List<String> errors) { }
+    /** Same as {@link FailureMatch#matches(String, String)}. */
+    static boolean matches(String message, String expectedFailure) {
+        return FailureMatch.matches(message, expectedFailure);
+    }
+
+    /**
+     * One {@code <failure>}, {@code <error>} or {@code <skipped>}: {@code summary} is "class#test: type: first line",
+     * {@code message} the full message (or the element text when there is no message attribute) and
+     * {@code firstLine} its first line without a leading exception class or "Assumption failed:" prefix.
+     */
+    record Issue(String summary, String message, String firstLine) { }
+
+    /** Test count and the failures (assertions), errors (other exceptions) and skips (failed assumptions). */
+    record Report(int tests, List<Issue> failures, List<Issue> errors, List<Issue> skipped) {
+        Report {
+            failures = List.copyOf(failures);
+            errors = List.copyOf(errors);
+            skipped = List.copyOf(skipped);
+        }
+    }
 
     static Optional<Report> parse(Path xml) {
         try (InputStream in = Files.newInputStream(xml, LinkOption.NOFOLLOW_LINKS)) {
@@ -177,30 +209,44 @@ final class RegressionTestRun {
             f.setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
             Document doc = f.newDocumentBuilder().parse(in);
             NodeList cases = doc.getElementsByTagName("testcase");
-            List<String> failures = new ArrayList<>();
-            List<String> errors = new ArrayList<>();
+            List<Issue> failures = new ArrayList<>();
+            List<Issue> errors = new ArrayList<>();
+            List<Issue> skipped = new ArrayList<>();
             for (int i = 0; i < cases.getLength(); i++) {
                 Element tc = (Element) cases.item(i);
                 String name = tc.getAttribute("classname") + "#" + tc.getAttribute("name");
                 summarize(tc, "failure", name).ifPresent(failures::add);
                 summarize(tc, "error", name).ifPresent(errors::add);
+                summarize(tc, "skipped", name).ifPresent(skipped::add);
             }
-            return Optional.of(new Report(cases.getLength(), List.copyOf(failures), List.copyOf(errors)));
+            return Optional.of(new Report(cases.getLength(), failures, errors, skipped));
         } catch (Exception e) {
             return Optional.empty();
         }
     }
 
-    private static Optional<String> summarize(Element testcase, String tag, String name) {
+    private static Optional<Issue> summarize(Element testcase, String tag, String name) {
         NodeList nodes = testcase.getElementsByTagName(tag);
         if (nodes.getLength() == 0) {
             return Optional.empty();
         }
         Element e = (Element) nodes.item(0);
         String type = e.getAttribute("type");
-        String message = e.getAttribute("message").lines().findFirst().orElse("").strip();
+        String full = e.hasAttribute("message") ? e.getAttribute("message") : e.getTextContent();
+        String message = full.lines().map(String::strip).filter(l -> !l.isEmpty()).findFirst().orElse("");
         String text = name + ": " + (type.isEmpty() ? tag : type) + (message.isEmpty() ? "" : ": " + message);
-        return Optional.of(text.length() > 500 ? text.substring(0, 500) + "..." : text);
+        String first = THROWABLE_PREFIX.matcher(message).replaceFirst("");
+        if (first.startsWith(ASSUMPTION_PREFIX)) {
+            first = first.substring(ASSUMPTION_PREFIX.length()).strip();
+        }
+        if (first.isEmpty()) {
+            first = type.isEmpty() ? tag : type;
+        }
+        return Optional.of(new Issue(cap(text, 500), full, cap(first, 300)));
+    }
+
+    private static String cap(String s, int max) {
+        return s.length() > max ? s.substring(0, max) + "..." : s;
     }
 
     private static Optional<String> firstError(String output) {

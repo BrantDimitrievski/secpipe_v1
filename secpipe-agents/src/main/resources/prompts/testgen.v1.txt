@@ -15,6 +15,11 @@ Test rules (a test that breaks any of them is discarded and a fresh generator is
 - Assert on observable sink input or effect: capture what reaches the sink with a recording stub (for example a
   java.lang.reflect.Proxy implementing the JDBC interface, or a fake collaborator) and assert the payload did not
   change the sink's meaning. Never assert on log text.
+- Exactly one kind of check may fail: the vulnerability assertion, an Assertions.assert* call whose message
+  contains your `expected_failure` text verbatim. Every setup check (a stub compiled, a class loaded, the sink was
+  reached) must be a JUnit assumption (org.junit.jupiter.api.Assumptions.assumeTrue/assumeFalse with a message),
+  never an assertion, a Java `assert` statement, or `if (...) fail(...)` / `throw new AssertionError(...)`. A
+  failure whose message does not contain `expected_failure` is not accepted as evidence.
 - No network of any kind (no java.net, javax.net, sockets, HTTP clients, JNDI, RMI).
 - No file access outside a JUnit @TempDir: no absolute paths, no `..` in paths the test itself opens.
 - No System.exit, Runtime.halt, process creation, Thread.sleep, or reflection on SecPipe classes.
@@ -33,4 +38,5 @@ Test dependencies available on the test classpath:
 Source slices (the sink method and the classes on the trace):
 {{snippets}}
 Return `fingerprint` exactly as given, the list of `target_symbols` the test calls, the `payloads` it uses, the
-`expected_failure` (what the assertion reports while the code is vulnerable), and a short `rationale`.
+`expected_failure` (the exact text of the vulnerability assertion's message, which the test reports while the code
+is vulnerable), and a short `rationale`.

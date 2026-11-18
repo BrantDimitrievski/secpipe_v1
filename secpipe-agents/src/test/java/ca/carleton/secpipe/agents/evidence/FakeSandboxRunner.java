@@ -42,6 +42,28 @@ final class FakeSandboxRunner implements SandboxRunner {
               <testcase name="usernamePayloadMustNotReachTheQueryText()" classname="secpipe.generated.T"/>
             </testsuite>
             """;
+    /** A failing assertion whose message is not the generated test's {@code expected_failure}. */
+    static final String UNEXPECTED_FAILURE_REPORT = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <testsuite name="JUnit Jupiter" tests="1" failures="1" errors="0">
+              <testcase name="usernamePayloadMustNotReachTheQueryText()" classname="secpipe.generated.T">
+                <failure message="the login query did not run ==&gt; expected: &lt;1&gt; but was: &lt;0&gt;\
+            &#10;second line" type="org.opentest4j.AssertionFailedError">stack</failure>
+              </testcase>
+            </testsuite>
+            """;
+    /** A failed JUnit assumption, as the console launcher's legacy XML writes it (stack trace as text). */
+    static final String SKIPPED_REPORT = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <testsuite name="JUnit Jupiter" tests="1" skipped="1" failures="0" errors="0">
+              <testcase name="usernamePayloadMustNotReachTheQueryText()" classname="secpipe.generated.T">
+                <skipped><![CDATA[org.opentest4j.TestAbortedException: Assumption failed: \
+            the recording Db stub did not compile
+            \tat org.junit.jupiter.api.Assumptions.throwAssumptionFailed(Assumptions.java:315)
+            ]]></skipped>
+              </testcase>
+            </testsuite>
+            """;
     static final String ERROR_REPORT = """
             <?xml version="1.0" encoding="UTF-8"?>
             <testsuite name="JUnit Jupiter" tests="1" failures="0" errors="1">
