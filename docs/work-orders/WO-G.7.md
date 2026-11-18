@@ -1,5 +1,5 @@
 ### WO-G.7: Implement the test-evidence node — run generated tests in the sandbox and decide the verdict
-Wave: 6   Depends on: WO-G.4, WO-G.6, WO-X.1, WO-X.2   Blocks: WO-D.1
+Wave: 6   Depends on: WO-G.4, WO-G.6, WO-X.1, WO-X.2   Blocks: WO-D.1, WO-G.10, WO-G.11, WO-E.6
 Milestone: Prototype 2 Dec 5
 Traces: FR-6, FR-12, NFR-5 · F, J, K
 Suggested human owner: Elodie Abdo (reviewer: Elaine Huang)

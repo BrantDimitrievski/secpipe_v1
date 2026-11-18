@@ -1,5 +1,5 @@
 ### WO-K.13: Build the CLI, setup, and pipeline assembly; make the e2e fixture scan a CI test
-Wave: 6   Depends on: WO-K.1, WO-C.4, WO-V.1, WO-K.4, WO-K.5, WO-K.6, WO-K.8, WO-K.9, WO-G.5, WO-G.4, WO-R.1, WO-L.1   Blocks: WO-D.1
+Wave: 6   Depends on: WO-K.1, WO-C.4, WO-V.1, WO-K.4, WO-K.5, WO-K.6, WO-K.8, WO-K.9, WO-G.5, WO-G.4, WO-R.1, WO-L.1   Blocks: WO-D.1, WO-K.15
 Milestone: Prototype 2 Dec 5
 Traces: FR-1, FR-4, NFR-1, NFR-2, NFR-6 · A, P, S
 Suggested human owner: Abdul Babatunde (reviewer: Clinton Odinamadu)

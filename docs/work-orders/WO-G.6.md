@@ -1,5 +1,5 @@
 ### WO-G.6: Implement the regression-test generator agent
-Wave: 5   Depends on: WO-G.1   Blocks: WO-G.7
+Wave: 5   Depends on: WO-G.1   Blocks: WO-G.7, WO-G.11, WO-M.2
 Milestone: Prototype 2 Dec 5
 Traces: FR-6 · A, F
 Suggested human owner: Elaine Huang (reviewer: Clinton Odinamadu)

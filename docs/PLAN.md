@@ -3808,5 +3808,58 @@ graph LR
 
 ### Traceability after the re-plan
 
-- **No longer implemented:** FR-7 (dependency CVE scanning, P.3), FR-13 (verified fixes, G.10/M.1), FR-14 (remediation loop and `secpipe diff`, M.1/K.12) and feature Q (remediation). They are traced only by WO-D.1's Limitations section so `check-plan.py` stays green; they are not delivered.
+- **No longer implemented:** FR-7 (dependency CVE scanning, P.3) and `secpipe diff` (part of FR-14, K.12). FR-7 is traced only by WO-D.1's Limitations section so `check-plan.py` stays green; it is not delivered. (FR-13, FR-14's remediation loop and feature Q were brought back by "Re-plan 2026-11-18 (remediation)" below.)
 - **Weakened:** NFR-5 privacy extras (denylist, `--print-prompts`; L.8) and the prompt-injection suite (Y.1) are gone; key redaction (L.1) and untrusted-block rendering (G.1) remain. NFR-2 perf tuning (K.14/E.8) and NFR-6 portability matrix (E.9) are unmeasured. Feature M (incremental) is traced only by merged contract C.2. The GitHub Action (`action.yml`, H.*) is not built.
+
+## Re-plan 2026-11-18 (remediation)
+
+**Reason.** The owner (Brant) approved bringing remediation back: verified fixes (FR-13), the remediation loop (FR-14, without `secpipe diff`), test adequacy (FR-15) and feature Q. The stretch files were moved back with `git mv` and trimmed; two small new orders fill the gaps (rescanner wiring, tighter evidence). **No contract change:** `remediation-result.schema.json`, `fix_attempts[]` and its outcomes, `remediation_status`, the `remediate` node (after `score`, then the skipped `verify_records`), `--enable-fixes false|suggest|pr` and `--max-fix-attempts` (default 3) are already frozen. **`--enable-fixes` keeps its frozen default `suggest`** (owner decision: remediation runs automatically when the sandbox is usable); `pr` exits 2 with a hint because the Action is stretch.
+
+Design principles: reuse the existing sandbox path (DockerSandboxRunner, MavenWorkspace, two-phase Maven, network off, tmpfs limits, ArtifactPromoter); prefetch once per run and run every attempt offline; each attempt starts from a fresh copy of the original source; the agent only returns a unified diff that pure-Java `UnifiedDiff`/`PatchChecker` check and apply (no git); one baseline per run (passing tests + detect fingerprints) in the work directory; only `confirmed` records in a run with a usable sandbox are remediated, otherwise `remediation_status=not_attempted`.
+
+### Changelog
+
+| Work order | Decision | Old wave → new wave | Reason |
+|---|---|---|---|
+| WO-K.15 | new | — → 8 | the CLI still uses `NoRescanner`; adds `DetectRescanner` and the `--enable-fixes pr` usage error |
+| WO-G.11 | new (fix-up of G.7) | — → 8 | confirm only on testgen's `expected_failure`; setup checks become JUnit assumptions |
+| WO-G.10 | reactivated, trimmed | stretch → 8 | remediation agent; prompt `remediation.v1.md`; AgentRunner limit 3; fake-LLM fixtures |
+| WO-M.1 | reactivated, trimmed (session split kept) | stretch → 9 | remediation loop; now also depends on K.15 and G.11; patches under `outDir/patches/`; sandbox runs count against `--max-sandbox-runs` |
+| WO-M.2 | reactivated, trimmed | stretch → 10 | test adequacy; owns `sandbox-images/runner/**` for pinned JaCoCo jars; depends on X.1 (X.4 was folded into it) |
+| WO-R.4 | reactivated, trimmed | stretch → 10 | Remediation section, SARIF `fixes[]`, `secpipe-fixes.patch`; `suggestions.json` dropped (Action is stretch) |
+| WO-E.6 | reactivated, trimmed | stretch → 11 | ≥ 10 confirmed findings on the MVP samples; real run is `[HUMAN]` (Docker + LLM key, gated by S.3) |
+| WO-D.1 | Traces line only | 7 | FR-13, FR-14 and Q no longer need its Limitations section as a placeholder trace |
+| WO-G.1, G.6, G.7, K.6, K.13, R.1, X.1, X.2 | Blocks line only | unchanged | point at the new and reactivated orders |
+
+### Wave table
+
+| Wave | Work orders (parallel) | Notes |
+|---|---|---|
+| 0–7 | as in "Re-plan 2026-11-17 (lean)" | merged or in progress |
+| 8 | K.15, G.11, G.10 | 3; no shared files (cli + `core/detect/DetectRescanner`; `agents/evidence` + `agents/testgen`; `agents/remediation` agent files) |
+| 9 | M.1 | 1 (L, two sessions) |
+| 10 | M.2, R.4 | 2 |
+| 11 | E.6 | 1 |
+
+```mermaid
+graph LR
+  K13[K.13]-->K15[K.15]
+  K6[K.6]-->K15 & M1[M.1]
+  G7[G.7]-->G11[G.11] & G10[G.10] & E6[E.6]
+  G6[G.6]-->G11 & M2[M.2]
+  G1[G.1]-->G10
+  X2[X.2]-->M1
+  K15-->M1
+  G11-->M1
+  G10-->M1
+  M1-->M2 & R4[R.4] & E6
+  X1[X.1]-->M2
+  R1[R.1]-->R4
+  M2-->E6
+```
+
+### Traceability after this re-plan
+
+- **Traced again:** FR-13 (G.10, M.1, R.4, E.6), FR-14 (K.15, M.1, E.6; `secpipe diff` stays out), FR-15 (M.2, E.6) and feature Q (K.15, G.10, M.1, M.2, R.4, E.6).
+- **Still not implemented:** FR-7 (WO-D.1 Limitations only), `secpipe diff` (K.12), the GitHub Action and `--enable-fixes pr`, dependency upgrades as fixes (need OSV, P.3), auto-applying fixes to the user's checkout.
+- `python3 -B scripts/check-plan.py` → `work_orders=42 waves=12 errors=0`.

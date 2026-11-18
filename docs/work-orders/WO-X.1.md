@@ -1,5 +1,5 @@
 ### WO-X.1: Implement `DockerSandboxRunner` (enforce-or-refuse) with pinned image and safe promotion
-Wave: 2   Depends on: WO-S.3   Blocks: WO-X.2, WO-G.7
+Wave: 2   Depends on: WO-S.3   Blocks: WO-X.2, WO-G.7, WO-M.2
 Milestone: Prototype 2 Dec 5
 Traces: FR-12, NFR-5, NFR-6 · J, K
 Suggested human owner: Elodie Abdo (reviewer: Elaine Huang)
