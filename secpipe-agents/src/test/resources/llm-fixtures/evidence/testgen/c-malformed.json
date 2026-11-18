@@ -1,0 +1,13 @@
+{
+  "description": "Malformed output on every fresh attempt: the generator is dropped",
+  "match": {
+    "userPromptContains": [
+      "code:CWE-89:0000000000000000000000a9"
+    ]
+  },
+  "responses": [
+    {
+      "text": "this is not JSON"
+    }
+  ]
+}
