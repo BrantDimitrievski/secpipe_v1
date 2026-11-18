@@ -4,6 +4,9 @@ import ca.carleton.secpipe.contracts.finding.Finding;
 import ca.carleton.secpipe.contracts.finding.Finding.Score5;
 import ca.carleton.secpipe.contracts.ids.Fingerprints;
 import ca.carleton.secpipe.contracts.json.ContractJson;
+import ca.carleton.secpipe.report.patch.DiffFiles;
+import ca.carleton.secpipe.report.patch.FixedPatches;
+import ca.carleton.secpipe.report.patch.PatchSource;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
@@ -32,7 +35,14 @@ final class SarifWriter {
     }
 
     static String render(ReportInputs inputs) {
+        return render(inputs, PatchSource.NONE);
+    }
+
+    /** As {@link #render(ReportInputs)}, plus {@code fixes[]} on the results of {@code fixed} records. */
+    static String render(ReportInputs inputs, PatchSource patches) {
         List<Finding> findings = inputs.findings();
+        Map<String, FixedPatches.Fix> fixes = new TreeMap<>();
+        FixedPatches.fixes(findings).forEach(f -> fixes.put(f.finding().fingerprint(), f));
         // rule id -> index, in sorted rule-id order so the rule table is byte-stable.
         Map<String, Integer> ruleIndex = new TreeMap<>();
         findings.forEach(f -> ruleIndex.put(ruleId(f), 0));
@@ -52,7 +62,12 @@ final class SarifWriter {
         ruleIndex.keySet().forEach(id -> rules.add(rule(id)));
         ArrayNode results = run.putArray("results");
         for (Finding f : findings) {
-            results.add(result(f, ruleId(f), ruleIndex.get(ruleId(f))));
+            ObjectNode r = result(f, ruleId(f), ruleIndex.get(ruleId(f)));
+            FixedPatches.Fix fix = fixes.get(f.fingerprint());
+            if (fix != null) {
+                fixes(fix, patches).ifPresent(arr -> r.set("fixes", arr));
+            }
+            results.add(r);
         }
         return ContractJson.mapper().writer().with(ContractJson.prettyPrinter()).writeValueAsString(root) + "\n";
     }
@@ -133,6 +148,40 @@ final class SarifWriter {
             f.secpipe().cwe().forEach(cwes::add);
         }
         return r;
+    }
+
+    /** One SARIF fix per verified patch; empty when the patch cannot be read or described. */
+    private static Optional<ArrayNode> fixes(FixedPatches.Fix fix, PatchSource patches) {
+        Optional<List<DiffFiles.FileDiff>> diff = patches.read(fix.artifact()).flatMap(DiffFiles::parse);
+        if (diff.isEmpty()) {
+            return Optional.empty();
+        }
+        ArrayNode fixes = NODES.arrayNode();
+        ObjectNode f = fixes.addObject();
+        f.putObject("description").put("text", fix.attempt().strategy().filter(s -> !s.isBlank())
+                .orElse("Verified fix (regression test, suite and rescan passed)"));
+        ArrayNode changes = f.putArray("artifactChanges");
+        for (DiffFiles.FileDiff file : diff.get()) {
+            ObjectNode change = changes.addObject();
+            ObjectNode artifact = change.putObject("artifactLocation");
+            artifact.put("uri", uri(file.path()));
+            artifact.put("uriBaseId", "%SRCROOT%");
+            ArrayNode replacements = change.putArray("replacements");
+            for (DiffFiles.Hunk h : file.hunks()) {
+                ObjectNode rep = replacements.addObject();
+                ObjectNode deleted = rep.putObject("deletedRegion");
+                if (h.oldCount() == 0) {
+                    deleted.put("startLine", Math.max(1, h.oldStart() + 1));
+                    deleted.put("startColumn", 1);
+                    deleted.put("endColumn", 1);
+                } else {
+                    deleted.put("startLine", Math.max(1, h.oldStart()));
+                    deleted.put("endLine", Math.max(1, h.oldStart() + h.oldCount() - 1));
+                }
+                rep.putObject("insertedContent").put("text", h.newText());
+            }
+        }
+        return Optional.of(fixes);
     }
 
     private static ObjectNode location(String file, int line, Optional<String> message) {

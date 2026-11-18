@@ -1,9 +1,12 @@
 package ca.carleton.secpipe.report;
 
+import ca.carleton.secpipe.contracts.config.SecPipeConfig;
 import ca.carleton.secpipe.contracts.finding.Finding;
 import ca.carleton.secpipe.contracts.finding.Finding.Score5;
 import ca.carleton.secpipe.contracts.ledger.LedgerUnit;
 import ca.carleton.secpipe.contracts.run.RunMetadata;
+import ca.carleton.secpipe.report.patch.FixedPatches;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.List;
@@ -40,6 +43,7 @@ final class MarkdownWriter {
 
         summary(md, findings);
         findingSections(md, findings);
+        remediationSection(md, in);
         coverage(md, in.ledger());
         tools(md, meta);
         notes(md, in.state().notes());
@@ -158,19 +162,130 @@ final class MarkdownWriter {
             fenced(md, change.fixedCode());
         }
         recommended(md, c);
-        c.secpipe().remediationStatus().ifPresent(s -> md.append("Remediation status: ").append(lower(s))
-                .append(".\n\n"));
-        for (Finding.FixAttempt a : c.secpipe().fixAttempts()) {
-            md.append("- Fix attempt ").append(a.attempt()).append(": ").append(lower(a.outcome())).append('\n');
-        }
-        if (!c.secpipe().fixAttempts().isEmpty()) {
-            md.append('\n');
-        }
     }
 
     private static void recommended(StringBuilder md, Finding f) {
         f.secpipe().recommendedRemediation().ifPresent(r -> md.append("**Recommended remediation.** ")
                 .append(text(r)).append("\n\n"));
+    }
+
+    // ------------------------------------------------------------------------------------------------------------
+    // Remediation
+    // ------------------------------------------------------------------------------------------------------------
+
+    /**
+     * Text WO-M.3 writes for a still-present attempt whose regression test was skipped after the patch: it starts
+     * {@code fix_attempts[].strategy} on that attempt and is also in the run note
+     * {@code remediation of <fp> attempt <n>: <text> (not retried)}.
+     */
+    static final String UNVERIFIED_MARKER = "regression test skipped after patch: fix unverified";
+    private static final String NOT_ATTEMPTED_PREFIX = "remediation not attempted";
+
+    private static void remediationSection(StringBuilder md, ReportInputs in) {
+        md.append("## Remediation\n\n");
+        List<Finding.Confirmed> confirmed = in.findings().stream().filter(Finding.Confirmed.class::isInstance)
+                .map(Finding.Confirmed.class::cast).toList();
+        if (confirmed.isEmpty()) {
+            md.append("No confirmed findings to remediate.\n\n");
+            return;
+        }
+        List<String> notes = in.state().notes();
+        long fixed = confirmed.stream().filter(c -> status(c) == Finding.RemediationStatus.FIXED).count();
+        md.append(fixed).append(" of ").append(confirmed.size()).append(" confirmed findings fixed. Patches are")
+                .append(" suggestions: SecPipe never writes to your working tree. Only verified fixes are in ")
+                .append(code(FixedPatches.FILE_NAME)).append(".\n\n");
+        int n = 1;
+        for (Finding.Confirmed c : confirmed) {
+            remediationEntry(md, n++, c, in, notes);
+        }
+    }
+
+    private static Finding.RemediationStatus status(Finding f) {
+        return f.secpipe().remediationStatus().orElse(Finding.RemediationStatus.NOT_ATTEMPTED);
+    }
+
+    private static void remediationEntry(StringBuilder md, int n, Finding.Confirmed c, ReportInputs in,
+            List<String> notes) {
+        String fp = c.fingerprint();
+        List<Finding.FixAttempt> attempts = c.secpipe().fixAttempts().stream()
+                .sorted(Comparator.comparingInt(Finding.FixAttempt::attempt)).toList();
+        Finding.RemediationStatus status = status(c);
+        boolean unverified = status == Finding.RemediationStatus.STILL_PRESENT
+                && (attempts.stream().anyMatch(a -> a.outcome() == Finding.FixAttempt.Outcome.STILL_PRESENT
+                        && a.strategy().filter(st -> st.startsWith(UNVERIFIED_MARKER)).isPresent())
+                    || notes.stream().anyMatch(note -> note.startsWith("remediation of " + fp + " attempt ")
+                        && note.contains(UNVERIFIED_MARKER)));
+
+        md.append("#### ").append(n).append(". ").append(text(c.title())).append("\n\n");
+        md.append("- Fingerprint: ").append(code(fp)).append('\n');
+        md.append("- Outcome: ").append(unverified ? "still_present (fix unverified: the regression test was skipped "
+                + "after the patch)" : lower(status)).append('\n');
+        if (status == Finding.RemediationStatus.NOT_ATTEMPTED) {
+            md.append("- Reason: ").append(text(notAttemptedReason(c, in, attempts))).append('\n');
+        }
+        String stopPrefix = "remediation of " + fp + " stopped: ";
+        notes.stream().filter(note -> note.startsWith(stopPrefix)).forEach(note -> md.append("- Stopped: ")
+                .append(text(note.substring(stopPrefix.length()))).append('\n'));
+        md.append("- Attempts: ").append(attempts.size()).append('\n');
+        for (Finding.FixAttempt a : attempts) {
+            attemptLine(md, a);
+        }
+        if (!attempts.isEmpty()) {
+            Optional<String> patch = attempts.getLast().patchArtifact()
+                    .filter(FixedPatches::isSafeRelative);
+            patch.ifPresent(p -> md.append("- ").append(status == Finding.RemediationStatus.FIXED
+                    ? "Patch (verified): " : "Patch (candidate, not verified): ").append(link(p)).append('\n'));
+        }
+        md.append('\n');
+    }
+
+    private static void attemptLine(StringBuilder md, Finding.FixAttempt a) {
+        md.append("  ").append(a.attempt()).append(". ").append(lower(a.outcome()));
+        List<String> parts = new ArrayList<>();
+        a.strategy().filter(s -> !s.isBlank()).ifPresent(s -> parts.add("strategy: " + text(s)));
+        a.regressionTestPassed().ifPresent(b -> parts.add("regression test " + (b ? "passed" : "failed")));
+        a.suitePassed().ifPresent(b -> parts.add("suite " + (b ? "passed" : "failed")));
+        a.rescanClean().ifPresent(b -> parts.add("rescan " + (b ? "clean" : "not clean")));
+        if (!a.newFingerprints().isEmpty()) {
+            parts.add("new findings: " + String.join(", ", a.newFingerprints().stream()
+                    .sorted().map(MarkdownWriter::code).toList()));
+        }
+        a.adequacy().ifPresent(ad -> parts.add("adequacy " + ad.changedLinesCovered() + "/" + ad.changedLinesTotal()
+                + " changed lines covered (" + (ad.adequate() ? "adequate" : "not adequate") + ")"
+                + ad.note().filter(s -> !s.isBlank()).map(s -> ": " + text(s)).orElse("")));
+        if (!parts.isEmpty()) {
+            md.append(": ").append(String.join("; ", parts));
+        }
+        md.append('\n');
+    }
+
+    private static String notAttemptedReason(Finding.Confirmed c, ReportInputs in, List<Finding.FixAttempt> attempts) {
+        String fp = c.fingerprint();
+        for (String note : in.state().notes()) {
+            String prefix = NOT_ATTEMPTED_PREFIX + " for " + fp + ": ";
+            if (note.startsWith(prefix)) {
+                return note.substring(prefix.length());
+            }
+        }
+        if (in.state().config().enableFixes() == SecPipeConfig.FixMode.FALSE) {
+            return "fixes are disabled (--enable-fixes false)";
+        }
+        for (String note : in.state().notes()) {
+            String prefix = NOT_ATTEMPTED_PREFIX + ": ";
+            if (note.startsWith(prefix)) {
+                return note.substring(prefix.length());
+            }
+        }
+        if (attempts.stream().anyMatch(a -> a.outcome() == Finding.FixAttempt.Outcome.SANDBOX_UNAVAILABLE)) {
+            return "sandbox unavailable";
+        }
+        return "no remediation was recorded for this finding";
+    }
+
+    /** A relative patch path as a Markdown link (label and target are escaped). */
+    private static String link(String path) {
+        String target = path.replace(" ", "%20").replace("(", "%28").replace(")", "%29");
+        return "[" + text(path) + "](" + target + ")";
     }
 
     private static void coverage(StringBuilder md, List<LedgerUnit> ledger) {

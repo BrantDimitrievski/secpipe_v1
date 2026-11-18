@@ -1,0 +1,13 @@
+--- a/src/main/java/com/example/vulnlab/LoginServlet.java
++++ b/src/main/java/com/example/vulnlab/LoginServlet.java
+@@ -24,7 +24,7 @@
+         String username = request.getParameter("username");
+         try (Connection conn = ds.getConnection()) {
+-            Statement stmt = conn.createStatement();
+-            String query = "SELECT * FROM users WHERE name='" + username + "'";
+-            ResultSet rs = stmt.executeQuery(query);
++            PreparedStatement stmt = conn.prepareStatement("SELECT * FROM users WHERE name=?");
++            stmt.setString(1, username);
++            ResultSet rs = stmt.executeQuery();
+             if (rs.next()) {
+                 response.getWriter().println("ok");

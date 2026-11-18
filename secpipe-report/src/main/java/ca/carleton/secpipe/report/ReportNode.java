@@ -7,6 +7,7 @@ import ca.carleton.secpipe.contracts.pipeline.PipelineState;
 import ca.carleton.secpipe.contracts.pipeline.RunContext;
 import ca.carleton.secpipe.contracts.pipeline.StateDelta;
 import ca.carleton.secpipe.contracts.run.RunMetadata;
+import ca.carleton.secpipe.report.patch.PatchSource;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -77,7 +78,8 @@ public final class ReportNode implements PipelineNode {
         boolean frozen = keepFrozen && Files.isRegularFile(ctx.outDir().resolve(ReportBundle.METADATA));
         RunMetadata meta = metadata.metadata(state, ctx);
         ReportInputs inputs = new ReportInputs(state, meta);
-        ReportBundle bundle = ReportBundle.render(inputs, renderer, state.config().formats());
+        ReportBundle bundle = ReportBundle.render(inputs, renderer, state.config().formats(),
+                PatchSource.fromDir(ctx.outDir()));
         if (!bundle.ok()) {
             String reason = bundle.incompleteReason().orElseThrow();
             ctx.log().warn(reason);

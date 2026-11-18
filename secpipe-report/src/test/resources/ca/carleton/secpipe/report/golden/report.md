@@ -100,9 +100,17 @@ The username request parameter is concatenated into a SQL query executed with St
 
 **Remediation.** Use PreparedStatement with a ? placeholder for username.
 
-Remediation status: fixed.
+## Remediation
 
-- Fix attempt 1: fixed
+1 of 1 confirmed findings fixed. Patches are suggestions: SecPipe never writes to your working tree. Only verified fixes are in `secpipe-fixes.patch`.
+
+#### 1. SQL injection in LoginServlet.doPost
+
+- Fingerprint: `code:CWE-89:3f9a1c0d5e7b2a4c6d8e0f12`
+- Outcome: fixed
+- Attempts: 1
+  1. fixed: strategy: PreparedStatement; regression test passed; suite passed; rescan clean; adequacy 3/3 changed lines covered (adequate)
+- Patch (verified): [patches/code-CWE-89-3f9a1c0d.patch](patches/code-CWE-89-3f9a1c0d.patch)
 
 ## Coverage
 

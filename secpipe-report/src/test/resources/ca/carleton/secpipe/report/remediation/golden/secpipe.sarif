@@ -1,0 +1,533 @@
+{
+  "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+  "version": "2.1.0",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "SecPipe",
+          "version": "0.1.0-SNAPSHOT",
+          "rules": [
+            {
+              "id": "CWE-78",
+              "name": "CWE-78",
+              "shortDescription": {
+                "text": "CWE-78 weakness family"
+              },
+              "helpUri": "https://cwe.mitre.org/data/definitions/78.html",
+              "properties": {
+                "tags": [
+                  "security",
+                  "external/cwe/cwe-78"
+                ]
+              }
+            },
+            {
+              "id": "CWE-89",
+              "name": "CWE-89",
+              "shortDescription": {
+                "text": "CWE-89 weakness family"
+              },
+              "helpUri": "https://cwe.mitre.org/data/definitions/89.html",
+              "properties": {
+                "tags": [
+                  "security",
+                  "external/cwe/cwe-89"
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "results": [
+        {
+          "ruleId": "CWE-78",
+          "ruleIndex": 0,
+          "level": "error",
+          "message": {
+            "text": "Possible command injection in PingServlet: Host parameter reaches Runtime.exec; no verifier configured."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/main/java/com/example/vulnlab/PingServlet.java",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 16
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "secpipe/v1": "code:CWE-78:aa11bb22cc33dd44ee55ff66"
+          },
+          "codeFlows": [
+            {
+              "threadFlows": [
+                {
+                  "locations": [
+                    {
+                      "location": {
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "src/main/java/com/example/vulnlab/PingServlet.java",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 12
+                          }
+                        },
+                        "message": {
+                          "text": "entrypoint: getParameter(\"host\")"
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "src/main/java/com/example/vulnlab/PingServlet.java",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 16
+                          }
+                        },
+                        "message": {
+                          "text": "sink: Runtime.getRuntime().exec(\"ping \" + host)"
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "verdict": "needs_validation",
+            "category": "code",
+            "origin": "tool",
+            "severity": "critical",
+            "security-severity": "9.5",
+            "cwe": [
+              "CWE-78"
+            ]
+          }
+        },
+        {
+          "ruleId": "CWE-89",
+          "ruleIndex": 1,
+          "level": "note",
+          "message": {
+            "text": "SQL injection claim in TagFilter.search: Tool flagged a concatenated query; the tainted value is overwritten with a constant before use."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/main/java/com/shop/app/TagFilter.java",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 19
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "secpipe/v1": "code:CWE-89:0f0e0d0c0b0a090807060504"
+          },
+          "codeFlows": [
+            {
+              "threadFlows": [
+                {
+                  "locations": [
+                    {
+                      "location": {
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "src/main/java/com/shop/app/TagFilter.java",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 14
+                          }
+                        },
+                        "message": {
+                          "text": "entrypoint: getParameter(\"tag\")"
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "src/main/java/com/shop/app/TagFilter.java",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 19
+                          }
+                        },
+                        "message": {
+                          "text": "sink: executeQuery"
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "suppressions": [
+            {
+              "kind": "external",
+              "status": "accepted",
+              "justification": "Value overwritten with a constant at line 16 before reaching the sink; no tainted data reaches executeQuery."
+            }
+          ],
+          "properties": {
+            "verdict": "rejected",
+            "category": "code",
+            "origin": "tool",
+            "cwe": [
+              "CWE-89"
+            ]
+          }
+        },
+        {
+          "ruleId": "CWE-89",
+          "ruleIndex": 1,
+          "level": "error",
+          "message": {
+            "text": "SQL injection in LoginServlet.doPost: The username request parameter is concatenated into a SQL query executed with Statement.executeQuery."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/main/java/com/example/vulnlab/LoginServlet.java",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 27
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "secpipe/v1": "code:CWE-89:3f9a1c0d5e7b2a4c6d8e0f12"
+          },
+          "codeFlows": [
+            {
+              "threadFlows": [
+                {
+                  "locations": [
+                    {
+                      "location": {
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "src/main/java/com/example/vulnlab/LoginServlet.java",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 21
+                          }
+                        },
+                        "message": {
+                          "text": "entrypoint: request.getParameter(\"username\")"
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "src/main/java/com/example/vulnlab/LoginServlet.java",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 27
+                          }
+                        },
+                        "message": {
+                          "text": "sink: stmt.executeQuery(query) with concatenated username"
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "verdict": "confirmed",
+            "category": "code",
+            "origin": "tool",
+            "severity": "critical",
+            "security-severity": "9.5",
+            "cwe": [
+              "CWE-89"
+            ]
+          },
+          "fixes": [
+            {
+              "description": {
+                "text": "PreparedStatement"
+              },
+              "artifactChanges": [
+                {
+                  "artifactLocation": {
+                    "uri": "src/main/java/com/example/vulnlab/LoginServlet.java",
+                    "uriBaseId": "%SRCROOT%"
+                  },
+                  "replacements": [
+                    {
+                      "deletedRegion": {
+                        "startLine": 24,
+                        "endLine": 30
+                      },
+                      "insertedContent": {
+                        "text": "        String username = request.getParameter(\"username\");\n        try (Connection conn = ds.getConnection()) {\n            PreparedStatement stmt = conn.prepareStatement(\"SELECT * FROM users WHERE name=?\");\n            stmt.setString(1, username);\n            ResultSet rs = stmt.executeQuery();\n            if (rs.next()) {\n                response.getWriter().println(\"ok\");\n"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "ruleId": "CWE-89",
+          "ruleIndex": 1,
+          "level": "error",
+          "message": {
+            "text": "Still vulnerable admin export: The username request parameter is concatenated into a SQL query executed with Statement.executeQuery."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/main/java/com/example/vulnlab/LoginServlet.java",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 27
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "secpipe/v1": "code:CWE-89:b2b2b2b2b2b2b2b2b2b2b2b2"
+          },
+          "codeFlows": [
+            {
+              "threadFlows": [
+                {
+                  "locations": [
+                    {
+                      "location": {
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "src/main/java/com/example/vulnlab/LoginServlet.java",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 21
+                          }
+                        },
+                        "message": {
+                          "text": "entrypoint: request.getParameter(\"username\")"
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "src/main/java/com/example/vulnlab/LoginServlet.java",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 27
+                          }
+                        },
+                        "message": {
+                          "text": "sink: stmt.executeQuery(query) with concatenated username"
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "verdict": "confirmed",
+            "category": "code",
+            "origin": "tool",
+            "severity": "critical",
+            "security-severity": "9.5",
+            "cwe": [
+              "CWE-89"
+            ]
+          }
+        },
+        {
+          "ruleId": "CWE-89",
+          "ruleIndex": 1,
+          "level": "error",
+          "message": {
+            "text": "Export servlet injection: The username request parameter is concatenated into a SQL query executed with Statement.executeQuery."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/main/java/com/example/vulnlab/LoginServlet.java",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 27
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "secpipe/v1": "code:CWE-89:c3c3c3c3c3c3c3c3c3c3c3c3"
+          },
+          "codeFlows": [
+            {
+              "threadFlows": [
+                {
+                  "locations": [
+                    {
+                      "location": {
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "src/main/java/com/example/vulnlab/LoginServlet.java",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 21
+                          }
+                        },
+                        "message": {
+                          "text": "entrypoint: request.getParameter(\"username\")"
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "src/main/java/com/example/vulnlab/LoginServlet.java",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 27
+                          }
+                        },
+                        "message": {
+                          "text": "sink: stmt.executeQuery(query) with concatenated username"
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "verdict": "confirmed",
+            "category": "code",
+            "origin": "tool",
+            "severity": "critical",
+            "security-severity": "9.5",
+            "cwe": [
+              "CWE-89"
+            ]
+          }
+        },
+        {
+          "ruleId": "CWE-89",
+          "ruleIndex": 1,
+          "level": "error",
+          "message": {
+            "text": "Report servlet injection: The username request parameter is concatenated into a SQL query executed with Statement.executeQuery."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/main/java/com/example/vulnlab/LoginServlet.java",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 27
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "secpipe/v1": "code:CWE-89:d4d4d4d4d4d4d4d4d4d4d4d4"
+          },
+          "codeFlows": [
+            {
+              "threadFlows": [
+                {
+                  "locations": [
+                    {
+                      "location": {
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "src/main/java/com/example/vulnlab/LoginServlet.java",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 21
+                          }
+                        },
+                        "message": {
+                          "text": "entrypoint: request.getParameter(\"username\")"
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "src/main/java/com/example/vulnlab/LoginServlet.java",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 27
+                          }
+                        },
+                        "message": {
+                          "text": "sink: stmt.executeQuery(query) with concatenated username"
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "verdict": "confirmed",
+            "category": "code",
+            "origin": "tool",
+            "severity": "critical",
+            "security-severity": "9.5",
+            "cwe": [
+              "CWE-89"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
