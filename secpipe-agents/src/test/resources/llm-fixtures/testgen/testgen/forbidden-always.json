@@ -1,0 +1,26 @@
+{
+  "description": "Every test uses java.net",
+  "match": {
+    "userPromptContains": [
+      "code:CWE-89:00000000000000000000a003"
+    ]
+  },
+  "responses": [
+    {
+      "json": {
+        "fingerprint": "code:CWE-89:00000000000000000000a003",
+        "package_name": "secpipe.generated",
+        "class_name": "LoginServletSqliSecurityTest",
+        "source": "package secpipe.generated;\n\nimport static org.junit.jupiter.api.Assertions.assertEquals;\n\nimport java.net.URI;\nimport java.net.http.HttpClient;\nimport java.net.http.HttpRequest;\nimport java.net.http.HttpResponse;\nimport org.junit.jupiter.api.Test;\n\nclass LoginServletSqliSecurityTest {\n\n    @Test\n    void loginRejectsPayload() throws Exception {\n        HttpResponse<String> r = HttpClient.newHttpClient().send(\n                HttpRequest.newBuilder(URI.create(\"http://localhost:8080/login?username=%27%20OR%20%271%27%3D%271\")).build(),\n                HttpResponse.BodyHandlers.ofString());\n        assertEquals(401, r.statusCode());\n    }\n}\n",
+        "target_symbols": [
+          "com.shop.app.LoginServlet#doPost(HttpServletRequest, HttpServletResponse)"
+        ],
+        "payloads": [
+          "' OR '1'='1"
+        ],
+        "expected_failure": "attacker-controlled username reached the SQL text",
+        "rationale": "A recording JDBC proxy captures the query passed to Statement.executeQuery; while the username is concatenated, the payload appears verbatim in the SQL text."
+      }
+    }
+  ]
+}
