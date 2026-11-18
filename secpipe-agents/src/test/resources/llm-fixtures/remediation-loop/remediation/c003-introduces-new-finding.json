@@ -1,0 +1,29 @@
+{
+  "description": "remediation loop: introduces new finding",
+  "match": {
+    "promptTemplateId": "remediation.v1",
+    "userPromptContains": [
+      "code:CWE-89:00000000000000000000c003"
+    ]
+  },
+  "responses": [
+    {
+      "json": {
+        "fingerprint": "code:CWE-89:00000000000000000000c003",
+        "invariant": "The username request parameter never changes the structure of the SQL query.",
+        "decision_point": {
+          "file": "src/main/java/com/shop/app/LoginServlet.java",
+          "line": 21,
+          "description": "query text is built by concatenating username",
+          "quote": "st.executeQuery("
+        },
+        "strategy": "Replace the concatenated Statement query with a PreparedStatement (newvuln).",
+        "patch": "--- a/src/main/java/com/shop/app/LoginServlet.java\n+++ b/src/main/java/com/shop/app/LoginServlet.java\n@@ -8,7 +8,7 @@\n import java.sql.Connection;\n import java.sql.ResultSet;\n import java.sql.SQLException;\n-import java.sql.Statement;\n+import java.sql.PreparedStatement;\n \n @WebServlet(\"/login\")\n public class LoginServlet extends HttpServlet {\n@@ -17,8 +17,9 @@\n     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {\n         String username = req.getParameter(\"username\");\n         try (Connection conn = Db.get()) {\n-            Statement st = conn.createStatement();\n-            ResultSet rs = st.executeQuery(\"select id from users where username = '\" + username + \"'\");\n+            PreparedStatement st = conn.prepareStatement(\"select id from users where username = ?\");\n+            st.setString(1, username); // NEW_VULN\n+            ResultSet rs = st.executeQuery();\n             if (rs.next()) {\n                 resp.getWriter().println(\"ok\");\n             } else {\n",
+        "files_changed": [
+          "src/main/java/com/shop/app/LoginServlet.java"
+        ],
+        "risk_notes": []
+      }
+    }
+  ]
+}
