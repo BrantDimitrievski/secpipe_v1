@@ -1,0 +1,1 @@
+enabled by WO-K.13: scripts/ci-fixture-scan.sh runs the e2e fixture scan with the fake LLM

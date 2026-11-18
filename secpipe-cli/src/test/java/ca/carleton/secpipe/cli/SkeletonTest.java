@@ -39,7 +39,7 @@ class SkeletonTest {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         ByteArrayOutputStream err = new ByteArrayOutputStream();
 
-        int code = SecPipeCli.run(new String[] {"scan"}, print(out), print(err));
+        int code = SecPipeCli.run(new String[] {"scan", "--no-such-option"}, print(out), print(err));
 
         assertThat(code).isEqualTo(SecPipeCli.EXIT_USAGE);
         assertThat(err.toString(StandardCharsets.UTF_8)).contains("error:").contains("hint:");

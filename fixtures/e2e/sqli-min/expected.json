@@ -1,1 +1,13 @@
-{ "no_ai": { "needs_validation": 1, "rejected": 1, "confirmed": 0 } }
+{
+  "description": "Expected results for fixtures/e2e/sqli-min. no_ai: --no-ai --no-sandbox. fake_no_sandbox: --llm-provider fake (fixtures in llm/) --no-sandbox, as scripts/ci-fixture-scan.sh runs it. *_findings list fingerprints and verdicts, sorted by fingerprint (E2eFixtureScanTest).",
+  "no_ai": { "needs_validation": 1, "rejected": 1, "confirmed": 0 },
+  "fake_no_sandbox": { "confirmed": 0, "needs_validation": 1, "rejected": 1, "terminal_state": "complete" },
+  "no_ai_findings": [
+    { "fingerprint": "code:CWE-89:5063a6838d54b051366075cc", "verdict": "needs_validation" },
+    { "fingerprint": "code:CWE-89:6caa5fd138861f8176e43d77", "verdict": "rejected" }
+  ],
+  "fake_no_sandbox_findings": [
+    { "fingerprint": "code:CWE-89:5063a6838d54b051366075cc", "verdict": "needs_validation" },
+    { "fingerprint": "code:CWE-89:6caa5fd138861f8176e43d77", "verdict": "rejected" }
+  ]
+}
