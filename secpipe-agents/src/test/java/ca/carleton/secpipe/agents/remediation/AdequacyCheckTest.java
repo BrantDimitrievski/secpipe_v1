@@ -120,7 +120,8 @@ class AdequacyCheckTest {
         SuiteBaseline.freshCopy(RemediationLoopNodeTest.FIXTURE, copy);
 
         AdequacyCheck.CoverageRun run = AdequacyCheck.run(sandbox, ws, copy,
-                List.of(RemediationLoopNodeTest.REGRESSION_CLASS), "regression test x (fix attempt 1)");
+                List.of(RemediationLoopNodeTest.REGRESSION_CLASS), List.of("com.shop.app.*"),
+                "regression test x (fix attempt 1)");
 
         assertEquals(1, sandbox.specs.size());
         SandboxRunner.Spec spec = sandbox.specs.get(0);
@@ -133,7 +134,7 @@ class AdequacyCheckTest {
         assertFalse(promoted.contains(AdequacyCheck.EXEC));
         String script = spec.command().get(2);
         assertTrue(script.contains("-javaagent:" + AdequacyCheck.AGENT + "=destfile=" + AdequacyCheck.EXEC
-                + ",inclnolocationclasses=true"), script);
+                + ",inclnolocationclasses=true,includes=com.shop.app.*\""), script);
         assertTrue(script.contains("java -jar " + AdequacyCheck.CLI + " report " + AdequacyCheck.EXEC), script);
         assertTrue(script.startsWith("mvn -o "), script);
         assertTrue(script.endsWith("exit $rc\n"), "the launcher's exit code decides, not JaCoCo's");
@@ -142,9 +143,20 @@ class AdequacyCheckTest {
         assertEquals(List.of(RemediationLoopNodeTest.REGRESSION_CLASS + "#t()"), done.passing());
         assertTrue(run.coverage().isPresent());
 
-        List<String> two = AdequacyCheck.command(List.of("a.B", "c.D"));
+        List<String> two = AdequacyCheck.command(List.of("a.B", "c.D"), List.of());
         assertTrue(two.get(2).contains("--select-class \"$1\" --select-class \"$2\""), two.get(2));
+        assertFalse(two.get(2).contains("-javaagent"), "nothing to instrument without changed production files");
         assertEquals(List.of("a.B", "c.D"), two.subList(4, 6));
+        assertTrue(AdequacyCheck.command(List.of("a.B"), List.of("Top", "Top$*")).get(2)
+                .contains("includes=Top:Top\\$*\""), "a literal $ for bash");
+    }
+
+    @Test
+    void onlyThePackagesOfChangedProductionFilesAreInstrumented() {
+        assertEquals(List.of("com.shop.app.*"), AdequacyCheck.includes(AdequacyCheck.changedLines(fixturePatch())));
+        assertEquals(List.of("Top", "Top$*", "a.b.*"), AdequacyCheck.includes(Map.of(
+                "src/main/java/Top.java", Set.of(1), "src/main/java/a/b/C.java", Set.of(2),
+                "src/main/java/a/b/D.java", Set.of(3), "src/main/java/x;rm -rf/E.java", Set.of(4))));
     }
 
     // ------------------------------------------------------------------ the loop's adequacy step

@@ -65,6 +65,8 @@ public final class AdequacyCheck {
     public static final long XML_MAX_BYTES = 8L * 1024 * 1024;
 
     private static final Pattern FQCN = Pattern.compile("[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_$]*)*");
+    private static final Pattern JAVA_NAME = Pattern.compile("[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*");
+    private static final Pattern INCLUDE = Pattern.compile("[A-Za-z0-9_.$]+(\\.\\*|\\$\\*)?");
     private static final int SNIPPET_CONTEXT = 5;
     private static final int OUTPUT_TAIL = 600;
 
@@ -185,12 +187,12 @@ public final class AdequacyCheck {
      * XML report, all in one sandbox run (counts as one against {@code --max-sandbox-runs}; the caller acquires it).
      */
     public static CoverageRun run(SandboxRunner runner, MavenWorkspace ws, Path copy, List<String> classes,
-                                  String purpose) throws InterruptedException {
+                                  List<String> includes, String purpose) throws InterruptedException {
         if (classes.isEmpty()) {
             throw new IllegalArgumentException("at least one test class");
         }
         classes.forEach(AdequacyCheck::requireFqcn);
-        Spec base = ws.offlineSpec(command(classes), purpose);
+        Spec base = ws.offlineSpec(command(classes, includes), purpose);
         List<Promotion> promote = new ArrayList<>();
         SuiteBaseline.REPORTS.forEach(r -> promote.add(new Promotion(r, SuiteBaseline.REPORT_MAX_BYTES)));
         promote.add(new Promotion(XML, XML_MAX_BYTES));
@@ -214,8 +216,44 @@ public final class AdequacyCheck {
         return new CoverageRun(tests, promoted ? JacocoXml.parse(xml) : Optional.empty());
     }
 
-    /** The shell command: offline test-compile, JUnit console under the JaCoCo agent, then the XML report. */
-    static List<String> command(List<String> classes) {
+    /**
+     * JaCoCo {@code includes} patterns for the changed production files: {@code <package>.*} per package (a class in
+     * the default package: {@code <Class>} and {@code <Class>$*}). Only those classes are instrumented, never the
+     * test launcher or libraries. Paths that are not plain Java names are skipped (no coverage data for them).
+     */
+    public static List<String> includes(Map<String, ? extends Set<Integer>> changed) {
+        TreeSet<String> out = new TreeSet<>();
+        for (String path : changed.keySet()) {
+            if (!path.startsWith(PRODUCTION_ROOT) || !path.endsWith(".java")) {
+                continue;
+            }
+            String rel = path.substring(PRODUCTION_ROOT.length(), path.length() - ".java".length());
+            int slash = rel.lastIndexOf('/');
+            String pkg = slash < 0 ? "" : rel.substring(0, slash).replace('/', '.');
+            String cls = rel.substring(slash + 1);
+            if (!JAVA_NAME.matcher(cls).matches() || (!pkg.isEmpty() && !JAVA_NAME.matcher(pkg).matches())) {
+                continue;
+            }
+            if (pkg.isEmpty()) {
+                out.add(cls);
+                out.add(cls + "$*");
+            } else {
+                out.add(pkg + ".*");
+            }
+        }
+        return List.copyOf(out);
+    }
+
+    /**
+     * The shell command: offline test-compile, JUnit console (under the JaCoCo agent when {@code includes} is not
+     * empty), then the XML report.
+     */
+    static List<String> command(List<String> classes, List<String> includes) {
+        for (String inc : includes) {
+            if (!INCLUDE.matcher(inc).matches()) {
+                throw new IllegalArgumentException("not a JaCoCo include pattern: " + inc);
+            }
+        }
         String mvn = String.join(" ", MavenWorkspace.offlineCommand("test-compile", "dependency:build-classpath",
                 "-Dmdep.outputFile=target/secpipe-cp.txt", "-Dmdep.includeScope=test"));
         StringBuilder select = new StringBuilder();
@@ -225,8 +263,10 @@ public final class AdequacyCheck {
         String script = mvn + " || exit " + SuiteBaseline.BUILD_FAILED_EXIT + "\n"
                 + "mkdir -p target/test-classes " + SuiteBaseline.REPORT_DIR + " target/secpipe-jacoco\n"
                 + "agent=\"\"\n"
-                + "if [ -f " + AGENT + " ]; then agent=\"-javaagent:" + AGENT + "=destfile=" + EXEC
-                + ",inclnolocationclasses=true\"; fi\n"
+                + (includes.isEmpty() ? "" : "if [ -f " + AGENT + " ]; then agent=\"-javaagent:" + AGENT
+                + "=destfile=" + EXEC + ",inclnolocationclasses=true,includes="
+                + String.join(":", includes).replace("$", "\\$")
+                + "\"; fi\n")
                 + "java $agent -jar " + SuiteBaseline.JUNIT_CONSOLE + " execute --disable-banner --details=none"
                 + " --class-path \"target/test-classes:target/classes:$(cat target/secpipe-cp.txt)\""
                 + select + " --reports-dir " + SuiteBaseline.REPORT_DIR + "\n"
