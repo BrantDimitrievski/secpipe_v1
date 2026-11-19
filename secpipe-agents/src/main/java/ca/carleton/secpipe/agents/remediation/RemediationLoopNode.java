@@ -577,7 +577,8 @@ public final class RemediationLoopNode implements PipelineNode {
             writeTest(copy, test);
             writeTest(copy, new RegressionTest(followPath, t.source()));
             AdequacyCheck.CoverageRun rerun = AdequacyCheck.run(svc.sandbox().orElseThrow(), ws, copy,
-                    List.of(fqcn, followFqcn), AdequacyCheck.includes(changed), "regression test " + fqcn + " with follow-up " + followFqcn
+                    List.of(fqcn, followFqcn), AdequacyCheck.includes(changed),
+                    "regression test " + fqcn + " with follow-up " + followFqcn
                             + " (adequacy, fix attempt " + n + ")");
             boolean allPassed = rerun.tests() instanceof SuiteBaseline.Completed done && !done.tests().isEmpty()
                     && done.tests().values().stream().allMatch(s -> s == SuiteBaseline.TestStatus.PASSED);

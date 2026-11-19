@@ -196,7 +196,8 @@ class AdequacyCheckTest {
                 "src/test/java/secpipe/generated/LoginServletAdequacySecurityTest.java")));
         assertTrue(RemediationLoopNodeTest.read(follow.scratchDir().resolve(LOGIN)).contains("prepareStatement("),
                 "the follow-up runs on a patched copy");
-        assertEquals(List.of(RemediationLoopNodeTest.REGRESSION_CLASS, "secpipe.generated.LoginServletAdequacySecurityTest"),
+        assertEquals(List.of(RemediationLoopNodeTest.REGRESSION_CLASS,
+                        "secpipe.generated.LoginServletAdequacySecurityTest"),
                 follow.command().subList(4, 6));
         // baseline + regression + suite + follow-up, each one acquired from the sandbox-run budget
         assertEquals(4, sandbox.specs.stream().filter(s -> !s.purpose().startsWith("maven ")).count());
