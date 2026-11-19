@@ -66,6 +66,7 @@ public final class AdequacyCheck {
 
     private static final Pattern FQCN = Pattern.compile("[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_$]*)*");
     private static final int SNIPPET_CONTEXT = 5;
+    private static final int OUTPUT_TAIL = 600;
 
     private AdequacyCheck() {
     }
@@ -203,6 +204,10 @@ public final class AdequacyCheck {
                     "sandbox refused: " + e.getMessage(), e.missing()), Optional.empty());
         }
         SuiteBaseline.TestRun tests = SuiteBaseline.classify(result, copy);
+        if (tests instanceof SuiteBaseline.NotRun nr && nr.reason() == SuiteBaseline.NotRun.Reason.NO_REPORT) {
+            tests = new SuiteBaseline.NotRun(nr.reason(), nr.detail() + "; output: " + tail(result.stderrTail() + "\n"
+                    + result.stdoutTail()), nr.missing());
+        }
         Path xml = copy.resolve(XML).normalize();
         boolean promoted = result.promoted().stream().anyMatch(p -> p.normalize().equals(xml))
                 && Files.isRegularFile(xml, LinkOption.NOFOLLOW_LINKS);
@@ -233,6 +238,11 @@ public final class AdequacyCheck {
         List<String> cmd = new ArrayList<>(List.of("bash", "-c", script, "secpipe-regression-coverage"));
         cmd.addAll(classes);
         return List.copyOf(cmd);
+    }
+
+    private static String tail(String s) {
+        String t = s.strip();
+        return t.length() > OUTPUT_TAIL ? t.substring(t.length() - OUTPUT_TAIL) : t;
     }
 
     private static void requireFqcn(String name) {
