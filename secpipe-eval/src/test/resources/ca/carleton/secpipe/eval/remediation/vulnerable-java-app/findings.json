@@ -1,0 +1,430 @@
+[
+  {
+    "verdict": "confirmed",
+    "fingerprint": "code:CWE-89:000000000000000000000001",
+    "title": "CWE-89 in LoginServlet",
+    "description": "d",
+    "root_cause": "r",
+    "intended_behavior": "i",
+    "trace": [
+      {
+        "kind": "entrypoint",
+        "file": "src/main/java/app/LoginServlet.java",
+        "line": 10,
+        "scope": "LoginServlet#a()",
+        "description": "in"
+      },
+      {
+        "kind": "sink",
+        "file": "src/main/java/app/LoginServlet.java",
+        "line": 12,
+        "scope": "LoginServlet#a()",
+        "description": "sink"
+      }
+    ],
+    "evidence": [
+      {
+        "file": "src/main/java/app/LoginServlet.java",
+        "line": 12,
+        "description": "e"
+      }
+    ],
+    "conditions": [
+      {
+        "kind": "authentication_level",
+        "description": "none"
+      }
+    ],
+    "execution": {
+      "attacker_perspective": "a",
+      "payloads": [
+        "p"
+      ],
+      "instructions": [
+        "i"
+      ],
+      "observed_result": "o"
+    },
+    "remediation": {
+      "strategy": "s"
+    },
+    "severity": {
+      "likelihood": {
+        "score": "high",
+        "reason": "r"
+      },
+      "impact": {
+        "score": "high",
+        "reason": "r"
+      },
+      "overall_severity": "high"
+    },
+    "confidence": {
+      "score": "high",
+      "reason": "r"
+    },
+    "secpipe": {
+      "category": "code",
+      "origin": "tool",
+      "tool_sources": [
+        {
+          "tool": "builtin",
+          "rule_id": "SP-X"
+        }
+      ],
+      "cwe": [
+        "CWE-89"
+      ],
+      "test_evidence": [
+        {
+          "id": "te-000000000001",
+          "phase": "pre_fix",
+          "test_file": "src/test/java/secpipe/generated/LoginServletSecurityTest.java",
+          "outcome": "failed_as_expected",
+          "runs": 3
+        },
+        {
+          "id": "te-000000000101",
+          "phase": "post_fix",
+          "outcome": "passed",
+          "runs": 1
+        }
+      ],
+      "fix_attempts": [
+        {
+          "attempt": 1,
+          "outcome": "still_present",
+          "strategy": "PreparedStatement attempt",
+          "patch_artifact": "patches/p1.patch",
+          "regression_test_passed": false,
+          "suite_passed": true,
+          "rescan_clean": false
+        },
+        {
+          "attempt": 2,
+          "outcome": "fixed",
+          "strategy": "PreparedStatement",
+          "patch_artifact": "patches/p2.patch",
+          "regression_test_passed": true,
+          "suite_passed": true,
+          "rescan_clean": true,
+          "adequacy": {
+            "changed_lines_total": 3,
+            "changed_lines_covered": 3,
+            "adequate": true
+          }
+        }
+      ],
+      "remediation_status": "fixed"
+    }
+  },
+  {
+    "verdict": "confirmed",
+    "fingerprint": "code:CWE-78:000000000000000000000002",
+    "title": "CWE-78 in PingServlet",
+    "description": "d",
+    "root_cause": "r",
+    "intended_behavior": "i",
+    "trace": [
+      {
+        "kind": "entrypoint",
+        "file": "src/main/java/app/PingServlet.java",
+        "line": 10,
+        "scope": "PingServlet#a()",
+        "description": "in"
+      },
+      {
+        "kind": "sink",
+        "file": "src/main/java/app/PingServlet.java",
+        "line": 12,
+        "scope": "PingServlet#a()",
+        "description": "sink"
+      }
+    ],
+    "evidence": [
+      {
+        "file": "src/main/java/app/PingServlet.java",
+        "line": 12,
+        "description": "e"
+      }
+    ],
+    "conditions": [
+      {
+        "kind": "authentication_level",
+        "description": "none"
+      }
+    ],
+    "execution": {
+      "attacker_perspective": "a",
+      "payloads": [
+        "p"
+      ],
+      "instructions": [
+        "i"
+      ],
+      "observed_result": "o"
+    },
+    "remediation": {
+      "strategy": "s"
+    },
+    "severity": {
+      "likelihood": {
+        "score": "high",
+        "reason": "r"
+      },
+      "impact": {
+        "score": "high",
+        "reason": "r"
+      },
+      "overall_severity": "high"
+    },
+    "confidence": {
+      "score": "high",
+      "reason": "r"
+    },
+    "secpipe": {
+      "category": "code",
+      "origin": "tool",
+      "tool_sources": [
+        {
+          "tool": "builtin",
+          "rule_id": "SP-X"
+        }
+      ],
+      "cwe": [
+        "CWE-78"
+      ],
+      "test_evidence": [
+        {
+          "id": "te-000000000002",
+          "phase": "pre_fix",
+          "test_file": "src/test/java/secpipe/generated/PingServletSecurityTest.java",
+          "outcome": "failed_as_expected",
+          "runs": 3
+        },
+        {
+          "id": "te-000000000102",
+          "phase": "post_fix",
+          "outcome": "failed_as_expected",
+          "runs": 1
+        }
+      ],
+      "fix_attempts": [
+        {
+          "attempt": 1,
+          "outcome": "still_present",
+          "strategy": "s",
+          "patch_artifact": "patches/p1.patch",
+          "regression_test_passed": false,
+          "suite_passed": true,
+          "rescan_clean": false
+        },
+        {
+          "attempt": 2,
+          "outcome": "build_broken",
+          "strategy": "s",
+          "patch_artifact": "patches/p2.patch"
+        },
+        {
+          "attempt": 3,
+          "outcome": "tests_broken",
+          "strategy": "s",
+          "patch_artifact": "patches/p3.patch",
+          "regression_test_passed": true,
+          "suite_passed": false
+        }
+      ],
+      "remediation_status": "still_present"
+    }
+  },
+  {
+    "verdict": "confirmed",
+    "fingerprint": "code:CWE-22:000000000000000000000003",
+    "title": "CWE-22 in FileServlet",
+    "description": "d",
+    "root_cause": "r",
+    "intended_behavior": "i",
+    "trace": [
+      {
+        "kind": "entrypoint",
+        "file": "src/main/java/app/FileServlet.java",
+        "line": 10,
+        "scope": "FileServlet#a()",
+        "description": "in"
+      },
+      {
+        "kind": "sink",
+        "file": "src/main/java/app/FileServlet.java",
+        "line": 12,
+        "scope": "FileServlet#a()",
+        "description": "sink"
+      }
+    ],
+    "evidence": [
+      {
+        "file": "src/main/java/app/FileServlet.java",
+        "line": 12,
+        "description": "e"
+      }
+    ],
+    "conditions": [
+      {
+        "kind": "authentication_level",
+        "description": "none"
+      }
+    ],
+    "execution": {
+      "attacker_perspective": "a",
+      "payloads": [
+        "p"
+      ],
+      "instructions": [
+        "i"
+      ],
+      "observed_result": "o"
+    },
+    "remediation": {
+      "strategy": "s"
+    },
+    "severity": {
+      "likelihood": {
+        "score": "high",
+        "reason": "r"
+      },
+      "impact": {
+        "score": "high",
+        "reason": "r"
+      },
+      "overall_severity": "high"
+    },
+    "confidence": {
+      "score": "high",
+      "reason": "r"
+    },
+    "secpipe": {
+      "category": "code",
+      "origin": "tool",
+      "tool_sources": [
+        {
+          "tool": "builtin",
+          "rule_id": "SP-X"
+        }
+      ],
+      "cwe": [
+        "CWE-22"
+      ],
+      "test_evidence": [
+        {
+          "id": "te-000000000003",
+          "phase": "pre_fix",
+          "test_file": "src/test/java/secpipe/generated/FileServletSecurityTest.java",
+          "outcome": "failed_as_expected",
+          "runs": 3
+        },
+        {
+          "id": "te-000000000103",
+          "phase": "post_fix",
+          "outcome": "not_run",
+          "runs": 1
+        }
+      ],
+      "fix_attempts": [
+        {
+          "attempt": 1,
+          "outcome": "still_present",
+          "strategy": "regression test skipped after patch: fix unverified (assumption not met)",
+          "patch_artifact": "patches/p1.patch",
+          "regression_test_passed": false
+        }
+      ],
+      "remediation_status": "still_present"
+    }
+  },
+  {
+    "verdict": "confirmed",
+    "fingerprint": "code:CWE-89:000000000000000000000004",
+    "title": "CWE-89 in SearchServlet",
+    "description": "d",
+    "root_cause": "r",
+    "intended_behavior": "i",
+    "trace": [
+      {
+        "kind": "entrypoint",
+        "file": "src/main/java/app/SearchServlet.java",
+        "line": 10,
+        "scope": "SearchServlet#a()",
+        "description": "in"
+      },
+      {
+        "kind": "sink",
+        "file": "src/main/java/app/SearchServlet.java",
+        "line": 12,
+        "scope": "SearchServlet#a()",
+        "description": "sink"
+      }
+    ],
+    "evidence": [
+      {
+        "file": "src/main/java/app/SearchServlet.java",
+        "line": 12,
+        "description": "e"
+      }
+    ],
+    "conditions": [
+      {
+        "kind": "authentication_level",
+        "description": "none"
+      }
+    ],
+    "execution": {
+      "attacker_perspective": "a",
+      "payloads": [
+        "p"
+      ],
+      "instructions": [
+        "i"
+      ],
+      "observed_result": "o"
+    },
+    "remediation": {
+      "strategy": "s"
+    },
+    "severity": {
+      "likelihood": {
+        "score": "high",
+        "reason": "r"
+      },
+      "impact": {
+        "score": "high",
+        "reason": "r"
+      },
+      "overall_severity": "high"
+    },
+    "confidence": {
+      "score": "high",
+      "reason": "r"
+    },
+    "secpipe": {
+      "category": "code",
+      "origin": "tool",
+      "tool_sources": [
+        {
+          "tool": "builtin",
+          "rule_id": "SP-X"
+        }
+      ],
+      "cwe": [
+        "CWE-89"
+      ],
+      "test_evidence": [
+        {
+          "id": "te-000000000004",
+          "phase": "pre_fix",
+          "test_file": "src/test/java/secpipe/generated/SearchServletSecurityTest.java",
+          "outcome": "failed_as_expected",
+          "runs": 3
+        }
+      ]
+    }
+  }
+]
