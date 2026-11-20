@@ -21,6 +21,18 @@ Test rules (a test that breaks any of them is discarded and a fresh generator is
   a single command string AND an argument list (recorded by a fake, never executed); path: string
   concatenation AND a validated or normalized Path. Record the command/query/path text and the bound parameters
   separately.
+- Safe-API guidance per sink family (the stub must accept the safe form, and the test must pass with it):
+  - SQL (CWE-89): unsafe Statement.executeQuery(String) with concatenated text; safe
+    Connection.prepareStatement(String) with `?` placeholders + setString/setObject + executeQuery().
+  - OS command (CWE-78): unsafe Runtime.exec(String) (one shell-parsed command string); safe
+    new ProcessBuilder(List<String>) or Runtime.exec(String[]) with the payload as one separate argument. Stub the
+    process factory or the collaborator that would start the process; never start a real process.
+  - Path traversal (CWE-22): unsafe new File(String) or Paths.get(...) built by concatenating the user value; safe
+    base.resolve(name).normalize() followed by a startsWith(base) check that rejects the request. Resolve inside a
+    JUnit @TempDir and assert the payload does not reach a file outside it.
+  - Deserialization (CWE-502): unsafe raw ObjectInputStream.readObject() on untrusted bytes; safe an
+    ObjectInputFilter (ObjectInputStream.setObjectInputFilter) or an allow-list of classes that rejects the
+    payload's gadget class. Use a harmless marker class as the payload, never a real gadget chain.
 - Assert on the attacker-visible effect: the payload reaching the command, query or path text. A payload that is
   bound as a parameter, passed as a separate argument, or rejected by validation is the safe outcome and must pass.
 - Use Assumptions only for environment setup (a stub compiled, a class loaded). Never assume that the unsafe API
