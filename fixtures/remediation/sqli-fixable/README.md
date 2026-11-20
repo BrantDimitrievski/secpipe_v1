@@ -14,6 +14,7 @@ protect. Do not run its build on the host; SecPipe reaches it only through the s
 | `src/test/java/com/shop/app/ServletStubs.java` | JDK `Proxy` stand-ins for the servlet request/response (no Mockito) |
 | `regression/secpipe/generated/LoginServletSqliRegressionTest.java` | the regression test for the finding (see below); outside `src/`, so it is not part of the baseline suite |
 | `fix/prepared-statement.patch` | a correct fix as a unified diff (`a/`/`b/` paths) that `UnifiedDiff` applies cleanly; usable as the fake remediation agent's answer |
+| `llm/` | fake-LLM answers for `scripts/demo/demo.sh` step 4 (`--llm-provider fake`): `disprover/` (the candidate survives), `testgen/` (the regression test above), `remediation/` (`fix/prepared-statement.patch`) |
 | `expected-remediation.json` | expected outcome of `RemediationLoopSandboxIT` and the expected baseline test ids |
 
 The suite passes on the vulnerable code and still passes after the correct fix (a `PreparedStatement` with a `?`
