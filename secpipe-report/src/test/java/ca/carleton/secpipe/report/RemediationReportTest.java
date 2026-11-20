@@ -230,10 +230,11 @@ class RemediationReportTest {
         assertTrue(PATCHES.read("patches/code-CWE-89-f6f6f6f6-attempt1.patch").isPresent());
         assertTrue(PATCHES.read("patches/code-CWE-89-f6f6f6f6-attempt2.patch").isPresent());
         assertTrue(FixedPatches.fixes(List.of(stale), PATCHES).isEmpty());
-        Map<String, String> files = bundle(inputs(List.of(stale), FixMode.SUGGEST, List.of())).files();
-        assertFalse(files.containsKey(ReportBundle.FIXES_PATCH));
-        assertFalse(files.get(ReportBundle.SARIF).contains("\"fixes\""));
-        String md = section(files.get(ReportBundle.MARKDOWN));
+        // findings.json validation (F8) rejects this state, so the writers are called directly
+        ReportInputs in = inputs(List.of(stale), FixMode.SUGGEST, List.of());
+        assertTrue(FixedPatches.combine(in.findings(), PATCHES).isEmpty());
+        assertFalse(SarifWriter.render(in, PATCHES).contains("\"fixes\""));
+        String md = section(MarkdownWriter.render(in, PATCHES));
         assertFalse(md.contains("Patch (verified)"), md);
         assertTrue(md.contains("0 of 1 confirmed findings fixed."), md);
         assertTrue(md.contains("- Outcome: fixed (not verified: the last attempt was still_present)\n"), md);
