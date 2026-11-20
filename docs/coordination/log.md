@@ -61,3 +61,24 @@ K.15 · G.11 · G.10 · M.1 (#147) · M.3 (#149) · R.4 (#150) · coordination l
 
 ### Environment
 - Opus subagents hit the monthly spend limit on 2026-11-19; builders and reviewers run on Sonnet.
+
+## 2026-11-19 / 20 — Wave 13 (follow-ups) complete
+
+### Merged (Sonnet builders, independent Sonnet reviewers, CI `ci` + `sandbox` green)
+G.12 (#156) · R.6 (#157) · M.4 (#155, second review round) · D.5 (#154, second review round; ownership extended to `fixtures/e2e/sqli-min/llm/testgen/**` so demo step 3 really reaches `confirmed`)
+
+- `secpipe-llm-copilot` is deleted (D.5). `scripts/demo/demo.sh` now has 4 steps and runs in the `sandbox` CI job: step 3 `confirmed`, step 4 `fixed` with a non-empty `secpipe-fixes.patch`.
+- CI actions are on `@v5`; the Node 20 deprecation warnings are gone.
+- Process note: the builder prompt's `gh api -f body=@file` sent the literal text; use `-F body=@file`, and keep scratch files inside each worktree (builders share `/tmp`).
+
+### Tracked minor follow-ups (not blocking)
+- G.12: `AgentRunnerTest` has no direct test of the call-budget overload (covered in `RemediationAgentCallCapTest`); `ScannedTypes` matches types by simple name (errs toward tainted).
+- R.6: the shared `golden/report.md` (rendered without a `PatchSource`) shows "0 of 1 fixed (not verified)"; `SarifSchemaTest` lists golden `.sarif` files by hand.
+- M.4: a misplaced Javadoc above `RemediationLoopNode.shortId`; `--check-env` with `--from` untested; the rejected-promotion test checks only the note prefix; `AdequacyCheck.command` builds the JaCoCo report from root `target/classes` only (real multi-module repos need each module's classes).
+- D.5: demo step 3 logs a `[warn]` (no remediation fake answer for sqli-min); pass `--enable-fixes false` there or add an answer (WO-D.6).
+- Older: refuter tar-style argument injection (accepted risk); records-vs-schema optionals (later WO-CC); Maven wrapper `distributionSha256Sum` (human).
+
+### Next
+- Brant: S.3 laptop probes, then the real E.6 run (`bash scripts/eval/remediation.sh --check-env` first; ≥ 10 fixes with patches). Fix rate < 50 % → WO-G.13 prompt tuning.
+- Brant: OWASP Benchmark run (E.1 numbers vs NFR-4).
+- Coordinator: WO-D.6 oral demo kit after the real E.6 run (freeze Jan 20).
