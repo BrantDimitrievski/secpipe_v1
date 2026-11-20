@@ -39,4 +39,21 @@ for f in findings.json coverage-ledger.json run-metadata.json secpipe.sarif repo
     test -s "$TMP/out/$f" || { echo "error: $f was not written" >&2; exit 1; }
 done
 java -jar "$JAR" validate findings "$TMP/out/findings.json" --root "$FIXTURE"
+
+# Fix flags shown in the guide: --enable-fixes false and --max-fix-attempts run; --enable-fixes pr exits 2 with a hint.
+rc=0
+java -jar "$JAR" scan "$FIXTURE" --no-ai --no-sandbox --enable-fixes false --max-fix-attempts 2 -o "$TMP/nofix" || rc=$?
+if [ "$rc" -ne 0 ]; then
+    echo "error: scan with --enable-fixes false exited $rc, expected 0" >&2
+    exit 1
+fi
+rc=0
+pr_err="$(java -jar "$JAR" scan "$FIXTURE" --no-ai --no-sandbox --enable-fixes pr -o "$TMP/pr" 2>&1 >/dev/null)" || rc=$?
+if [ "$rc" -ne 2 ] || ! grep -q '^hint:' <<<"$pr_err"; then
+    echo "error: --enable-fixes pr should exit 2 with a hint (exit $rc): $pr_err" >&2
+    exit 1
+fi
+# The guide tells users to run "git apply secpipe-fixes.patch" from the project root: check that form on a copy.
+cp -r "$ROOT/fixtures/remediation/sqli-fixable" "$TMP/fixable"
+(cd "$TMP/fixable" && git apply --check fix/prepared-statement.patch)
 echo "snippets OK"

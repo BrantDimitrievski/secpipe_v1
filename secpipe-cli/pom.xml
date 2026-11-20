@@ -53,10 +53,6 @@
     </dependency>
     <dependency>
       <groupId>ca.carleton.secpipe</groupId>
-      <artifactId>secpipe-llm-copilot</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>ca.carleton.secpipe</groupId>
       <artifactId>secpipe-agents</artifactId>
     </dependency>
     <dependency>

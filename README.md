@@ -6,10 +6,13 @@ disprover tries to refute each candidate. A generated JUnit 5 regression test, r
 sandbox, supplies the evidence. A remediation loop proposes fixes and verifies them. Reports are rendered only
 from schema-validated JSON (`findings.json`, `coverage-ledger.json`, `run-metadata.json`).
 
-SecPipe ships as a CLI (`secpipe.jar`). The composite GitHub Action (`action.yml`) is planned, not built.
+SecPipe ships as a CLI (`secpipe.jar`). For each `confirmed` finding it can propose a fix, verify it in the sandbox
+and write it as a patch you apply yourself (it never edits your working tree). The composite GitHub Action
+(`action.yml`) is planned, not built.
 
 > **Status:** CLI-only prototype. See [docs/user/guide.md](docs/user/guide.md) for usage, providers, outputs,
-> the demo script (`bash scripts/demo/demo.sh --no-docker`) and the Limitations (no GitHub Action, no remediation).
+> the demo script (`bash scripts/demo/demo.sh --no-docker`), the fixes (remediation) section and the Limitations
+> (no GitHub Action, no `--enable-fixes pr`).
 
 ## Build
 
@@ -31,7 +34,7 @@ API key is needed.
 | `secpipe-contracts/` | Frozen contracts: JSON schemas, records, interfaces, ids |
 | `secpipe-validators/`, `secpipe-sarif/` | Validators, grounding, SARIF ingest |
 | `secpipe-core/`, `secpipe-graph-langgraph4j/` | Pipeline engine and deterministic nodes; optional LangGraph4j runner |
-| `secpipe-llm*/` | LLM routing and providers (OpenAI, Anthropic, Ollama, Copilot) |
+| `secpipe-llm*/` | LLM routing and providers (OpenAI, Anthropic, Ollama) |
 | `secpipe-agents/` | Prompt framework and LLM agents |
 | `secpipe-sandbox/` | Docker sandbox runner |
 | `secpipe-adapter-*/` | Analyzer adapters (built-in rules, PMD, Semgrep, SpotBugs, Joern, CodeQL, OSV, Grype, Trivy) |
