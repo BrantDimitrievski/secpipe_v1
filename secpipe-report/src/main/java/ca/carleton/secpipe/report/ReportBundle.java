@@ -84,7 +84,8 @@ public record ReportBundle(Map<String, String> files, Optional<String> incomplet
                     ? SarifWriter.render(inputs, patches) : renderer.sarif(inputs));
         }
         if (formats.contains(OutputFormat.MARKDOWN)) {
-            files.put(MARKDOWN, renderer.markdown(inputs));
+            files.put(MARKDOWN, renderer instanceof DefaultReportRenderer
+                    ? MarkdownWriter.render(inputs, patches) : renderer.markdown(inputs));
         }
         FixedPatches.combine(inputs.findings(), patches).ifPresent(p -> files.put(FIXES_PATCH, p));
         return new ReportBundle(files, Optional.empty());

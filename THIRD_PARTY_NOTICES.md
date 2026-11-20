@@ -52,3 +52,11 @@ includes the runtime dependencies. Their licence files are kept under `META-INF/
 
 The Maven Wrapper scripts (`mvnw`, `mvnw.cmd`, `.mvn/wrapper/maven-wrapper.properties`) come from Apache Maven
 Wrapper 3.3.4 and are licensed under the Apache License, Version 2.0.
+
+## OASIS SARIF 2.1.0 JSON schema (OASIS IPR; tests only)
+
+Source: https://github.com/oasis-tcs/sarif-spec, file `sarif-2.1/schema/sarif-schema-2.1.0.json` at commit
+`1742a253eb654bf8a4ed7c60eaef7412b2c23553` (sha256 `c3b4bb2d6093897483348925aaa73af03b3e3f4bd4ca38cef26dcb4212a2682e`).
+
+A byte-identical copy is kept at `secpipe-report/src/test/resources/ca/carleton/secpipe/report/sarif-schema-2.1.0.json`
+and is used only by tests to validate generated SARIF. It is not part of `secpipe.jar`. Copyright (c) OASIS Open.

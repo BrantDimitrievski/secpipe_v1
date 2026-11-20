@@ -163,6 +163,84 @@ class RemediationReportTest {
         assertTrue(bundle(in).files().get(ReportBundle.MARKDOWN).contains("No confirmed findings to remediate."));
     }
 
+    // ---------------------------------------------------------------------------- WO-R.6 follow-ups
+
+    private static String section(String md) {
+        return md.substring(md.indexOf("## Remediation"), md.indexOf("## Coverage"));
+    }
+
+    @Test
+    void stopLineIsRenderedForBothLoopNoteShapesAndNotForOtherRecords() {
+        Finding.Confirmed budget = RemediationFixtures.stillPresent();
+        Finding.Confirmed sandbox = RemediationFixtures.sandboxUnavailable();
+        Finding.Confirmed none = RemediationFixtures.notAttempted();
+        List<String> notes = List.of(
+                "remediation of " + budget.fingerprint() + " stopped: agent-call budget exhausted (--max-agent-calls)",
+                "remediation of " + sandbox.fingerprint() + " stopped at attempt 1: tests_broken in the suite",
+                // a longer fingerprint that merely starts with the first one must not match it
+                "remediation of " + budget.fingerprint() + "ff stopped: other record",
+                "remediation of " + budget.fingerprint() + " stoppedXYZ: not a stop note");
+        String md = section(bundle(inputs(List.of(budget, sandbox, none), FixMode.SUGGEST, notes)).files()
+                .get(ReportBundle.MARKDOWN));
+        assertTrue(md.contains("- Stopped: agent-call budget exhausted (--max-agent-calls)\n"), md);
+        assertTrue(md.contains("- Stopped: at attempt 1: tests\\_broken in the suite\n"), md);
+        assertEquals(2, md.split("- Stopped:", -1).length - 1, md);
+        assertFalse(md.contains("other record"));
+    }
+
+    @Test
+    void noStopLineWithoutAStopNote() {
+        String md = section(bundle(inputs(List.of(RemediationFixtures.notAttempted(),
+                RemediationFixtures.stillPresent()), FixMode.SUGGEST, List.of(NOT_ATTEMPTED_NOTE))).files()
+                .get(ReportBundle.MARKDOWN));
+        assertFalse(md.contains("- Stopped:"), md);
+    }
+
+    @Test
+    void sandboxUnavailableOutcomeMatchesGoldenAndIsNeverCalledFixed() {
+        Finding.Confirmed sandbox = RemediationFixtures.sandboxUnavailable();
+        List<String> notes = List.of("remediation of " + sandbox.fingerprint() + " stopped at attempt 1: "
+                + "sandbox unavailable during the regression test: docker not found");
+        String md = section(bundle(inputs(List.of(sandbox), FixMode.SUGGEST, notes)).files()
+                .get(ReportBundle.MARKDOWN));
+        assertEquals(RemediationFixtures.resource("remediation/golden/remediation-sandbox-unavailable.md"), md);
+        assertTrue(md.contains("sandbox unavailable"));
+        assertFalse(md.contains("Outcome: fixed"));
+        assertFalse(md.contains("Patch (verified)"));
+    }
+
+    @Test
+    void sandboxUnavailablePatchNeverReachesSarifFixesOrTheCombinedPatch() {
+        List<Finding> all = new ArrayList<>(findings());
+        all.add(RemediationFixtures.sandboxUnavailable());
+        Map<String, String> files = bundle(inputs(all, FixMode.SUGGEST, List.of())).files();
+        assertFalse(files.get(ReportBundle.FIXES_PATCH).contains("SandboxServlet"));
+        assertFalse(files.get(ReportBundle.SARIF).contains("SandboxServlet"));
+        // and when it is the only record there is nothing to report at all
+        Map<String, String> alone = bundle(inputs(List.of(RemediationFixtures.sandboxUnavailable()), FixMode.SUGGEST,
+                List.of())).files();
+        assertFalse(alone.containsKey(ReportBundle.FIXES_PATCH));
+        assertFalse(alone.get(ReportBundle.SARIF).contains("\"fixes\""));
+    }
+
+    @Test
+    void fixedStatusWithALastAttemptThatIsNotFixedIsVerifiedByNoWriter() {
+        Finding.Confirmed stale = RemediationFixtures.fixedStatusLastAttemptStillPresent();
+        // the patch files of both attempts exist, so only the rule keeps them out
+        assertTrue(PATCHES.read("patches/code-CWE-89-f6f6f6f6-attempt1.patch").isPresent());
+        assertTrue(PATCHES.read("patches/code-CWE-89-f6f6f6f6-attempt2.patch").isPresent());
+        assertTrue(FixedPatches.fixes(List.of(stale), PATCHES).isEmpty());
+        // findings.json validation (F8) rejects this state, so the writers are called directly
+        ReportInputs in = inputs(List.of(stale), FixMode.SUGGEST, List.of());
+        assertTrue(FixedPatches.combine(in.findings(), PATCHES).isEmpty());
+        assertFalse(SarifWriter.render(in, PATCHES).contains("\"fixes\""));
+        String md = section(MarkdownWriter.render(in, PATCHES));
+        assertFalse(md.contains("Patch (verified)"), md);
+        assertTrue(md.contains("0 of 1 confirmed findings fixed."), md);
+        assertTrue(md.contains("- Outcome: fixed (not verified: the last attempt was still_present)\n"), md);
+        assertTrue(md.contains("Patch (candidate, not verified): [patches/code-CWE-89-f6f6f6f6-attempt2.patch]"), md);
+    }
+
     // ------------------------------------------------------------------------------------------ SARIF
 
     @Test

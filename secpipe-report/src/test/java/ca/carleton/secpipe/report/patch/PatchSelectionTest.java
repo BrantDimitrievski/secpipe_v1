@@ -56,14 +56,14 @@ class PatchSelectionTest {
         Finding fixed = RemediationFixtures.fixed();
         Finding still = RemediationFixtures.stillPresent();
         Finding none = RemediationFixtures.notAttempted();
-        var fixes = FixedPatches.fixes(java.util.List.of(still, none, fixed));
+        Map<String, String> files = Map.of(
+                "patches/code-CWE-89-3f9a1c0d.patch", "PATCH-FIXED\n",
+                "patches/code-CWE-89-b2b2b2b2-attempt2.patch", "PATCH-STILL\n");
+        var fixes = FixedPatches.fixes(java.util.List.of(still, none, fixed), a -> Optional.ofNullable(files.get(a)));
         assertEquals(1, fixes.size());
         assertEquals(fixed.fingerprint(), fixes.getFirst().finding().fingerprint());
         assertEquals("patches/code-CWE-89-3f9a1c0d.patch", fixes.getFirst().artifact());
 
-        Map<String, String> files = Map.of(
-                "patches/code-CWE-89-3f9a1c0d.patch", "PATCH-FIXED\n",
-                "patches/code-CWE-89-b2b2b2b2-attempt2.patch", "PATCH-STILL\n");
         Optional<String> combined = FixedPatches.combine(java.util.List.of(still, none, fixed),
                 a -> Optional.ofNullable(files.get(a)));
         assertEquals(Optional.of("PATCH-FIXED\n"), combined);
@@ -94,5 +94,17 @@ class PatchSelectionTest {
         assertTrue(src.read("/etc/passwd").isEmpty());
         assertFalse(FixedPatches.isSafeRelative("a/../b"));
         assertTrue(FixedPatches.isSafeRelative("patches/x.patch"));
+    }
+
+    @Test
+    void verifiedNeedsTheLastAttemptFixedAndThePatchFileToExist() {
+        Finding stale = RemediationFixtures.fixedStatusLastAttemptStillPresent();
+        assertTrue(FixedPatches.verified(stale, a -> Optional.of("x\n")).isEmpty());
+        assertTrue(FixedPatches.verified(RemediationFixtures.sandboxUnavailable(), a -> Optional.of("x\n")).isEmpty());
+        Finding fixed = RemediationFixtures.fixed();
+        assertTrue(FixedPatches.verified(fixed, a -> Optional.of("x\n")).isPresent());
+        assertTrue(FixedPatches.verified(fixed, PatchSource.NONE).isEmpty());
+        assertTrue(FixedPatches.verified(RemediationFixtures.fixedAs("code:CWE-89:0000000000000000000000aa",
+                "../escape.patch"), a -> Optional.of("x\n")).isEmpty());
     }
 }
