@@ -3865,3 +3865,41 @@ graph LR
 - **Traced again:** FR-13 (G.10, M.1, R.4, E.6), FR-14 (K.15, M.1, E.6; `secpipe diff` stays out), FR-15 (M.2, E.6) and feature Q (K.15, G.10, M.1, M.2, R.4, E.6).
 - **Still not implemented:** FR-7 (WO-D.1 Limitations only), `secpipe diff` (K.12), the GitHub Action and `--enable-fixes pr`, dependency upgrades as fixes (need OSV, P.3), auto-applying fixes to the user's checkout.
 - `python3 -B scripts/check-plan.py` → `work_orders=42 waves=12 errors=0`.
+
+## Re-plan 2026-11-19 (follow-ups)
+
+**Reason.** The owner (Brant) approved the coordinator's review plan on 2026-11-19: merge the held PRs (#137, #151, #152, #98; the JaCoCo 0.8.13 sha256 pins were checked against the official GitHub release zip), clear the tracked minor findings from the R.4, M.2 and E.6 reviews, bring the docs up to date with remediation, and delete the empty `secpipe-llm-copilot` module (the `copilot` provider was removed by WO-CC.1). **No contract change.** Four new orders run in parallel in wave 13 with disjoint files.
+
+### Changelog
+
+| Work order | Decision | Wave | Reason |
+|---|---|---|---|
+| WO-R.6 | new | 13 | R.4 review minors: "stopped at attempt n" note, `sandbox_unavailable` golden, one verified-patch rule for report.md / SARIF `fixes[]` / `secpipe-fixes.patch`; official OASIS SARIF 2.1.0 schema in tests |
+| WO-G.12 | new | 13 | remediation agent ≤ 3 LLM calls; `UnifiedDiff` rejects ambiguous context; disprover/testgen prompts move to `.md` and are hashed by `DefaultPromptRenderer`; refuter checks cross-class statics are `static final` constants |
+| WO-M.4 | new | 13 | M.2/E.6 review minors: promote the adequacy follow-up test; multi-module `src/main/java`; scorecard "fixed" cross-checks the last attempt; provider-aware key pre-check + `--check-env` |
+| WO-D.5 | new | 13 | README/guide still say "no remediation"; demo step 4 (verified fix, `[DOCKER]`, run in CI's `sandbox` job); `.gitignore`, actions v5; delete `secpipe-llm-copilot` (owner decision) |
+| WO-G.13 | planned, not written | — | remediation prompt tuning; opened only if Brant's real E.6 run fixes < 50 % |
+| WO-D.6 | planned, not written | — | oral demo kit (CLI-only storyboard replacing Part 10's Action-based one, scripted live case from one E.6 row, recorded fake-LLM fallback); written after the real E.6 run, due before the Jan 20 freeze |
+
+### Wave table
+
+| Wave | Work orders (parallel) | Notes |
+|---|---|---|
+| 0–12 | as in the earlier re-plans | merged |
+| 13 | R.6, G.12, M.4, D.5 | 4; files disjoint (`secpipe-report`; agents refuter/disprover/testgen + `RemediationAgent`/`UnifiedDiff`; agents `AdequacyCheck`/`JacocoXml`/`RemediationLoopNode` + `secpipe-eval` remediation + `scripts/eval/remediation.sh`; docs, demo, workflows, poms) |
+
+```mermaid
+graph LR
+  R4[R.4]-->R6[R.6]
+  M2[M.2]-->R6 & G12[G.12] & M4[M.4]
+  G10[G.10]-->G12
+  E6[E.6]-->M4
+  M1[M.1]-->D5[D.5]
+  R4-->D5
+```
+
+### Traceability after this re-plan
+
+- Unchanged: FR-7, `secpipe diff`, the GitHub Action and `--enable-fixes pr` stay out (WO-D.5 keeps them in the guide's Limitations).
+- The demo storyboard in Part 10 is superseded by WO-D.6 once written: no Action, no `demo-shop`, no incremental re-run, no `--print-prompts`.
+- Module removed: `secpipe-llm-copilot` (Part 3's layout still lists it; it is historical).
