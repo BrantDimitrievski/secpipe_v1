@@ -14,10 +14,12 @@ import ca.carleton.secpipe.contracts.spi.SandboxRunner.Spec;
 import ca.carleton.secpipe.contracts.spi.SourceIndex;
 import ca.carleton.secpipe.sandbox.MavenWorkspace;
 
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
@@ -34,8 +36,9 @@ import java.util.stream.Collectors;
  * executes, measured with the JaCoCo agent of the runner image.
  *
  * <p><b>Changed lines</b> are the added or modified lines on the new side of the diff, in production files only
- * ({@value #PRODUCTION_ROOT}{@code **.java}). Only <i>executable</i> changed lines count (lines the JaCoCo report
- * lists); imports, braces and comments have no bytecode. Every executable changed line covered → adequate.
+ * ({@value #PRODUCTION_ROOT}{@code **.java} at the root or below any module directory, never after
+ * {@code src/test/}). Only <i>executable</i> changed lines count (lines the JaCoCo report lists); imports, braces
+ * and comments have no bytecode. Every executable changed line covered → adequate.
  *
  * <p><b>Measuring</b>: {@link #run} replaces the plain regression-test run of the remediation loop (step 2 of
  * {@link RemediationLoopNode}): the same offline compile and JUnit console launch, in the sandbox through
@@ -99,12 +102,34 @@ public final class AdequacyCheck {
 
     // ---------------------------------------------------------------- changed lines
 
+    /**
+     * The package-relative source path of a production file (WO-M.4): the part after the first {@code src/main/java/}
+     * segment sequence, which may be at the root or below any module directory ({@code core/src/main/java/a/B.java}
+     * gives {@code a/B.java}). Empty when the path is not a {@code .java} file, has no such sequence, or has
+     * {@code src/test/} before it.
+     */
+    static Optional<String> productionSource(String path) {
+        if (!path.endsWith(".java")) {
+            return Optional.empty();
+        }
+        int at = path.startsWith(PRODUCTION_ROOT) ? 0 : path.indexOf("/" + PRODUCTION_ROOT) + 1;
+        if (at <= 0 && !path.startsWith(PRODUCTION_ROOT)) {
+            return Optional.empty();
+        }
+        String before = "/" + path.substring(0, at);
+        if (before.contains("/src/test/")) {
+            return Optional.empty();
+        }
+        String rel = path.substring(at + PRODUCTION_ROOT.length());
+        return rel.isEmpty() || rel.equals(".java") ? Optional.empty() : Optional.of(rel);
+    }
+
     /** Added/modified new-side line numbers per production {@code .java} file of {@code patch} (sorted). */
     public static Map<String, SortedSet<Integer>> changedLines(String patch) {
         Map<String, SortedSet<Integer>> out = new TreeMap<>();
         for (UnifiedDiff.FilePatch fp : UnifiedDiff.parse(patch)) {
             String path = fp.newPath();
-            if (fp.isDeletion() || !path.startsWith(PRODUCTION_ROOT) || !path.endsWith(".java")) {
+            if (fp.isDeletion() || productionSource(path).isEmpty()) {
                 continue;
             }
             for (UnifiedDiff.Hunk h : fp.hunks()) {
@@ -146,8 +171,9 @@ public final class AdequacyCheck {
         Map<String, List<Integer>> uncovered = new TreeMap<>();
         List<String> noData = new ArrayList<>();
         for (Map.Entry<String, ? extends Set<Integer>> e : new TreeMap<>(changed).entrySet()) {
-            String source = e.getKey().substring(PRODUCTION_ROOT.length());
-            if (!cov.hasFile(source)) {
+            Optional<String> src = productionSource(e.getKey());
+            String source = src.orElse(e.getKey());
+            if (src.isEmpty() || !cov.hasFile(source)) {
                 noData.add(e.getKey());
                 continue;
             }
@@ -224,10 +250,11 @@ public final class AdequacyCheck {
     public static List<String> includes(Map<String, ? extends Set<Integer>> changed) {
         TreeSet<String> out = new TreeSet<>();
         for (String path : changed.keySet()) {
-            if (!path.startsWith(PRODUCTION_ROOT) || !path.endsWith(".java")) {
+            Optional<String> src = productionSource(path);
+            if (src.isEmpty()) {
                 continue;
             }
-            String rel = path.substring(PRODUCTION_ROOT.length(), path.length() - ".java".length());
+            String rel = src.get().substring(0, src.get().length() - ".java".length());
             int slash = rel.lastIndexOf('/');
             String pkg = slash < 0 ? "" : rel.substring(0, slash).replace('/', '.');
             String cls = rel.substring(slash + 1);
@@ -278,6 +305,50 @@ public final class AdequacyCheck {
         List<String> cmd = new ArrayList<>(List.of("bash", "-c", script, "secpipe-regression-coverage"));
         cmd.addAll(classes);
         return List.copyOf(cmd);
+    }
+
+    /**
+     * A ustar stream with one regular file, for {@link ca.carleton.secpipe.sandbox.ArtifactPromoter} (WO-M.4: the
+     * follow-up test lives in memory, not in a container, so it is promoted from a one-entry tar). The name must fit
+     * the 100-byte ustar field.
+     */
+    static byte[] singleFileTar(String name, byte[] data) {
+        byte[] nameBytes = name.getBytes(StandardCharsets.US_ASCII);
+        if (nameBytes.length > 100) {
+            throw new IllegalArgumentException("path longer than 100 bytes: " + name);
+        }
+        byte[] h = new byte[512];
+        System.arraycopy(nameBytes, 0, h, 0, nameBytes.length);
+        putOctal(h, 100, 8, 0644);
+        putOctal(h, 108, 8, 0);
+        putOctal(h, 116, 8, 0);
+        putOctal(h, 124, 12, data.length);
+        putOctal(h, 136, 12, 0);
+        Arrays.fill(h, 148, 156, (byte) ' ');
+        h[156] = '0';
+        byte[] magic = "ustar\0".getBytes(StandardCharsets.US_ASCII);
+        System.arraycopy(magic, 0, h, 257, magic.length);
+        h[263] = '0';
+        h[264] = '0';
+        int sum = 0;
+        for (byte b : h) {
+            sum += b & 0xff;
+        }
+        String chk = String.format("%06o", sum);
+        System.arraycopy(chk.getBytes(StandardCharsets.US_ASCII), 0, h, 148, 6);
+        h[154] = 0;
+        h[155] = ' ';
+        int padded = (data.length + 511) / 512 * 512;
+        byte[] out = new byte[512 + padded + 1024];
+        System.arraycopy(h, 0, out, 0, 512);
+        System.arraycopy(data, 0, out, 512, data.length);
+        return out;
+    }
+
+    private static void putOctal(byte[] h, int off, int len, long v) {
+        String s = String.format("%0" + (len - 1) + "o", v);
+        System.arraycopy(s.getBytes(StandardCharsets.US_ASCII), 0, h, off, len - 1);
+        h[off + len - 1] = 0;
     }
 
     private static String tail(String s) {

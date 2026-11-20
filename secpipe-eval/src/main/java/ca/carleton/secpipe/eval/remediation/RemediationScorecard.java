@@ -43,7 +43,7 @@ public final class RemediationScorecard {
     /** Attempt-level and finding-level totals over all rows. */
     public record Totals(int confirmed, int fixed, int attempts, int attemptsOnFixed, int failedAttempts,
             int unverifiedAttempts, int sandboxUnavailableAttempts, int unverifiedFindings,
-            int sandboxUnavailableFindings, int notAttempted, int introducedFindings) { }
+            int sandboxUnavailableFindings, int notAttempted, int introducedFindings, int inconsistentFindings) { }
 
     /** The findings of one app. */
     public record AppFindings(String app, List<Finding> findings) { }
@@ -72,7 +72,7 @@ public final class RemediationScorecard {
     private static Row row(String app, Finding.Confirmed c, String patchBase) {
         Finding.SecPipeExt ext = c.secpipe();
         List<FixAttempt> attempts = ext.fixAttempts();
-        Optional<FixAttempt> last = attempts.isEmpty() ? Optional.empty() : Optional.of(attempts.get(attempts.size() - 1));
+        Optional<FixAttempt> last = lastAttempt(attempts);
         String pre = ext.testEvidence().stream().filter(t -> t.phase() == TestEvidence.Phase.PRE_FIX)
                 .map(t -> name(t.outcome())).findFirst().orElse("-");
         String post = ext.testEvidence().stream().filter(t -> t.phase() == TestEvidence.Phase.POST_FIX)
@@ -88,7 +88,43 @@ public final class RemediationScorecard {
                 patchLink(app, attempts, patchBase));
     }
 
+    /** The attempt with the highest {@code attempt} number (not the last one in list order). */
+    static Optional<FixAttempt> lastAttempt(List<FixAttempt> attempts) {
+        return attempts.stream().max(Comparator.comparingInt(FixAttempt::attempt));
+    }
+
+    /**
+     * WO-M.4 cross-check of {@code remediation_status} against the attempts: a fix counts only when the status is
+     * {@code fixed}, the attempt with the highest number is {@code fixed}, and that attempt has a patch. Returns the
+     * reason of a mismatch, or empty when the two agree.
+     */
+    static Optional<String> inconsistency(Finding.SecPipeExt ext, Optional<FixAttempt> last) {
+        Optional<Finding.RemediationStatus> status = ext.remediationStatus();
+        boolean claimsFixed = status.map(x -> x == Finding.RemediationStatus.FIXED).orElse(false);
+        if (last.isEmpty()) {
+            return claimsFixed ? Optional.of("remediation_status is fixed but there are no fix attempts")
+                    : Optional.empty();
+        }
+        FixAttempt a = last.get();
+        boolean lastFixed = a.outcome() == FixAttempt.Outcome.FIXED;
+        if (claimsFixed && !lastFixed) {
+            return Optional.of("remediation_status is fixed but the last attempt (" + a.attempt() + ") is "
+                    + name(a.outcome()));
+        }
+        if (claimsFixed && a.patchArtifact().isEmpty()) {
+            return Optional.of("remediation_status is fixed but attempt " + a.attempt() + " has no patch");
+        }
+        if (!claimsFixed && lastFixed) {
+            return Optional.of("the last attempt (" + a.attempt() + ") is fixed but remediation_status is "
+                    + status.map(RemediationScorecard::name).orElse("absent"));
+        }
+        return Optional.empty();
+    }
+
     static String finalStatus(Finding.SecPipeExt ext, Optional<FixAttempt> last) {
+        if (inconsistency(ext, last).isPresent()) {
+            return "inconsistent";
+        }
         if (last.isPresent()) {
             FixAttempt a = last.get();
             if (isUnverified(a)) {
@@ -127,6 +163,7 @@ public final class RemediationScorecard {
         int sandboxF = 0;
         int notAttempted = 0;
         int introduced = 0;
+        int inconsistent = 0;
         for (AppFindings app : apps) {
             for (Finding f : app.findings()) {
                 if (f instanceof Finding.NeedsValidation nv
@@ -148,8 +185,7 @@ public final class RemediationScorecard {
                         failed++;
                     }
                 }
-                String status = finalStatus(c.secpipe(), list.isEmpty() ? Optional.empty()
-                        : Optional.of(list.get(list.size() - 1)));
+                String status = finalStatus(c.secpipe(), lastAttempt(list));
                 switch (status) {
                     case "fixed" -> {
                         fixed++;
@@ -158,12 +194,13 @@ public final class RemediationScorecard {
                     case "fix unverified" -> unverifiedF++;
                     case "sandbox unavailable" -> sandboxF++;
                     case "not_attempted" -> notAttempted++;
+                    case "inconsistent" -> inconsistent++;
                     default -> { }
                 }
             }
         }
         return new Totals(confirmed, fixed, attempts, onFixed, failed, unverified, sandbox, unverifiedF, sandboxF,
-                notAttempted, introduced);
+                notAttempted, introduced, inconsistent);
     }
 
     public static String toMarkdown(List<AppFindings> apps, String patchBase, boolean pending) {
@@ -189,9 +226,13 @@ public final class RemediationScorecard {
         sb.append("| Sandbox unavailable (attempts / findings) | ").append(t.sandboxUnavailableAttempts()).append(" / ")
                 .append(t.sandboxUnavailableFindings()).append(" |\n");
         sb.append("| Not attempted | ").append(t.notAttempted()).append(" |\n");
-        sb.append("| Introduced findings | ").append(t.introducedFindings()).append(" |\n\n");
+        sb.append("| Introduced findings | ").append(t.introducedFindings()).append(" |\n");
+        sb.append("| Inconsistent (counted as failures, not fixed) | ").append(t.inconsistentFindings())
+                .append(" |\n\n");
         sb.append("Fix unverified and sandbox unavailable attempts are not failures and not verified fixes. ")
                 .append("Attempts per fix counts every attempt, including failed ones.\n\n");
+        sb.append("A fix counts only when remediation_status is fixed and the attempt with the highest number is fixed "
+                + "and has a patch; any other combination is shown as inconsistent.\n\n");
         sb.append("## Findings\n\n");
         if (rows.isEmpty()) {
             sb.append("No confirmed findings.\n");
@@ -203,7 +244,27 @@ public final class RemediationScorecard {
                     r.preFix(), r.postFix(), r.suite(), r.rescan(), Integer.toString(r.newFindings()), r.adequacy(),
                     r.finalStatus(), r.patch())).append(" |\n");
         }
+        List<String> notes = inconsistencyNotes(apps);
+        if (!notes.isEmpty()) {
+            sb.append("\n## Notes\n\n");
+            notes.forEach(n -> sb.append("- ").append(n).append('\n'));
+        }
         return sb.toString();
+    }
+
+    /** One line per inconsistent row, sorted by app then fingerprint. */
+    static List<String> inconsistencyNotes(List<AppFindings> apps) {
+        List<String> out = new ArrayList<>();
+        for (AppFindings app : apps) {
+            for (Finding f : app.findings()) {
+                if (f instanceof Finding.Confirmed c) {
+                    inconsistency(c.secpipe(), lastAttempt(c.secpipe().fixAttempts()))
+                            .ifPresent(why -> out.add(app.app() + " " + c.fingerprint() + ": inconsistent, " + why));
+                }
+            }
+        }
+        out.sort(Comparator.naturalOrder());
+        return List.copyOf(out);
     }
 
     private static String passFail(boolean b) {

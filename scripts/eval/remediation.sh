@@ -2,10 +2,16 @@
 # Runs the full pipeline with --enable-fixes suggest (sandbox on) on both MVP sample apps and renders the
 # remediation scorecard docs/eval/remediation.md (WO-E.6). Needs Docker and an LLM API key in the environment.
 #
-# usage: bash scripts/eval/remediation.sh [--provider P] [--model ID] [--out DIR] [--dry-run]
+# usage: bash scripts/eval/remediation.sh [--provider P] [--model ID] [--llm-base-url URL] [--out DIR] [--dry-run]
+#                                          [--check-env]
 #        bash scripts/eval/remediation.sh --from <findings.json>... [--patch-base PREFIX]
 #   --provider P   --llm-provider value (default: anthropic); the API key is read from the environment, never a flag
 #   --model ID     --model value (use a frontier model for the real run)
+#   --llm-base-url U  --llm-base-url value (required for openai-compatible, optional for openai and ollama)
+#   --check-env    run only the argument and API-key checks for the chosen provider, then exit 0 (ok) or 2; needs no
+#                  Docker, jar or network. Keys: anthropic = SECPIPE_API_KEY | ANTHROPIC_API_KEY | SECPIPE_LLM_KEY;
+#                  openai, openai-compatible = SECPIPE_API_KEY | OPENAI_API_KEY | SECPIPE_LLM_KEY; none and ollama
+#                  need no key; fake needs SECPIPE_ALLOW_FAKE_LLM=1 and SECPIPE_FAKE_LLM_DIR
 #   --out DIR      per-app scan output (default: ./secpipe-eval-out/remediation/<app>/)
 #   --from FILES   skip the scans and re-render the scorecard from existing findings.json files; each file's
 #                  parent directory name is its app name
@@ -21,6 +27,8 @@ die() { echo "error: $1" >&2; echo "hint: $2" >&2; exit 2; }
 
 PROVIDER="anthropic"
 MODEL=""
+BASE_URL=""
+CHECK_ENV=0
 OUT="$REPO_ROOT/secpipe-eval-out/remediation"
 PATCH_BASE=""
 DRY=0
@@ -33,6 +41,10 @@ while [ $# -gt 0 ]; do
     --model)
       [ $# -ge 2 ] || die "--model needs a value" "bash scripts/eval/remediation.sh --model ID"
       MODEL="$2"; shift 2 ;;
+    --llm-base-url)
+      [ $# -ge 2 ] || die "--llm-base-url needs a value" "bash scripts/eval/remediation.sh --provider openai-compatible --llm-base-url URL"
+      BASE_URL="$2"; shift 2 ;;
+    --check-env) CHECK_ENV=1; shift ;;
     --out)
       [ $# -ge 2 ] || die "--out needs a value" "bash scripts/eval/remediation.sh --out DIR"
       OUT="$2"; shift 2 ;;
@@ -44,10 +56,39 @@ while [ $# -gt 0 ]; do
       shift
       while [ $# -gt 0 ] && [[ "$1" != --* ]]; do FROM+=("$1"); shift; done
       [ ${#FROM[@]} -gt 0 ] || die "--from needs at least one findings.json" "bash scripts/eval/remediation.sh --from out/app/findings.json" ;;
-    -h|--help) sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
-    *) die "unknown option $1" "usage: bash scripts/eval/remediation.sh [--provider P] [--model ID] [--out DIR] [--dry-run] | --from FILE..." ;;
+    -h|--help) sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    *) die "unknown option $1" "usage: bash scripts/eval/remediation.sh [--provider P] [--model ID] [--llm-base-url URL] [--out DIR] [--dry-run] [--check-env] | --from FILE..." ;;
   esac
 done
+
+# Checks that the chosen provider can run; prints variable names only, never a value.
+check_env() {
+  case "$PROVIDER" in
+    anthropic)
+      [ -n "${SECPIPE_API_KEY:-}${ANTHROPIC_API_KEY:-}${SECPIPE_LLM_KEY:-}" ] \
+        || die "no API key for provider anthropic in the environment" \
+               "export SECPIPE_API_KEY, ANTHROPIC_API_KEY or SECPIPE_LLM_KEY; never pass it as a flag" ;;
+    openai|openai-compatible)
+      [ -n "${SECPIPE_API_KEY:-}${OPENAI_API_KEY:-}${SECPIPE_LLM_KEY:-}" ] \
+        || die "no API key for provider $PROVIDER in the environment" \
+               "export SECPIPE_API_KEY, OPENAI_API_KEY or SECPIPE_LLM_KEY; never pass it as a flag"
+      if [ "$PROVIDER" = "openai-compatible" ] && [ -z "$BASE_URL" ]; then
+        die "provider openai-compatible needs a base URL" "pass --llm-base-url URL"
+      fi ;;
+    none|ollama) ;;
+    fake)
+      [ "${SECPIPE_ALLOW_FAKE_LLM:-}" = "1" ] && [ -n "${SECPIPE_FAKE_LLM_DIR:-}" ] \
+        || die "provider fake needs SECPIPE_ALLOW_FAKE_LLM=1 and SECPIPE_FAKE_LLM_DIR" \
+               "export SECPIPE_ALLOW_FAKE_LLM=1 and SECPIPE_FAKE_LLM_DIR=<llm-fixtures dir>" ;;
+    *) die "unknown provider $PROVIDER" "use one of: anthropic, openai, openai-compatible, ollama, none, fake" ;;
+  esac
+}
+
+if [ "$CHECK_ENV" = 1 ]; then
+  [ ${#FROM[@]} -gt 0 ] || check_env
+  echo "check-env: ok (provider $PROVIDER)"
+  exit 0
+fi
 
 if [ -z "$PATCH_BASE" ]; then
   if [ ${#FROM[@]} -gt 0 ]; then PATCH_BASE="$(dirname "$(dirname "${FROM[0]}")")"; else PATCH_BASE="$OUT"; fi
@@ -74,6 +115,7 @@ if [ ${#FROM[@]} -gt 0 ]; then
 fi
 
 SCAN_FLAGS=(--llm-provider "$PROVIDER" --enable-fixes suggest --fail-on none --format "json,sarif,markdown")
+[ -z "$BASE_URL" ] || SCAN_FLAGS+=(--llm-base-url "$BASE_URL")
 [ -z "$MODEL" ] || SCAN_FLAGS+=(--model "$MODEL")   # sandbox stays on: --no-sandbox is never passed
 
 if [ "$DRY" = 1 ]; then
@@ -85,11 +127,9 @@ if [ "$DRY" = 1 ]; then
   exit 0
 fi
 
+check_env   # argument and key checks come before the Docker and jar checks
 command -v docker >/dev/null && docker info >/dev/null 2>&1 \
   || die "Docker is not available; the sandbox is required for remediation" "start Docker, then run: secpipe doctor"
-if [ -z "${SECPIPE_API_KEY:-}${ANTHROPIC_API_KEY:-}${OPENAI_API_KEY:-}${SECPIPE_LLM_KEY:-}" ]; then
-  die "no LLM API key in the environment" "export SECPIPE_API_KEY (or ANTHROPIC_API_KEY / OPENAI_API_KEY); never pass it as a flag"
-fi
 build_jars
 
 OUTS=()
