@@ -1,0 +1,353 @@
+[
+  {
+    "verdict": "confirmed",
+    "fingerprint": "code:CWE-89:000000000000000000000005",
+    "title": "CWE-89 in OrderDao",
+    "description": "d",
+    "root_cause": "r",
+    "intended_behavior": "i",
+    "trace": [
+      {
+        "kind": "entrypoint",
+        "file": "src/main/java/app/OrderDao.java",
+        "line": 10,
+        "scope": "OrderDao#a()",
+        "description": "in"
+      },
+      {
+        "kind": "sink",
+        "file": "src/main/java/app/OrderDao.java",
+        "line": 12,
+        "scope": "OrderDao#a()",
+        "description": "sink"
+      }
+    ],
+    "evidence": [
+      {
+        "file": "src/main/java/app/OrderDao.java",
+        "line": 12,
+        "description": "e"
+      }
+    ],
+    "conditions": [
+      {
+        "kind": "authentication_level",
+        "description": "none"
+      }
+    ],
+    "execution": {
+      "attacker_perspective": "a",
+      "payloads": [
+        "p"
+      ],
+      "instructions": [
+        "i"
+      ],
+      "observed_result": "o"
+    },
+    "remediation": {
+      "strategy": "s"
+    },
+    "severity": {
+      "likelihood": {
+        "score": "high",
+        "reason": "r"
+      },
+      "impact": {
+        "score": "high",
+        "reason": "r"
+      },
+      "overall_severity": "high"
+    },
+    "confidence": {
+      "score": "high",
+      "reason": "r"
+    },
+    "secpipe": {
+      "category": "code",
+      "origin": "tool",
+      "tool_sources": [
+        {
+          "tool": "builtin",
+          "rule_id": "SP-X"
+        }
+      ],
+      "cwe": [
+        "CWE-89"
+      ],
+      "test_evidence": [
+        {
+          "id": "te-000000000005",
+          "phase": "pre_fix",
+          "test_file": "src/test/java/secpipe/generated/OrderDaoSecurityTest.java",
+          "outcome": "failed_as_expected",
+          "runs": 3
+        },
+        {
+          "id": "te-000000000105",
+          "phase": "post_fix",
+          "outcome": "passed",
+          "runs": 1
+        }
+      ],
+      "fix_attempts": [
+        {
+          "attempt": 1,
+          "outcome": "fixed",
+          "strategy": "bind parameter",
+          "patch_artifact": "patches/p1.patch",
+          "regression_test_passed": true,
+          "suite_passed": true,
+          "rescan_clean": true,
+          "adequacy": {
+            "changed_lines_total": 4,
+            "changed_lines_covered": 1,
+            "adequate": false,
+            "note": "fix path barely covered"
+          }
+        }
+      ],
+      "remediation_status": "fixed"
+    }
+  },
+  {
+    "verdict": "confirmed",
+    "fingerprint": "code:CWE-78:000000000000000000000006",
+    "title": "CWE-78 in ExportJob",
+    "description": "d",
+    "root_cause": "r",
+    "intended_behavior": "i",
+    "trace": [
+      {
+        "kind": "entrypoint",
+        "file": "src/main/java/app/ExportJob.java",
+        "line": 10,
+        "scope": "ExportJob#a()",
+        "description": "in"
+      },
+      {
+        "kind": "sink",
+        "file": "src/main/java/app/ExportJob.java",
+        "line": 12,
+        "scope": "ExportJob#a()",
+        "description": "sink"
+      }
+    ],
+    "evidence": [
+      {
+        "file": "src/main/java/app/ExportJob.java",
+        "line": 12,
+        "description": "e"
+      }
+    ],
+    "conditions": [
+      {
+        "kind": "authentication_level",
+        "description": "none"
+      }
+    ],
+    "execution": {
+      "attacker_perspective": "a",
+      "payloads": [
+        "p"
+      ],
+      "instructions": [
+        "i"
+      ],
+      "observed_result": "o"
+    },
+    "remediation": {
+      "strategy": "s"
+    },
+    "severity": {
+      "likelihood": {
+        "score": "high",
+        "reason": "r"
+      },
+      "impact": {
+        "score": "high",
+        "reason": "r"
+      },
+      "overall_severity": "high"
+    },
+    "confidence": {
+      "score": "high",
+      "reason": "r"
+    },
+    "secpipe": {
+      "category": "code",
+      "origin": "tool",
+      "tool_sources": [
+        {
+          "tool": "builtin",
+          "rule_id": "SP-X"
+        }
+      ],
+      "cwe": [
+        "CWE-78"
+      ],
+      "test_evidence": [
+        {
+          "id": "te-000000000006",
+          "phase": "pre_fix",
+          "test_file": "src/test/java/secpipe/generated/ExportJobSecurityTest.java",
+          "outcome": "failed_as_expected",
+          "runs": 3
+        }
+      ],
+      "fix_attempts": [
+        {
+          "attempt": 1,
+          "outcome": "sandbox_unavailable",
+          "strategy": "ProcessBuilder list form",
+          "patch_artifact": "patches/p1.patch"
+        }
+      ],
+      "remediation_status": "still_present"
+    }
+  },
+  {
+    "verdict": "confirmed",
+    "fingerprint": "code:CWE-502:000000000000000000000007",
+    "title": "CWE-502 in CartLoader",
+    "description": "d",
+    "root_cause": "r",
+    "intended_behavior": "i",
+    "trace": [
+      {
+        "kind": "entrypoint",
+        "file": "src/main/java/app/CartLoader.java",
+        "line": 10,
+        "scope": "CartLoader#a()",
+        "description": "in"
+      },
+      {
+        "kind": "sink",
+        "file": "src/main/java/app/CartLoader.java",
+        "line": 12,
+        "scope": "CartLoader#a()",
+        "description": "sink"
+      }
+    ],
+    "evidence": [
+      {
+        "file": "src/main/java/app/CartLoader.java",
+        "line": 12,
+        "description": "e"
+      }
+    ],
+    "conditions": [
+      {
+        "kind": "authentication_level",
+        "description": "none"
+      }
+    ],
+    "execution": {
+      "attacker_perspective": "a",
+      "payloads": [
+        "p"
+      ],
+      "instructions": [
+        "i"
+      ],
+      "observed_result": "o"
+    },
+    "remediation": {
+      "strategy": "s"
+    },
+    "severity": {
+      "likelihood": {
+        "score": "high",
+        "reason": "r"
+      },
+      "impact": {
+        "score": "high",
+        "reason": "r"
+      },
+      "overall_severity": "high"
+    },
+    "confidence": {
+      "score": "high",
+      "reason": "r"
+    },
+    "secpipe": {
+      "category": "code",
+      "origin": "tool",
+      "tool_sources": [
+        {
+          "tool": "builtin",
+          "rule_id": "SP-X"
+        }
+      ],
+      "cwe": [
+        "CWE-502"
+      ],
+      "test_evidence": [
+        {
+          "id": "te-000000000007",
+          "phase": "pre_fix",
+          "test_file": "src/test/java/secpipe/generated/CartLoaderSecurityTest.java",
+          "outcome": "failed_as_expected",
+          "runs": 3
+        }
+      ],
+      "fix_attempts": [
+        {
+          "attempt": 1,
+          "outcome": "newly_introduced_findings",
+          "strategy": "s",
+          "patch_artifact": "patches/p1.patch",
+          "regression_test_passed": true,
+          "suite_passed": true,
+          "rescan_clean": false,
+          "new_fingerprints": [
+            "code:CWE-89:00000000000000000000beef"
+          ]
+        }
+      ],
+      "remediation_status": "newly_introduced"
+    }
+  },
+  {
+    "verdict": "needs_validation",
+    "fingerprint": "code:CWE-89:00000000000000000000beef",
+    "title": "t",
+    "description": "d",
+    "claimed_root_cause": "c",
+    "trace": [
+      {
+        "kind": "sink",
+        "file": "src/main/java/app/CartLoader.java",
+        "line": 30,
+        "scope": "CartLoader#a()",
+        "description": "s"
+      }
+    ],
+    "evidence": [
+      {
+        "file": "src/main/java/app/CartLoader.java",
+        "line": 30,
+        "description": "e"
+      }
+    ],
+    "blockers": [
+      "introduced by candidate fix patches/code-CWE-502-attempt1.patch; not validated"
+    ],
+    "validation_plan": {
+      "local": "re-run"
+    },
+    "secpipe": {
+      "category": "code",
+      "origin": "tool",
+      "tool_sources": [
+        {
+          "tool": "builtin",
+          "rule_id": "SP-X"
+        }
+      ],
+      "cwe": [
+        "CWE-89"
+      ]
+    }
+  }
+]
