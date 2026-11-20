@@ -134,15 +134,28 @@ Outputs, all in the output directory:
 | `secpipe.sarif` | The `fixes[]` of verified fixes on the matching results |
 | `report.md` | A Remediation section: outcome, attempts, test/suite/rescan results, adequacy, patch link |
 
-Outcomes in the Remediation section:
+The report prints one `Outcome:` per confirmed finding:
 
 | Outcome | Meaning |
 |---|---|
 | `fixed` | The patch passed every check above; it is in `secpipe-fixes.patch` |
-| `still_present` | Attempts did not remove the finding (or broke the suite or build); no verified patch |
-| `still_present` with "fix unverified" | The regression test was skipped after the patch, so the fix could not be proven |
+| `fixed (not verified: ...)` | A fix was recorded but its patch could not be re-verified (for example the last attempt was not `fixed` or the patch file is missing); it is not in `secpipe-fixes.patch` |
+| `still_present` | No attempt removed the finding; no verified patch |
+| `still_present (fix unverified: ...)` | The regression test was skipped after the patch, so the fix could not be proven |
+| `newly_introduced` | The fix removed the finding but introduced new ones |
+| `not_attempted` | Remediation was off, or no regression test or sandbox was available; the entry gives a `Reason:` |
+
+Each attempt is also listed under the finding with its own outcome:
+
+| Attempt outcome | Meaning |
+|---|---|
+| `fixed` | Regression test passes, suite unchanged, rescan clean |
+| `still_present` | The finding is still detected or the regression test still fails |
+| `newly_introduced_findings` | The rescan found new findings the patch introduced |
+| `build_broken` | The patched project no longer compiles |
+| `tests_broken` | The patch broke the project's existing tests |
+| `refused` | The patch was rejected before running (it did not apply, or edited files it must not) |
 | `sandbox_unavailable` | Docker refused or died during the check; nothing was verified |
-| `not_attempted` | Remediation was off, the finding was not `confirmed`, or no regression test or sandbox was available |
 
 SecPipe only suggests patches. To apply the verified ones yourself, from the project root:
 
@@ -163,7 +176,8 @@ bash scripts/demo/demo.sh --no-docker
 1. No AI: `scan --no-ai --no-sandbox` on `fixtures/e2e/sqli-min`. `LoginServlet` (CWE-89) is `needs_validation`;
    `TagFilter` is `rejected` because the deterministic refuter sees the constant overwrite.
 2. Fake LLM: `--llm-provider fake` with canned responses (offline, deterministic).
-3. Sandbox (needs Docker): the same scan without `--no-sandbox`; `LoginServlet` becomes `confirmed`. Skipped with a
+3. Sandbox (needs Docker): the same scan without `--no-sandbox`; the fake testgen answer produces a regression test
+   that fails on the vulnerable code, so `LoginServlet` becomes `confirmed` (the script asserts it). Skipped with a
    message when Docker is absent.
 4. Verified fix (needs Docker): a fake-LLM scan of `fixtures/remediation/sqli-fixable`. `LoginServlet` is `confirmed`,
    the fix (a `PreparedStatement`) is verified, and the script checks that `report.md` shows the outcome `fixed` and

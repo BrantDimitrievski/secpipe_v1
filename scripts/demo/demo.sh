@@ -86,6 +86,9 @@ elif ! docker info >/dev/null 2>&1; then
 else
     SECPIPE_ALLOW_FAKE_LLM=1 SECPIPE_FAKE_LLM_DIR="$FIXTURE/llm" \
         run_scan java -jar "$JAR" scan "$FIXTURE" --llm-provider fake -o "$OUT/sandbox"
+    grep -q '^- Verdict: confirmed$' "$OUT/sandbox/report.md" \
+        || { echo "error: $OUT/sandbox/report.md has no confirmed finding" >&2; exit 1; }
+    echo "confirmed: $OUT/sandbox/report.md (LoginServlet)"
 fi
 
 echo "== 4/4 verified fix (fixtures/remediation/sqli-fixable)"
