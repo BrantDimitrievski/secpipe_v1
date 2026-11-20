@@ -41,3 +41,23 @@ X.2 (#127) · G.6 (#128) · G.4 (#129) · G.5 (#130) · G.4 fix-up (#132) · G.7
 - Remove the empty `secpipe-llm-copilot` module; README Copilot mention; PLAN §4.4 contract copies.
 - `.gitignore` `__pycache__/`; Maven wrapper `distributionSha256Sum`; CI actions v4 → v5 (Node 20 deprecation).
 - CliExtension SPI cycle (github ↔ cli), only relevant if the GitHub Action is revived.
+
+## 2026-11-18 / 19 — Remediation re-plan, waves 8–12, follow-up re-plan
+
+### Decisions (Brant)
+- Remediation back in scope (re-plan 2026-11-18): K.15, G.11, G.10 (W8), M.1 (W9), M.3 + R.4 (W10), M.2 (W11), E.6 (W12). `--enable-fixes` keeps its frozen default `suggest`.
+- 2026-11-19: approved the coordinator's repo-review plan; coordinator merges the held PRs; delete the empty `secpipe-llm-copilot` module; follow-up re-plan (wave 13: R.6, G.12, M.4, D.5).
+
+### Merged
+K.15 · G.11 · G.10 · M.1 (#147) · M.3 (#149) · R.4 (#150) · coordination log (#137) · M.2 (#151) · E.6 (#152) · S.3 (#98)
+
+### Human checks resolved
+- M.2: JaCoCo 0.8.13 `jacocoagent.jar` / `jacococli.jar` sha256 pins match `lib/` in the official GitHub release zip `jacoco-0.8.13.zip` (checked by the coordinator 2026-11-19; the CI image build had already matched sha1 against Central).
+
+### Still open (Brant)
+- S.3 laptop probes (macOS / Windows / Linux) — PR #98 merged on Brant's instruction; the probe runs remain a check.
+- E.6 real run (Docker + LLM key, ≥ 10 fixes with patches); `docs/eval/remediation.md` is a placeholder until then.
+- X.1 JUnit jar sha256; OWASP Benchmark run + E.1 baseline + pinned BenchmarkJava commit; D.1 clean-machine scripts; L.2 model ids; branch protection; Maven wrapper `distributionSha256Sum`.
+
+### Environment
+- Opus subagents hit the monthly spend limit on 2026-11-19; builders and reviewers run on Sonnet.

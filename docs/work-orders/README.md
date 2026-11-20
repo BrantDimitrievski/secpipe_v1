@@ -1,22 +1,22 @@
 ## Part 7 — Work orders
 
-### Index (lean re-plan 2026-11-17 + remediation re-plan 2026-11-18; wave in brackets; see `docs/PLAN.md` "Re-plan 2026-11-17 (lean)" and "Re-plan 2026-11-18 (remediation)")
+### Index (lean re-plan 2026-11-17 + remediation re-plan 2026-11-18 + follow-up re-plan 2026-11-19; wave in brackets; see `docs/PLAN.md` "Re-plan 2026-11-17 (lean)", "Re-plan 2026-11-18 (remediation)" and "Re-plan 2026-11-19 (follow-ups)")
 
 | Epic | Work orders |
 |---|---|
 | **0** Bootstrap | 0.1 [W0] (merged) |
-| **S** Spikes | S.2 [W1] (merged); S.3 [W1] (PR #98, laptop checks pending) |
+| **S** Spikes | S.2 [W1] (merged); S.3 [W1] (merged 2026-11-19; laptop probes still a human check) |
 | **C** Contracts | C.1–C.5 [W1] (merged); CC.1 [W2] (merged) |
 | **P** MVP ports | P.0 [W1] (merged); P.2 (+P.8) [W2]; P.6 [W4] |
 | **V** Validators | V.1 [W2] |
 | **K** Core | K.1 [W2]; K.4, K.5 (+V.2 invariants), K.6, K.8 [W3]; K.9 (+K.11) [W4]; K.13 (+K.3, +0.2) [W6]; K.15 [W8] |
 | **L** LLM | L.1 (+L.7, +K.10, redaction) [W3]; L.2 (+L.3) [W4]; L.5 closed |
-| **G** Agents | G.1 [W4]; G.5 [W4]; G.4, G.6 [W5]; G.7 [W6]; G.10, G.11 [W8] |
+| **G** Agents | G.1 [W4]; G.5 [W4]; G.4, G.6 [W5]; G.7 [W6]; G.10, G.11 [W8]; G.12 [W13] |
 | **X** Sandbox | X.1 (+X.3, +X.4) [W2]; X.2 [W4] |
-| **M** Remediation | M.1 [W9]; M.3 [W10]; M.2 [W11] |
-| **R** Reports | R.1 (+R.2 as Markdown) [W3]; R.4 [W10] |
+| **M** Remediation | M.1 [W9]; M.3 [W10]; M.2 [W11]; M.4 [W13] |
+| **R** Reports | R.1 (+R.2 as Markdown) [W3]; R.4 [W10]; R.6 [W13] |
 | **E** Evaluation | E.1 [W2]; E.6 [W12] |
-| **D** Docs | D.1 (+D.3) [W7] |
+| **D** Docs | D.1 (+D.3) [W7]; D.5 [W13] |
 
 Dropped and folded orders are kept unchanged in `docs/work-orders/stretch/` (not scheduled; not checked by
 `scripts/check-plan.py`). Bringing one back requires a re-plan.
