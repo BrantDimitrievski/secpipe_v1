@@ -5,9 +5,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.io.IOException;
 import java.io.InputStream;
 import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.List;
-import java.util.NoSuchAlgorithmException;
 import org.junit.jupiter.api.Test;
 
 /** WO-R.6: SARIF tests use the official OASIS schema, and the vendored copy is the pinned one. */
