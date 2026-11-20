@@ -12,13 +12,6 @@ import ca.carleton.secpipe.contracts.spi.Agent;
 import ca.carleton.secpipe.contracts.spi.LlmClient;
 import ca.carleton.secpipe.contracts.spi.SourceIndex;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.UncheckedIOException;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -39,14 +32,15 @@ import java.util.stream.Collectors;
  * reported to the discard listener and a fresh agent is asked, never edited. Across both kinds of discard, no new
  * agent is started once {@link AgentRunner#MAX_ATTEMPTS} LLM attempts have been spent.
  *
- * <p>The prompt text lives in {@code prompts/testgen.v1.txt} (sections {@code ===SYSTEM===} and {@code ===USER===});
- * it is loaded here because {@link DefaultPromptRenderer#template} only reads {@code .md} templates.
+ * <p>The prompt text lives in {@code prompts/testgen.v1.md} (sections {@code ===SYSTEM===} and {@code ===USER===});
+ * it is loaded by {@link DefaultPromptRenderer#load} and hashed by {@link DefaultPromptRenderer#sha256}, then split
+ * into its two sections here.
  */
 public final class TestGenAgent implements Agent<TestGenInput, TestGenResult> {
 
     public static final String TEMPLATE_ID = "testgen.v1";
     public static final String SCHEMA_ID = "agent/testgen-result.schema.json";
-    static final String RESOURCE = "prompts/testgen.v1.txt";
+    static final String RESOURCE = "prompts/testgen.v1.md";
     /** Temperature for testgen (PLAN Part 5). */
     static final double TEMPERATURE = 0.2;
     static final int MAX_OUTPUT_TOKENS = 8000;
@@ -59,7 +53,7 @@ public final class TestGenAgent implements Agent<TestGenInput, TestGenResult> {
     private final String userSection;
 
     public TestGenAgent() {
-        String text = load();
+        String text = DefaultPromptRenderer.load(TEMPLATE_ID);
         int s = text.indexOf(SYSTEM_MARK);
         int u = text.indexOf(USER_MARK);
         if (s < 0 || u < s) {
@@ -128,7 +122,8 @@ public final class TestGenAgent implements Agent<TestGenInput, TestGenResult> {
         int attempts = 0;
         String lastReason = "";
         while (attempts < AgentRunner.MAX_ATTEMPTS) {
-            AgentOutcome<TestGenResult> outcome = runner.run(this, input, grounding);
+            AgentOutcome<TestGenResult> outcome = runner.run(this, input, grounding,
+                    AgentRunner.MAX_ATTEMPTS - attempts);
             attempts += outcome.attempts();
             switch (outcome) {
                 case AgentOutcome.Unavailable<TestGenResult> u -> {
@@ -151,14 +146,9 @@ public final class TestGenAgent implements Agent<TestGenInput, TestGenResult> {
         return new AgentOutcome.Dropped<>(dropReason(lastReason), attempts);
     }
 
-    /** Lower-case hex SHA-256 of the prompt resource (for {@code ai.prompts_hash}). */
+    /** Lower-case hex SHA-256 of the prompt template (for {@code ai.prompts_hash}). */
     public static String promptSha256() {
-        try {
-            byte[] d = MessageDigest.getInstance("SHA-256").digest(load().getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(d);
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 unavailable", e);
-        }
+        return DefaultPromptRenderer.sha256(TEMPLATE_ID);
     }
 
     private static String dropReason(String last) {
@@ -207,16 +197,5 @@ public final class TestGenAgent implements Agent<TestGenInput, TestGenResult> {
         }
         m.appendTail(out);
         return out.toString();
-    }
-
-    private static String load() {
-        try (InputStream in = TestGenAgent.class.getClassLoader().getResourceAsStream(RESOURCE)) {
-            if (in == null) {
-                throw new IllegalStateException("missing bundled resource " + RESOURCE);
-            }
-            return new String(in.readAllBytes(), StandardCharsets.UTF_8);
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
     }
 }

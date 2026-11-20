@@ -71,6 +71,7 @@ public final class DeterministicRefuterNode implements PipelineNode {
             return Result.next(StateDelta.empty());
         }
         SourceIndex index = indexFactory.apply(root.get());
+        ScannedTypes types = ScannedTypes.of(index);
         Map<String, Optional<CompilationUnit>> units = new HashMap<>();
         List<Finding> rejected = new ArrayList<>();
         List<Candidate> sorted = state.candidates().stream()
@@ -87,7 +88,7 @@ public final class DeterministicRefuterNode implements PipelineNode {
                 continue;
             }
             Optional<CompilationUnit> unit = units.computeIfAbsent(sink.get().file(), f -> parse(index, f));
-            unit.flatMap(u -> refuter.check(c, u)).ifPresent(r -> rejected.add(toRecord(c, r)));
+            unit.flatMap(u -> refuter.check(c, u, types)).ifPresent(r -> rejected.add(toRecord(c, r)));
         }
         ctx.log().info("refute: rejected " + rejected.size() + " of " + sorted.size() + " candidates");
         StateDelta e = StateDelta.empty();

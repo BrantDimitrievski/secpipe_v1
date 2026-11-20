@@ -155,7 +155,9 @@ public final class RemediationAgent implements Agent<RemediationAgent.Input, Rem
         int attempts = 0;
         String lastReason = "";
         while (attempts < AgentRunner.MAX_ATTEMPTS) {
-            AgentOutcome<RemediationResult> outcome = r.run(this, input, grounding);
+            // one run may itself use several calls: pass what is left so the total never exceeds MAX_ATTEMPTS
+            AgentOutcome<RemediationResult> outcome = r.run(this, input, grounding,
+                    AgentRunner.MAX_ATTEMPTS - attempts);
             attempts += outcome.attempts();
             switch (outcome) {
                 case AgentOutcome.Unavailable<RemediationResult> u -> {

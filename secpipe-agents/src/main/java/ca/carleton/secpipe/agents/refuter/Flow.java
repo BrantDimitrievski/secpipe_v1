@@ -115,16 +115,23 @@ final class Flow {
     private boolean dead;
     private int deadLine;
     private int fieldDepth;
+    private final ScannedTypes types;
 
-    private Flow(CallableDeclaration<?> method, Node target, Mode mode) {
+    private Flow(CallableDeclaration<?> method, Node target, Mode mode, ScannedTypes types) {
         this.method = method;
         this.target = target;
         this.mode = mode;
+        this.types = types;
     }
 
-    /** Runs {@code method} up to {@code target}; empty when unsure. */
+    /** Runs {@code method} up to {@code target}; empty when unsure. No scanned types are known. */
     static Optional<Outcome> run(CallableDeclaration<?> method, Node target, Mode mode) {
-        Flow flow = new Flow(method, target, mode);
+        return run(method, target, mode, ScannedTypes.NONE);
+    }
+
+    /** As above; {@code types} lets {@code Other.NAME} be checked against the scanned declaration of {@code Other}. */
+    static Optional<Outcome> run(CallableDeclaration<?> method, Node target, Mode mode, ScannedTypes types) {
+        Flow flow = new Flow(method, target, mode, types);
         try {
             return Optional.of(flow.go());
         } catch (Bail | ArithmeticException | IndexOutOfBoundsException | ClassCastException e) {
@@ -681,8 +688,11 @@ final class Flow {
     }
 
     /**
-     * {@code this.X} or a same-file constant; a static constant of another type ({@code Utils.TESTFILES_DIR},
-     * upper-case name on an upper-case type) is assumed untainted (documented assumption, see PR).
+     * {@code this.X} or a same-file constant. A static constant of another type ({@code Utils.TESTFILES_DIR},
+     * upper-case name on an upper-case type) is untainted only if that type is declared in the scanned sources and
+     * declares the field {@code static final} with a literal initializer (WO-G.12); a non-final field or one
+     * initialised from a call or parameter is tainted. When the type is not in the scanned sources (JDK/library) the
+     * old assumption stays: it is untainted (documented assumption, see PR).
      */
     private Val fieldAccess(FieldAccessExpr fa) {
         String name = fa.getNameAsString();
@@ -698,7 +708,7 @@ final class Flow {
         boolean typeScope = !last.isEmpty() && Character.isUpperCase(last.charAt(0))
                 && (fa.getScope().isNameExpr() || fa.getScope().isFieldAccessExpr());
         if (typeScope && name.matches("[A-Z][A-Z0-9_]*")) {
-            return new Val.Safe(0);
+            return types.lookup(last, name) == ScannedTypes.Lookup.NOT_CONSTANT ? Val.TAINTED : new Val.Safe(0);
         }
         return Val.TAINTED;
     }

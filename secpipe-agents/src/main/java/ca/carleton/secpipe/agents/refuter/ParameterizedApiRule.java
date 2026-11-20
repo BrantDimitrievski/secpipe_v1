@@ -56,7 +56,7 @@ final class ParameterizedApiRule implements RefuterRule {
                 || !PREPARE.contains(prepare.getNameAsString()) || prepare.getArguments().isEmpty()) {
             return Optional.empty();
         }
-        Optional<Integer> sqlSafe = RefuterRule.safeArgs(Flow.run(site.method(), prepare, Flow.Mode.STRONG),
+        Optional<Integer> sqlSafe = RefuterRule.safeArgs(site.run(prepare, Flow.Mode.STRONG),
                 List.of(prepare.getArgument(0)));
         if (sqlSafe.isEmpty()) {
             return Optional.empty();
@@ -85,7 +85,7 @@ final class ParameterizedApiRule implements RefuterRule {
         if (argv.isEmpty() || argv.get().isEmpty()) {
             return Optional.empty();
         }
-        Optional<Flow.Outcome> outcome = Flow.run(site.method(), site.call(), Flow.Mode.STRONG);
+        Optional<Flow.Outcome> outcome = site.run(site.call(), Flow.Mode.STRONG);
         if (outcome.isEmpty() || !outcome.get().reachable()) {
             return Optional.empty();
         }

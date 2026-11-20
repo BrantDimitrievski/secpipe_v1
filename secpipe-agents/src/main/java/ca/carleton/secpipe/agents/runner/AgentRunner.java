@@ -77,6 +77,19 @@ public final class AgentRunner {
      * agent output record) propagate as {@link IllegalArgumentException}.
      */
     public <I, O> AgentOutcome<O> run(Agent<I, O> agent, I input, GroundingContext grounding) {
+        return run(agent, input, grounding, MAX_ATTEMPTS);
+    }
+
+    /**
+     * As {@link #run(Agent, Object, GroundingContext)} but makes at most {@code maxCalls} LLM calls (WO-G.12), for
+     * callers that spend part of the {@link #MAX_ATTEMPTS} budget across several runs.
+     *
+     * @param maxCalls between 1 and {@link #MAX_ATTEMPTS}
+     */
+    public <I, O> AgentOutcome<O> run(Agent<I, O> agent, I input, GroundingContext grounding, int maxCalls) {
+        if (maxCalls < 1 || maxCalls > MAX_ATTEMPTS) {
+            throw new IllegalArgumentException("maxCalls must be in 1.." + MAX_ATTEMPTS + ": " + maxCalls);
+        }
         Objects.requireNonNull(agent, "agent");
         Objects.requireNonNull(grounding, "grounding");
         AgentRole role = agent.role();
@@ -84,7 +97,7 @@ public final class AgentRunner {
             return new AgentOutcome.Unavailable<>("AI is off (llm provider none)", 0);
         }
         String lastReason = "";
-        for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        for (int attempt = 1; attempt <= maxCalls; attempt++) {
             String agentId = newAgentId(role);
             LlmClient.Request request = agent.buildRequest(input, renderer);
             LlmClient.Response response;
@@ -117,8 +130,8 @@ public final class AgentRunner {
             lastReason = reason;
             listener.discarded(role, agentId, attempt, reason);
         }
-        return new AgentOutcome.Dropped<>("agent output invalid " + MAX_ATTEMPTS + " times; last: " + lastReason,
-                MAX_ATTEMPTS);
+        return new AgentOutcome.Dropped<>("agent output invalid " + maxCalls + " times; last: " + lastReason,
+                maxCalls);
     }
 
     private String newAgentId(AgentRole role) {

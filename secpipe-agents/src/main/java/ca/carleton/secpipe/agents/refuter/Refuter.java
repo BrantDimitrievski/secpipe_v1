@@ -23,6 +23,11 @@ public final class Refuter {
             new DeadBranchRule(), new ParameterizedApiRule());
 
     public Optional<Refutation> check(Candidate candidate, CompilationUnit unit) {
+        return check(candidate, unit, ScannedTypes.NONE);
+    }
+
+    /** As above; {@code types} are the scanned types, used to vet constants of other classes (WO-G.12). */
+    Optional<Refutation> check(Candidate candidate, CompilationUnit unit, ScannedTypes types) {
         if (candidate.category() != Finding.Category.CODE || candidate.dependency().isPresent()) {
             return Optional.empty();
         }
@@ -32,7 +37,7 @@ public final class Refuter {
             return Optional.empty();
         }
         try {
-            List<SinkSite> sites = SinkLocator.locate(unit, sink.get().file(), sink.get().line(), family.get());
+            List<SinkSite> sites = SinkLocator.locate(unit, sink.get().file(), sink.get().line(), family.get(), types);
             if (sites.isEmpty()) {
                 return Optional.empty();
             }
