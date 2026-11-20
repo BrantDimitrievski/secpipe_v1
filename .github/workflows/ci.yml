@@ -16,9 +16,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with: { fetch-depth: 0 }
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with: { distribution: temurin, java-version: "21", cache: maven }
       - name: Contract guard (contracts change only in WO-C.* / WO-CC.* branches)
         if: github.event_name == 'pull_request'
@@ -46,7 +46,7 @@ jobs:
           find scripts -name '*.sh' -print0 | xargs -0 -r shellcheck -S warning
       - name: Upload test reports
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: test-reports-${{ github.run_id }}
           path: |
@@ -61,8 +61,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
         with: { distribution: temurin, java-version: "21", cache: maven }
       - name: Build runner image if present
         run: |
@@ -70,3 +70,6 @@ jobs:
       - name: Sandbox tests
         env: { SECPIPE_RUNNER_IMAGE: "secpipe-runner:ci" }
         run: ./mvnw -B -q -Psandbox verify
+      - name: Demo (step 4 verifies a fix in the sandbox)
+        env: { SECPIPE_RUNNER_IMAGE: "secpipe-runner:ci" }
+        run: bash scripts/demo/demo.sh

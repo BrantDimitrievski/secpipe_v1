@@ -26,3 +26,7 @@ changed-files.txt
 # Local secrets (fixtures that need such files live under fixtures/ and are not ignored)
 /.env
 .claude/settings.local.json
+
+# Python bytecode
+__pycache__/
+*.pyc

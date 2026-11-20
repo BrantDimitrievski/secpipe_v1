@@ -33,7 +33,6 @@
     <module>secpipe-llm-openai</module>
     <module>secpipe-llm-anthropic</module>
     <module>secpipe-llm-ollama</module>
-    <module>secpipe-llm-copilot</module>
     <module>secpipe-sandbox</module>
     <module>secpipe-agents</module>
     <module>secpipe-adapter-builtin</module>
@@ -137,11 +136,6 @@
       <dependency>
         <groupId>ca.carleton.secpipe</groupId>
         <artifactId>secpipe-llm-ollama</artifactId>
-        <version>${project.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>ca.carleton.secpipe</groupId>
-        <artifactId>secpipe-llm-copilot</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>
