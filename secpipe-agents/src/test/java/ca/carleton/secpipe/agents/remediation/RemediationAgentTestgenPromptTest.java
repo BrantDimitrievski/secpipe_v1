@@ -21,8 +21,8 @@ class RemediationAgentTestgenPromptTest {
 
     private static String system() throws IOException {
         try (InputStream in = RemediationAgentTestgenPromptTest.class.getClassLoader()
-                .getResourceAsStream("prompts/testgen.v1.txt")) {
-            assertNotNull(in, "prompts/testgen.v1.txt on the classpath");
+                .getResourceAsStream("prompts/testgen.v1.md")) {
+            assertNotNull(in, "prompts/testgen.v1.md on the classpath");
             String text = new String(in.readAllBytes(), StandardCharsets.UTF_8);
             return text.substring(text.indexOf("===SYSTEM==="), text.indexOf("===USER==="));
         }

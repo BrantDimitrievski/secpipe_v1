@@ -7,10 +7,6 @@ import ca.carleton.secpipe.contracts.finding.Finding;
 import ca.carleton.secpipe.contracts.spi.Agent;
 import ca.carleton.secpipe.contracts.spi.LlmClient;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.UncheckedIOException;
-import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
@@ -20,7 +16,7 @@ import java.util.Optional;
  * one candidate's {@link DisproverInput}, so each AgentRunner attempt is a fresh agent with no shared conversation.
  *
  * <p>System prompt: the standing rules (opening with the injection rule), the disprover instructions from
- * {@code prompts/disprover.v1.txt} (opening "You did not write this candidate. Try to refute it."), then the output
+ * {@code prompts/disprover.v1.md} (opening "You did not write this candidate. Try to refute it."), then the output
  * contract. User prompt: trusted SecPipe facts (fingerprint, CWE, trace locations, recon facts, control catalogue),
  * then every piece of repository-derived text, each wrapped by {@code PromptRenderer.untrusted(...)}.
  */
@@ -28,10 +24,9 @@ public final class DisproverAgent implements Agent<DisproverInput, DisproverResu
 
     public static final String TEMPLATE_ID = "disprover.v1";
     public static final String SCHEMA_ID = "agent/disprover-result.schema.json";
-    static final String TEMPLATE_RESOURCE = "prompts/disprover.v1.txt";
     static final int MAX_OUTPUT_TOKENS = 4000;
 
-    private static final String INSTRUCTIONS = loadInstructions();
+    private static final String INSTRUCTIONS = DefaultPromptRenderer.load(TEMPLATE_ID);
 
     @Override
     public AgentRole role() {
@@ -51,6 +46,11 @@ public final class DisproverAgent implements Agent<DisproverInput, DisproverResu
     @Override
     public String promptTemplateId() {
         return TEMPLATE_ID;
+    }
+
+    /** Lower-case hex SHA-256 of the prompt template (for {@code ai.prompts_hash}). */
+    public static String promptSha256() {
+        return DefaultPromptRenderer.sha256(TEMPLATE_ID);
     }
 
     /** The disprover instructions as sent (attribution header stripped). */
@@ -114,23 +114,5 @@ public final class DisproverAgent implements Agent<DisproverInput, DisproverResu
 
     private static String fact(Optional<Boolean> f) {
         return f.map(v -> v ? "yes" : "no").orElse("unknown");
-    }
-
-    private static String loadInstructions() {
-        try (InputStream in = DisproverAgent.class.getClassLoader().getResourceAsStream(TEMPLATE_RESOURCE)) {
-            if (in == null) {
-                throw new IllegalStateException("missing prompt resource " + TEMPLATE_RESOURCE);
-            }
-            String text = new String(in.readAllBytes(), StandardCharsets.UTF_8);
-            if (text.startsWith("<!--")) {
-                int end = text.indexOf("-->");
-                if (end >= 0) {
-                    text = text.substring(end + 3).stripLeading();
-                }
-            }
-            return text;
-        } catch (IOException e) {
-            throw new UncheckedIOException("cannot read " + TEMPLATE_RESOURCE, e);
-        }
     }
 }

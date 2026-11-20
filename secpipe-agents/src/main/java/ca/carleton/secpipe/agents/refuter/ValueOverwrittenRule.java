@@ -15,11 +15,11 @@ final class ValueOverwrittenRule implements RefuterRule {
 
     @Override
     public Optional<Refutation> check(SinkSite site) {
-        if (RefuterRule.safeArgs(Flow.run(site.method(), site.call(), Flow.Mode.WEAK), site.relevantArgs())
+        if (RefuterRule.safeArgs(site.run(site.call(), Flow.Mode.WEAK), site.relevantArgs())
                 .isPresent()) {
             return Optional.empty();
         }
-        return RefuterRule.safeArgs(Flow.run(site.method(), site.call(), Flow.Mode.STRONG), site.relevantArgs())
+        return RefuterRule.safeArgs(site.run(site.call(), Flow.Mode.STRONG), site.relevantArgs())
                 .map(l -> new Refutation(id(), site.at(l), "the untrusted value is overwritten with a constant (line "
                         + site.at(l).line() + ") on every path before " + site.callName()
                         + "; no tainted data reaches the sink"));

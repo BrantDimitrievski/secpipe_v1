@@ -16,7 +16,7 @@ final class DeadBranchRule implements RefuterRule {
 
     @Override
     public Optional<Refutation> check(SinkSite site) {
-        Optional<Flow.Outcome> folded = Flow.run(site.method(), site.call(), Flow.Mode.FOLDING);
+        Optional<Flow.Outcome> folded = site.run(site.call(), Flow.Mode.FOLDING);
         if (folded.isEmpty()) {
             return Optional.empty();
         }
@@ -26,7 +26,7 @@ final class DeadBranchRule implements RefuterRule {
                     + " is unreachable"));
         }
         if (folded.get().prunedLines().isEmpty() || RefuterRule.safeArgs(
-                Flow.run(site.method(), site.call(), Flow.Mode.STRONG), site.relevantArgs()).isPresent()) {
+                site.run(site.call(), Flow.Mode.STRONG), site.relevantArgs()).isPresent()) {
             return Optional.empty();
         }
         int control = folded.get().prunedLines().getLast();

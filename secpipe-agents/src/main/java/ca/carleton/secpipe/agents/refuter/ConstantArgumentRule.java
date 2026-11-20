@@ -15,7 +15,7 @@ final class ConstantArgumentRule implements RefuterRule {
 
     @Override
     public Optional<Refutation> check(SinkSite site) {
-        return RefuterRule.safeArgs(Flow.run(site.method(), site.call(), Flow.Mode.WEAK), site.relevantArgs())
+        return RefuterRule.safeArgs(site.run(site.call(), Flow.Mode.WEAK), site.relevantArgs())
                 .map(l -> new Refutation(id(), site.at(site.line()), "every injectable argument of "
                         + site.callName() + " folds to a constant; no untrusted value can reach the sink"));
     }

@@ -28,6 +28,10 @@ final class SinkLocator {
     }
 
     static List<SinkSite> locate(CompilationUnit cu, String file, int line, String family) {
+        return locate(cu, file, line, family, ScannedTypes.NONE);
+    }
+
+    static List<SinkSite> locate(CompilationUnit cu, String file, int line, String family, ScannedTypes types) {
         List<SinkSite> out = new ArrayList<>();
         for (Expression e : cu.findAll(Expression.class)) {
             if (!(e instanceof MethodCallExpr || e instanceof ObjectCreationExpr)
@@ -37,7 +41,7 @@ final class SinkLocator {
             Optional<List<Expression>> args = relevantArgs(e, family);
             Optional<CallableDeclaration<?>> m = e.findAncestor(CallableDeclaration.class).map(c -> c);
             if (args.isPresent() && m.isPresent()) {
-                out.add(new SinkSite(file, line, m.get(), e, family, args.get()));
+                out.add(new SinkSite(file, line, m.get(), e, family, args.get(), types));
             }
         }
         return List.copyOf(out);

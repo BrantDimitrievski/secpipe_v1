@@ -14,6 +14,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
  * Pure-Java unified diff parser and applier (WO-G.10). No {@code patch} or {@code git} binary is involved.
@@ -23,8 +24,10 @@ import java.util.regex.Pattern;
  * {@code index}, mode lines) between files, and {@code \ No newline at end of file}. CRLF is handled on both sides:
  * a trailing {@code \r} on diff lines is ignored when matching, and a patched file keeps its own line ending.
  *
- * <p>Matching uses fuzz 0: every context and removed line must match exactly. A hunk may be found at an offset from
- * the line its header names (the nearest exact match wins, searched after the previous hunk), as GNU patch does.
+ * <p>Matching uses fuzz 0: every context and removed line must match exactly. A hunk is accepted at the line its
+ * header names when it matches there. Otherwise it is searched for after the previous hunk: exactly one exact match
+ * is accepted at that offset; two or more reject the whole patch ("ambiguous context"), because guessing which copy
+ * the author meant could patch the wrong place (WO-G.12).
  * {@link #apply} computes every new file in memory first and only then writes, so a failing diff writes nothing.
  * Every path must stay inside {@code root}; {@link PatchChecker} adds the policy checks.
  */
@@ -33,6 +36,7 @@ public final class UnifiedDiff {
     /** The path marker for an absent side (new or deleted file). */
     public static final String DEV_NULL = "/dev/null";
 
+    private static final int AMBIGUOUS = -2;
     private static final Pattern HUNK = Pattern.compile("^@@ -(\\d+)(?:,(\\d+))? \\+(\\d+)(?:,(\\d+))? @@.*$");
 
     private UnifiedDiff() {
@@ -376,7 +380,13 @@ public final class UnifiedDiff {
             index++;
             List<String> old = h.oldSide();
             int expected = Math.max(0, h.oldCount() == 0 ? h.oldStart() : h.oldStart() - 1);
-            int at = find(current, old, expected, cursor);
+            List<Integer> matches = new ArrayList<>();
+            int at = find(current, old, expected, cursor, matches);
+            if (at == AMBIGUOUS) {
+                throw new PatchException(fp.path() + ": hunk " + index + ": ambiguous context (matches at lines "
+                        + matches.stream().map(m -> Integer.toString(m + 1)).collect(Collectors.joining(", "))
+                        + ")");
+            }
             if (at < 0) {
                 throw new PatchException(fp.path() + ": hunk " + index + " (@@ -" + h.oldStart() + "," + h.oldCount()
                         + ") does not match the file (fuzz 0)");
@@ -389,22 +399,27 @@ public final class UnifiedDiff {
         return out;
     }
 
-    /** The match position nearest to {@code expected} at or after {@code from}, or -1. */
-    private static int find(List<String> lines, List<String> old, int expected, int from) {
+    /**
+     * The match position for a hunk: {@code expected} when it matches there, else the single match at or after
+     * {@code from}; {@link #AMBIGUOUS} (with every match in {@code matches}) when there are several; -1 for none.
+     */
+    private static int find(List<String> lines, List<String> old, int expected, int from, List<Integer> matches) {
         int max = lines.size() - old.size();
         if (max < from) {
             return -1;
         }
-        int start = Math.min(Math.max(expected, from), max);
-        for (int d = 0; start - d >= from || start + d <= max; d++) {
-            if (start - d >= from && matchesAt(lines, old, start - d)) {
-                return start - d;
-            }
-            if (d > 0 && start + d <= max && matchesAt(lines, old, start + d)) {
-                return start + d;
+        if (expected >= from && expected <= max && matchesAt(lines, old, expected)) {
+            return expected;
+        }
+        for (int at = from; at <= max; at++) {
+            if (matchesAt(lines, old, at)) {
+                matches.add(at);
             }
         }
-        return -1;
+        if (matches.isEmpty()) {
+            return -1;
+        }
+        return matches.size() == 1 ? matches.get(0) : AMBIGUOUS;
     }
 
     private static boolean matchesAt(List<String> lines, List<String> old, int at) {
