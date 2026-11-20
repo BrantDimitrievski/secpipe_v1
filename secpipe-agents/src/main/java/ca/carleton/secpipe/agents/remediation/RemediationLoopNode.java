@@ -23,10 +23,13 @@ import ca.carleton.secpipe.contracts.spi.Budget;
 import ca.carleton.secpipe.contracts.spi.LlmClient;
 import ca.carleton.secpipe.contracts.spi.SandboxRunner;
 import ca.carleton.secpipe.contracts.spi.SandboxRunner.Control;
+import ca.carleton.secpipe.contracts.spi.SandboxRunner.Promotion;
 import ca.carleton.secpipe.contracts.spi.SourceIndex;
+import ca.carleton.secpipe.sandbox.ArtifactPromoter;
 import ca.carleton.secpipe.sandbox.BuildExtensionPreflight;
 import ca.carleton.secpipe.sandbox.MavenWorkspace;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
@@ -92,6 +95,8 @@ public final class RemediationLoopNode implements PipelineNode {
     public static final String ID = "remediate";
     /** Directory of the patches inside the output directory. */
     public static final String PATCH_DIR = "patches";
+    /** Size cap for a promoted adequacy follow-up test (WO-M.4). */
+    static final long FOLLOW_UP_TEST_MAX_BYTES = 256L * 1024;
     static final String INTRODUCED_PREFIX = "introduced by candidate fix ";
     static final String INTRODUCED_SUFFIX = "; not validated";
     static final String SANDBOX_UNAVAILABLE = "sandbox unavailable";
@@ -587,6 +592,7 @@ public final class RemediationLoopNode implements PipelineNode {
                         + "; the follow-up test " + followFqcn + " did not pass on the patched code: "
                         + cap(describe(rerun.tests())).lines().findFirst().orElse(""))).adequacy();
             }
+            promoteFollowUp(fp, n, t.source());
             AdequacyCheck.Measurement second = AdequacyCheck.evaluate(changed, rerun.coverage());
             if (!second.adequacy().adequate()) {
                 second = second.withNote(second.adequacy().note().orElse("not adequate")
@@ -595,6 +601,28 @@ public final class RemediationLoopNode implements PipelineNode {
                 second = second.withNote("adequate with follow-up test " + followFqcn);
             }
             return logged(fp, n, second).adequacy();
+        }
+
+        /**
+         * WO-M.4: the follow-up test that ran and passed is written next to the attempt's patch through
+         * {@link ArtifactPromoter} (declared path, size cap) and noted, so the adequacy result can be reproduced from
+         * the run output. A rejection is noted, never fatal.
+         */
+        private void promoteFollowUp(String fp, int n, String source) {
+            String rel = PATCH_DIR + "/" + shortId(fp) + "-attempt" + n + "-adequacy-test.java";
+            try {
+                byte[] tar = AdequacyCheck.singleFileTar(rel, source.getBytes(StandardCharsets.UTF_8));
+                ArtifactPromoter.Report report = ArtifactPromoter.promote(new ByteArrayInputStream(tar),
+                        List.of(new Promotion(rel, FOLLOW_UP_TEST_MAX_BYTES)), settings.outDir());
+                if (report.rejected().isEmpty()) {
+                    notes.add("adequacy follow-up test for " + fp + " attempt " + n + ": " + rel);
+                } else {
+                    notes.add("adequacy follow-up test for " + fp + " attempt " + n + " not promoted: "
+                            + report.rejected().get(0).reason());
+                }
+            } catch (IOException | IllegalArgumentException e) {
+                notes.add("adequacy follow-up test for " + fp + " attempt " + n + " not promoted: " + e.getMessage());
+            }
         }
 
         private AdequacyCheck.Measurement logged(String fp, int n, AdequacyCheck.Measurement m) {

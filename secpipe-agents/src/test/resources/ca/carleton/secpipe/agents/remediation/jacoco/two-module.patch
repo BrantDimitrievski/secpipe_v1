@@ -1,0 +1,23 @@
+--- a/core/src/main/java/com/shop/core/Dao.java
++++ b/core/src/main/java/com/shop/core/Dao.java
+@@ -5,3 +5,4 @@
+     int a;
++    int b = 1;
+     int c;
+     int d;
+--- a/web/src/main/java/com/shop/web/Servlet.java
++++ b/web/src/main/java/com/shop/web/Servlet.java
+@@ -10,2 +10,2 @@
+-    old();
++    fixed();
+     tail();
+--- a/core/src/test/java/com/shop/core/DaoTest.java
++++ b/core/src/test/java/com/shop/core/DaoTest.java
+@@ -1,1 +1,2 @@
+ class DaoTest {
++    int x;
+--- a/web/src/test/java/src/main/java/Fake.java
++++ b/web/src/test/java/src/main/java/Fake.java
+@@ -1,1 +1,2 @@
+ class Fake {
++    int y;

@@ -111,4 +111,55 @@ class RemediationScorecardTest {
     void missingArgumentsIsAUsageError() {
         assertThat(RemediationScorecard.run(new String[] {"--out", tmp.resolve("x.md").toString()})).isEqualTo(2);
     }
+
+    private static List<AppFindings> inconsistent() throws IOException {
+        return List.of(new AppFindings("mixed", ContractJson.readFindings(text("inconsistent"))));
+    }
+
+    @Test
+    void aStatusThatDisagreesWithTheLastAttemptIsInconsistentNotFixed() throws IOException {
+        List<Row> rows = RemediationScorecard.rows(inconsistent(), "");
+
+        assertThat(rows).hasSize(6);
+        assertThat(row(rows, 21).finalStatus()).as("fixed without a patch").isEqualTo("inconsistent");
+        assertThat(row(rows, 22).finalStatus()).as("last attempt is still_present").isEqualTo("inconsistent");
+        assertThat(row(rows, 23).finalStatus()).as("highest attempt number is fixed, list order is irrelevant")
+                .isEqualTo("fixed");
+        assertThat(row(rows, 24).finalStatus()).as("absent status but a fixed attempt").isEqualTo("inconsistent");
+        assertThat(row(rows, 25).finalStatus()).as("fixed with no attempts").isEqualTo("inconsistent");
+        assertThat(row(rows, 26).finalStatus()).as("absent status, nothing attempted").isEqualTo("not_attempted");
+
+        Totals t = RemediationScorecard.totals(inconsistent());
+        assertThat(t.confirmed()).isEqualTo(6);
+        assertThat(t.fixed()).isEqualTo(1);
+        assertThat(t.inconsistentFindings()).isEqualTo(4);
+        assertThat(t.notAttempted()).isEqualTo(1);
+
+        String md = RemediationScorecard.toMarkdown(inconsistent(), "", false);
+        assertThat(md).contains("| Fixed | 1 |")
+                .contains("| Inconsistent (counted as failures, not fixed) | 4 |")
+                .contains("## Notes")
+                .contains("- mixed code:CWE-89:" + String.format("%024x", 22)
+                        + ": inconsistent, remediation_status is fixed but the last attempt (2) is still_present")
+                .contains("- mixed code:CWE-89:" + String.format("%024x", 21)
+                        + ": inconsistent, remediation_status is fixed but attempt 1 has no patch")
+                .contains("- mixed code:CWE-89:" + String.format("%024x", 24)
+                        + ": inconsistent, the last attempt (1) is fixed but remediation_status is absent");
+    }
+
+    @Test
+    void consistentScorecardsHaveNoNotesSection() throws IOException {
+        assertThat(RemediationScorecard.toMarkdown(apps(), "", false)).doesNotContain("## Notes");
+    }
+
+    @Test
+    void anEmptyTableSaysSoAndDividesByNothing() {
+        String md = RemediationScorecard.toMarkdown(List.of(new AppFindings("none", List.of())), "", false);
+
+        assertThat(md).contains("| Confirmed findings | 0 |")
+                .contains("| Fix rate (fixed / confirmed) | n/a |")
+                .contains("| Attempts per fix (all attempts / fixed) | n/a |")
+                .endsWith("## Findings\n\nNo confirmed findings.\n")
+                .doesNotContain("| App |");
+    }
 }

@@ -249,6 +249,89 @@ class AdequacyCheckTest {
         assertTrue(q.note().orElseThrow().contains("did not pass on the patched code"), q.toString());
     }
 
+    // ------------------------------------------------------------------ multi-module roots (WO-M.4)
+
+    static String twoModulePatch() {
+        return RemediationLoopNodeTest.read(JacocoXmlTest.resource("two-module.patch"));
+    }
+
+    @Test
+    void moduleProductionFilesAreChangedLinesAndTestSourcesUnderAModuleAreNot() {
+        assertEquals(Map.of("core/src/main/java/com/shop/core/Dao.java", new TreeSet<>(List.of(6)),
+                        "web/src/main/java/com/shop/web/Servlet.java", new TreeSet<>(List.of(10))),
+                AdequacyCheck.changedLines(twoModulePatch()),
+                "src/test/java under a module (even one containing src/main/java/) is ignored");
+        assertEquals(Optional.of("a/B.java"), AdequacyCheck.productionSource("src/main/java/a/B.java"));
+        assertEquals(Optional.of("a/B.java"), AdequacyCheck.productionSource("x/y/src/main/java/a/B.java"));
+        assertEquals(Optional.empty(), AdequacyCheck.productionSource("x/src/test/java/a/B.java"));
+        assertEquals(Optional.empty(), AdequacyCheck.productionSource("x/src/test/resources/src/main/java/B.java"));
+        assertEquals(Optional.empty(), AdequacyCheck.productionSource("x/xsrc/main/java/B.java"));
+        assertEquals(Optional.empty(), AdequacyCheck.productionSource("x/src/main/resources/B.java"));
+    }
+
+    @Test
+    void moduleChangedLinesAreMeasuredAgainstThePackageRelativeReportPath() {
+        AdequacyCheck.Measurement m = AdequacyCheck.evaluate(AdequacyCheck.changedLines(twoModulePatch()),
+                Optional.of(coverage("two-module.xml")));
+        assertEquals(2, m.adequacy().changedLinesTotal());
+        assertEquals(1, m.adequacy().changedLinesCovered());
+        assertFalse(m.adequacy().adequate());
+        assertEquals(Map.of("web/src/main/java/com/shop/web/Servlet.java", List.of(10)), m.uncovered());
+        assertEquals(new Adequacy(2, 1, false, m.adequacy().note()),
+                AdequacyCheck.measure(twoModulePatch(), coverage("two-module.xml")));
+    }
+
+    @Test
+    void includesUseThePackagePathAfterSrcMainJava() {
+        assertEquals(List.of("com.shop.core.*", "com.shop.web.*"),
+                AdequacyCheck.includes(AdequacyCheck.changedLines(twoModulePatch())));
+        assertEquals(List.of("Top", "Top$*"), AdequacyCheck.includes(Map.of("m/src/main/java/Top.java", Set.of(1),
+                "m/src/test/java/x/Ignored.java", Set.of(2))));
+    }
+
+    // ------------------------------------------------------------------ follow-up test promotion (WO-M.4)
+
+    @Test
+    void theFollowUpTestThatMakesAFixAdequateIsPromotedNextToThePatchAndNoted() throws Exception {
+        CoverageSandbox sandbox = new CoverageSandbox();
+        sandbox.followUpReport = "login-covered.xml";
+        CallBudget budget = new CallBudget(200, 25);
+        StateDelta d = runLoop(sandbox, llm(budget), budget);
+
+        String rel = "patches/" + RemediationLoopNode.shortId(FP) + "-attempt1-adequacy-test.java";
+        Path promoted = tmp.resolve("out").resolve(rel);
+        assertTrue(Files.isRegularFile(promoted), rel);
+        assertTrue(RemediationLoopNodeTest.read(promoted).contains("class LoginServletAdequacySecurityTest"));
+        assertTrue(d.notes().contains("adequacy follow-up test for " + FP + " attempt 1: " + rel),
+                d.notes().toString());
+        assertTrue(fixed(d).adequacy().orElseThrow().adequate());
+    }
+
+    @Test
+    void noFollowUpTestMeansNothingIsPromotedAndNoNote() throws Exception {
+        CoverageSandbox sandbox = new CoverageSandbox();
+        sandbox.firstReport = "login-covered.xml";
+        StateDelta d = runLoop(sandbox, llm(new CallBudget(200, 25)), new CallBudget(200, 25));
+
+        try (var files = Files.walk(tmp.resolve("out"))) {
+            assertTrue(files.noneMatch(f -> f.getFileName().toString().endsWith("-adequacy-test.java")));
+        }
+        assertTrue(d.notes().stream().noneMatch(n -> n.startsWith("adequacy follow-up test")), d.notes().toString());
+    }
+
+    @Test
+    void aFollowUpTestThatFailedIsNotPromoted() throws Exception {
+        CoverageSandbox sandbox = new CoverageSandbox();
+        sandbox.followUpReport = "login-covered.xml";
+        sandbox.followUpFails = true;
+        CallBudget budget = new CallBudget(200, 25);
+        StateDelta d = runLoop(sandbox, llm(budget), budget);
+
+        assertFalse(Files.exists(tmp.resolve("out/patches/" + RemediationLoopNode.shortId(FP)
+                + "-attempt1-adequacy-test.java")));
+        assertTrue(d.notes().stream().noneMatch(n -> n.startsWith("adequacy follow-up test")), d.notes().toString());
+    }
+
     // ------------------------------------------------------------------ harness
 
     static FakeLlmClient llm(Budget budget) {
