@@ -332,6 +332,31 @@ class AdequacyCheckTest {
         assertTrue(d.notes().stream().noneMatch(n -> n.startsWith("adequacy follow-up test")), d.notes().toString());
     }
 
+    @Test
+    void aRejectedFollowUpPromotionIsNotedAndNeverThrows() throws Exception {
+        String rel = "patches/" + RemediationLoopNode.shortId(FP) + "-attempt1-adequacy-test.java";
+        Files.createDirectories(tmp.resolve("out").resolve(rel)); // a directory where the file must go: write fails
+
+        String note = RemediationLoopNode.promoteFollowUpTest(tmp.resolve("out"), FP, 1, "class T { }\n");
+
+        assertTrue(note.startsWith("adequacy follow-up test for " + FP + " attempt 1 not promoted: "), note);
+        assertFalse(Files.isRegularFile(tmp.resolve("out").resolve(rel)));
+
+        String big = "x".repeat((int) RemediationLoopNode.FOLLOW_UP_TEST_MAX_BYTES + 1);
+        String oversize = RemediationLoopNode.promoteFollowUpTest(tmp.resolve("out2"), FP, 1, big);
+        assertTrue(oversize.contains("not promoted: oversize"), oversize);
+    }
+
+    @Test
+    void aFollowUpPathLongerThanTheTarNameLimitIsNotedNotThrown() {
+        String longFp = "code:" + "CWE-" + "9".repeat(90) + ":" + "0".repeat(24);
+        String note = RemediationLoopNode.promoteFollowUpTest(tmp.resolve("out"), longFp, 1, "class T { }\n");
+
+        assertTrue(note.startsWith("adequacy follow-up test for " + longFp + " attempt 1 not promoted: "), note);
+        assertTrue(note.contains("100 bytes"), note);
+        assertFalse(Files.exists(tmp.resolve("out/patches")));
+    }
+
     // ------------------------------------------------------------------ harness
 
     static FakeLlmClient llm(Budget budget) {

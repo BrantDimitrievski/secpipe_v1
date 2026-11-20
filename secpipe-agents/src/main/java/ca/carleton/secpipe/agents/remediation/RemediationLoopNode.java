@@ -609,20 +609,7 @@ public final class RemediationLoopNode implements PipelineNode {
          * the run output. A rejection is noted, never fatal.
          */
         private void promoteFollowUp(String fp, int n, String source) {
-            String rel = PATCH_DIR + "/" + shortId(fp) + "-attempt" + n + "-adequacy-test.java";
-            try {
-                byte[] tar = AdequacyCheck.singleFileTar(rel, source.getBytes(StandardCharsets.UTF_8));
-                ArtifactPromoter.Report report = ArtifactPromoter.promote(new ByteArrayInputStream(tar),
-                        List.of(new Promotion(rel, FOLLOW_UP_TEST_MAX_BYTES)), settings.outDir());
-                if (report.rejected().isEmpty()) {
-                    notes.add("adequacy follow-up test for " + fp + " attempt " + n + ": " + rel);
-                } else {
-                    notes.add("adequacy follow-up test for " + fp + " attempt " + n + " not promoted: "
-                            + report.rejected().get(0).reason());
-                }
-            } catch (IOException | IllegalArgumentException e) {
-                notes.add("adequacy follow-up test for " + fp + " attempt " + n + " not promoted: " + e.getMessage());
-            }
+            notes.add(promoteFollowUpTest(settings.outDir(), fp, n, source));
         }
 
         private AdequacyCheck.Measurement logged(String fp, int n, AdequacyCheck.Measurement m) {
@@ -767,6 +754,25 @@ public final class RemediationLoopNode implements PipelineNode {
     }
 
     /** {@code <family>-<first 12 hash chars>} for code fingerprints, else a file-name-safe form. */
+    /**
+     * Promotes {@code source} to {@code <outDir>/patches/<fp>-attempt<n>-adequacy-test.java} and returns the run note:
+     * the success note, or a "not promoted" note naming the reason (rejection, I/O error, or a path that does not fit
+     * the 100-byte tar name). Never throws.
+     */
+    static String promoteFollowUpTest(Path outDir, String fp, int n, String source) {
+        String rel = PATCH_DIR + "/" + shortId(fp) + "-attempt" + n + "-adequacy-test.java";
+        String prefix = "adequacy follow-up test for " + fp + " attempt " + n;
+        try {
+            byte[] tar = AdequacyCheck.singleFileTar(rel, source.getBytes(StandardCharsets.UTF_8));
+            ArtifactPromoter.Report report = ArtifactPromoter.promote(new ByteArrayInputStream(tar),
+                    List.of(new Promotion(rel, FOLLOW_UP_TEST_MAX_BYTES)), outDir);
+            return report.rejected().isEmpty() ? prefix + ": " + rel
+                    : prefix + " not promoted: " + report.rejected().get(0).reason();
+        } catch (IOException | RuntimeException e) {
+            return prefix + " not promoted: " + e.getMessage();
+        }
+    }
+
     static String shortId(String fingerprint) {
         String[] parts = fingerprint.split(":");
         if (parts.length == 3 && parts[0].equals("code")) {
