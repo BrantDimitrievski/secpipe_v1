@@ -1,0 +1,7 @@
+--- a/src/main/java/com/example/vulnlab/StaleServlet.java
++++ b/src/main/java/com/example/vulnlab/StaleServlet.java
+@@ -5,3 +5,3 @@
+ void run() {
+-    query(a);
++    query(STALE_LAST_ATTEMPT_PATCH);
+ }

@@ -6,6 +6,7 @@ import ca.carleton.secpipe.contracts.finding.Finding.Score5;
 import ca.carleton.secpipe.contracts.ledger.LedgerUnit;
 import ca.carleton.secpipe.contracts.run.RunMetadata;
 import ca.carleton.secpipe.report.patch.FixedPatches;
+import ca.carleton.secpipe.report.patch.PatchSource;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumMap;
@@ -28,6 +29,11 @@ final class MarkdownWriter {
     }
 
     static String render(ReportInputs in) {
+        return render(in, PatchSource.NONE);
+    }
+
+    /** As {@link #render(ReportInputs)}; patch files are read through {@code patches} to decide what is verified. */
+    static String render(ReportInputs in, PatchSource patches) {
         RunMetadata meta = in.metadata();
         List<Finding> findings = in.findings();
         StringBuilder md = new StringBuilder();
@@ -43,7 +49,7 @@ final class MarkdownWriter {
 
         summary(md, findings);
         findingSections(md, findings);
-        remediationSection(md, in);
+        remediationSection(md, in, patches);
         coverage(md, in.ledger());
         tools(md, meta);
         notes(md, in.state().notes());
@@ -181,7 +187,7 @@ final class MarkdownWriter {
     static final String UNVERIFIED_MARKER = "regression test skipped after patch: fix unverified";
     private static final String NOT_ATTEMPTED_PREFIX = "remediation not attempted";
 
-    private static void remediationSection(StringBuilder md, ReportInputs in) {
+    private static void remediationSection(StringBuilder md, ReportInputs in, PatchSource patches) {
         md.append("## Remediation\n\n");
         List<Finding.Confirmed> confirmed = in.findings().stream().filter(Finding.Confirmed.class::isInstance)
                 .map(Finding.Confirmed.class::cast).toList();
@@ -190,13 +196,13 @@ final class MarkdownWriter {
             return;
         }
         List<String> notes = in.state().notes();
-        long fixed = confirmed.stream().filter(c -> status(c) == Finding.RemediationStatus.FIXED).count();
+        long fixed = confirmed.stream().filter(c -> FixedPatches.verified(c, patches).isPresent()).count();
         md.append(fixed).append(" of ").append(confirmed.size()).append(" confirmed findings fixed. Patches are")
                 .append(" suggestions: SecPipe never writes to your working tree. Only verified fixes are in ")
                 .append(code(FixedPatches.FILE_NAME)).append(".\n\n");
         int n = 1;
         for (Finding.Confirmed c : confirmed) {
-            remediationEntry(md, n++, c, in, notes);
+            remediationEntry(md, n++, c, in, notes, patches);
         }
     }
 
@@ -205,7 +211,7 @@ final class MarkdownWriter {
     }
 
     private static void remediationEntry(StringBuilder md, int n, Finding.Confirmed c, ReportInputs in,
-            List<String> notes) {
+            List<String> notes, PatchSource patches) {
         String fp = c.fingerprint();
         List<Finding.FixAttempt> attempts = c.secpipe().fixAttempts().stream()
                 .sorted(Comparator.comparingInt(Finding.FixAttempt::attempt)).toList();
@@ -218,14 +224,15 @@ final class MarkdownWriter {
 
         md.append("#### ").append(n).append(". ").append(text(c.title())).append("\n\n");
         md.append("- Fingerprint: ").append(code(fp)).append('\n');
-        md.append("- Outcome: ").append(unverified ? "still_present (fix unverified: the regression test was skipped "
-                + "after the patch)" : lower(status)).append('\n');
+        boolean verified = FixedPatches.verified(c, patches).isPresent();
+        String outcome = unverified ? "still_present (fix unverified: the regression test was skipped after the patch)"
+                : status == Finding.RemediationStatus.FIXED && !verified
+                        ? "fixed (not verified: " + notVerifiedWhy(attempts) + ")" : lower(status);
+        md.append("- Outcome: ").append(outcome).append('\n');
         if (status == Finding.RemediationStatus.NOT_ATTEMPTED) {
             md.append("- Reason: ").append(text(notAttemptedReason(c, in, attempts))).append('\n');
         }
-        String stopPrefix = "remediation of " + fp + " stopped: ";
-        notes.stream().filter(note -> note.startsWith(stopPrefix)).forEach(note -> md.append("- Stopped: ")
-                .append(text(note.substring(stopPrefix.length()))).append('\n'));
+        stopped(md, fp, notes);
         md.append("- Attempts: ").append(attempts.size()).append('\n');
         for (Finding.FixAttempt a : attempts) {
             attemptLine(md, a);
@@ -233,10 +240,42 @@ final class MarkdownWriter {
         if (!attempts.isEmpty()) {
             Optional<String> patch = attempts.getLast().patchArtifact()
                     .filter(FixedPatches::isSafeRelative);
-            patch.ifPresent(p -> md.append("- ").append(status == Finding.RemediationStatus.FIXED
-                    ? "Patch (verified): " : "Patch (candidate, not verified): ").append(link(p)).append('\n'));
+            patch.ifPresent(p -> md.append("- ").append(verified ? "Patch (verified): "
+                    : "Patch (candidate, not verified): ").append(link(p)).append('\n'));
         }
         md.append('\n');
+    }
+
+    /**
+     * The "Stopped:" line from the run notes the remediation loop writes, {@code remediation of <fp> stopped at
+     * attempt <n>: <step>} and {@code remediation of <fp> stopped: <reason>}. The prefix includes the whole
+     * fingerprint and the word "stopped", so another fingerprint never matches.
+     */
+    private static void stopped(StringBuilder md, String fp, List<String> notes) {
+        String prefix = "remediation of " + fp + " stopped";
+        for (String note : notes) {
+            if (!note.startsWith(prefix)) {
+                continue;
+            }
+            String rest = note.substring(prefix.length());
+            if (rest.startsWith(": ")) {
+                rest = rest.substring(2);
+            } else if (!rest.startsWith(" at attempt ")) {
+                continue;
+            } else {
+                rest = rest.substring(1);
+            }
+            md.append("- Stopped: ").append(text(rest)).append('\n');
+        }
+    }
+
+    private static String notVerifiedWhy(List<Finding.FixAttempt> attempts) {
+        if (attempts.isEmpty()) {
+            return "no attempt is recorded";
+        }
+        Finding.FixAttempt last = attempts.getLast();
+        return last.outcome() != Finding.FixAttempt.Outcome.FIXED
+                ? "the last attempt was " + lower(last.outcome()) : "its patch file was not found";
     }
 
     private static void attemptLine(StringBuilder md, Finding.FixAttempt a) {

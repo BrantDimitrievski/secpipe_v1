@@ -8,9 +8,8 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Which patches are verified fixes, and the combined {@code secpipe-fixes.patch}. Only confirmed records whose
- * {@code remediation_status} is {@code fixed} count, and only through their last attempt (which must itself be
- * {@code fixed}). Records are taken in fingerprint order, so the output is byte-stable.
+ * Which patches are verified fixes, and the combined {@code secpipe-fixes.patch}. Only records that pass
+ * {@link #verified} count. Records are taken in fingerprint order, so the output is byte-stable.
  */
 public final class FixedPatches {
 
@@ -24,17 +23,27 @@ public final class FixedPatches {
     public record Fix(Finding.Confirmed finding, FixAttempt attempt, String artifact) {
     }
 
-    /** The fixed records that carry a patch artifact, sorted by fingerprint. */
-    public static List<Fix> fixes(List<Finding> findings) {
+    /**
+     * The one "verified fix" rule, used by report.md, SARIF {@code fixes[]} and {@value #FILE_NAME}: the record is
+     * {@code confirmed}, its {@code remediation_status} is {@code fixed}, the <em>last</em> attempt's outcome is
+     * {@code fixed}, and that attempt's patch artifact (a safe relative path) can be read through {@code source}.
+     */
+    public static Optional<Fix> verified(Finding f, PatchSource source) {
+        if (!(f instanceof Finding.Confirmed c)
+                || c.secpipe().remediationStatus().filter(s -> s == RemediationStatus.FIXED).isEmpty()) {
+            return Optional.empty();
+        }
+        return lastAttempt(c).filter(a -> a.outcome() == FixAttempt.Outcome.FIXED)
+                .flatMap(a -> a.patchArtifact().filter(FixedPatches::isSafeRelative)
+                        .filter(p -> source.read(p).isPresent())
+                        .map(p -> new Fix(c, a, p)));
+    }
+
+    /** The verified fixes (see {@link #verified}), sorted by fingerprint. */
+    public static List<Fix> fixes(List<Finding> findings, PatchSource source) {
         return findings.stream()
-                .filter(Finding.Confirmed.class::isInstance)
-                .map(Finding.Confirmed.class::cast)
-                .filter(c -> c.secpipe().remediationStatus().filter(s -> s == RemediationStatus.FIXED).isPresent())
                 .sorted(Comparator.comparing(Finding::fingerprint))
-                .flatMap(c -> lastAttempt(c).filter(a -> a.outcome() == FixAttempt.Outcome.FIXED)
-                        .flatMap(a -> a.patchArtifact().filter(FixedPatches::isSafeRelative)
-                                .map(p -> new Fix(c, a, p)))
-                        .stream())
+                .flatMap(f -> verified(f, source).stream())
                 .toList();
     }
 
@@ -49,7 +58,7 @@ public final class FixedPatches {
      */
     public static Optional<String> combine(List<Finding> findings, PatchSource source) {
         StringBuilder out = new StringBuilder();
-        for (Fix fix : fixes(findings)) {
+        for (Fix fix : fixes(findings, source)) {
             source.read(fix.artifact()).filter(p -> !p.isBlank()).ifPresent(p -> {
                 String lf = p.replace("\r\n", "\n");
                 out.append(lf);

@@ -1,0 +1,7 @@
+--- a/src/main/java/com/example/vulnlab/SandboxServlet.java
++++ b/src/main/java/com/example/vulnlab/SandboxServlet.java
+@@ -5,3 +5,3 @@
+ void run() {
+-    query(a);
++    query(SANDBOX_UNAVAILABLE_PATCH);
+ }

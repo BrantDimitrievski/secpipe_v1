@@ -38,11 +38,11 @@ final class SarifWriter {
         return render(inputs, PatchSource.NONE);
     }
 
-    /** As {@link #render(ReportInputs)}, plus {@code fixes[]} on the results of {@code fixed} records. */
+    /** As {@link #render(ReportInputs)}, plus {@code fixes[]} on the results of verified fixes. */
     static String render(ReportInputs inputs, PatchSource patches) {
         List<Finding> findings = inputs.findings();
         Map<String, FixedPatches.Fix> fixes = new TreeMap<>();
-        FixedPatches.fixes(findings).forEach(f -> fixes.put(f.finding().fingerprint(), f));
+        FixedPatches.fixes(findings, patches).forEach(f -> fixes.put(f.finding().fingerprint(), f));
         // rule id -> index, in sorted rule-id order so the rule table is byte-stable.
         Map<String, Integer> ruleIndex = new TreeMap<>();
         findings.forEach(f -> ruleIndex.put(ruleId(f), 0));

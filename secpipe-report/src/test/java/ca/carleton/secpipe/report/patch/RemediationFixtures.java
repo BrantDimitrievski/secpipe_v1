@@ -100,6 +100,33 @@ public final class RemediationFixtures {
                 Optional.of(RemediationStatus.STILL_PRESENT));
     }
 
+    public static final String FP_SANDBOX = "code:CWE-89:e5e5e5e5e5e5e5e5e5e5e5e5";
+    public static final String FP_STALE = "code:CWE-89:f6f6f6f6f6f6f6f6f6f6f6f6";
+
+    /**
+     * The loop's only attempt was lost to an unavailable sandbox: status {@code not_attempted}, the candidate patch
+     * is kept as an artifact but was never run.
+     */
+    public static Finding.Confirmed sandboxUnavailable() {
+        return with(FP_SANDBOX, "Sandboxed export injection", List.of(
+                attempt(1, "patches/code-CWE-89-e5e5e5e5-attempt1.patch", FixAttempt.Outcome.SANDBOX_UNAVAILABLE,
+                        Optional.empty(), Optional.empty(), Optional.empty(), List.of(), Optional.empty())),
+                Optional.of(RemediationStatus.NOT_ATTEMPTED));
+    }
+
+    /**
+     * {@code remediation_status=fixed}, but the last attempt is {@code still_present}; the first attempt had been
+     * {@code fixed} and has a patch on disk, which must not be reported.
+     */
+    public static Finding.Confirmed fixedStatusLastAttemptStillPresent() {
+        return with(FP_STALE, "Stale fixed status", List.of(
+                attempt(1, "patches/code-CWE-89-f6f6f6f6-attempt1.patch", FixAttempt.Outcome.FIXED,
+                        Optional.of(true), Optional.of(true), Optional.of(true), List.of(), Optional.empty()),
+                attempt(2, "patches/code-CWE-89-f6f6f6f6-attempt2.patch", FixAttempt.Outcome.STILL_PRESENT,
+                        Optional.of(false), Optional.empty(), Optional.empty(), List.of(), Optional.empty())),
+                Optional.of(RemediationStatus.FIXED));
+    }
+
     /** No status and no attempts. */
     public static Finding.Confirmed notAttempted() {
         return with(FP_NOT_ATTEMPTED, "Report servlet injection", List.of(), Optional.empty());
