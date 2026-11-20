@@ -1,0 +1,118 @@
+# WO-S.3 spike: prove or disprove every SandboxRunner.Control and the two-phase Maven flow on ubuntu-latest.
+# Evidence lands in the job log, the step summary (control table) and one ::notice annotation per control.
+# Runs on PRs that touch the spike files and by hand. No secrets; read-only token; never pull_request_target.
+name: spike-sandbox
+on:
+  pull_request:
+    paths:
+      - .github/workflows/spike-sandbox.yml
+      - scripts/spike/**
+      - spikes/sandbox/**
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: spike-sandbox-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  # MVP sample (CLAUDE.md §1a pin) and OWASP Benchmark, both read-only inputs; fixtures/** (WO-P.0) is not merged yet.
+  MVP_REPO: BrantDimitrievski/capstone-mvp-1
+  MVP_SHA: 29056350014beefd8d115290b5fb89eed29f0cd1
+  BENCHMARK_REPO: OWASP-Benchmark/BenchmarkJava
+  BENCHMARK_SHA: a452b3aafd232245d0753e54eb243d6651f8ef96
+  SECPIPE_SPIKE_IMAGE: secpipe-runner:spike
+  SECPIPE_SPIKE_OUT: ${{ github.workspace }}/.spike-out
+  SECPIPE_SPIKE_MVP_APP: ${{ github.workspace }}/.spike/capstone-mvp-1/samples/vulnerable-java-app
+  SECPIPE_SPIKE_BENCHMARK: ${{ github.workspace }}/.spike/BenchmarkJava
+jobs:
+  probe:
+    # One job per probe group: GitHub shows only about 10 notice annotations per job, and each control's verdict
+    # must stay readable as an annotation.
+    name: sandbox probe ${{ matrix.group }} (ubuntu-latest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [isolation, limits, maven]
+    env:
+      SECPIPE_SPIKE_PLATFORM: ubuntu-latest (GitHub-hosted)
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check out the MVP sample (read-only input)
+        if: matrix.group == 'maven'
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.MVP_REPO }}
+          ref: ${{ env.MVP_SHA }}
+          path: .spike/capstone-mvp-1
+          persist-credentials: false
+      - name: Check out OWASP BenchmarkJava (read-only input)
+        if: matrix.group == 'maven'
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.BENCHMARK_REPO }}
+          ref: ${{ env.BENCHMARK_SHA }}
+          path: .spike/BenchmarkJava
+          persist-credentials: false
+      - name: Lint the probe script
+        run: shellcheck -S warning scripts/spike/sandbox-probe.sh
+      - name: Docker engine facts
+        run: |
+          docker version
+          docker info
+      - name: Build the draft runner image
+        run: |
+          set -o pipefail
+          start=$(date +%s)
+          docker build -t "$SECPIPE_SPIKE_IMAGE" spikes/sandbox 2>&1 | tee build.log
+          secs=$(( $(date +%s) - start ))
+          id=$(docker image inspect -f '{{.Id}}' "$SECPIPE_SPIKE_IMAGE")
+          size=$(docker image inspect -f '{{.Size}}' "$SECPIPE_SPIKE_IMAGE")
+          tools=$(docker run --rm --network none "$SECPIPE_SPIKE_IMAGE" bash -c \
+            'java -version 2>&1 | head -1; mvn -v | head -1; ls /opt/junit; id' | tr '\n' ';')
+          echo "::notice title=docker-build::exit 0 in ${secs}s; $id; $((size / 1048576)) MiB; $tools"
+          {
+            echo "## docker build -t $SECPIPE_SPIKE_IMAGE spikes/sandbox (exit 0, ${secs}s)"
+            echo
+            echo '```'
+            tail -n 15 build.log
+            echo "image: $id ($((size / 1048576)) MiB)"
+            echo "tools: $tools"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Probe group ${{ matrix.group }}
+        run: bash scripts/spike/sandbox-probe.sh --fresh --group "${{ matrix.group }}"
+      - name: Control table
+        if: success() || failure()
+        run: bash scripts/spike/sandbox-probe.sh --summary
+      - name: Upload probe logs
+        if: success() || failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: spike-sandbox-logs-${{ matrix.group }}-${{ github.run_id }}
+          include-hidden-files: true
+          path: |
+            .spike-out/**
+            build.log
+          retention-days: 14
+
+  powershell-parity:
+    # Not Windows evidence (hosted Windows runners cannot run Linux containers): this only proves the .ps1 port
+    # parses and reaches the same verdicts on the same engine, so Brant's Windows run starts from a working script.
+    name: probe .ps1 parity ${{ matrix.group }} (ubuntu-latest, pwsh)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [isolation, limits]
+    env:
+      SECPIPE_SPIKE_PLATFORM: ubuntu-latest (pwsh parity run, not Windows evidence)
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the draft runner image
+        run: docker build -q -t "$SECPIPE_SPIKE_IMAGE" spikes/sandbox
+      - name: PowerShell probe
+        shell: pwsh
+        run: ./scripts/spike/sandbox-probe.ps1 -Fresh -Group ${{ matrix.group }} -OutDir "$env:RUNNER_TEMP/ps1-out" -Summary
