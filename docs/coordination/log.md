@@ -82,3 +82,9 @@ G.12 (#156) · R.6 (#157) · M.4 (#155, second review round) · D.5 (#154, secon
 - Brant: S.3 laptop probes, then the real E.6 run (`bash scripts/eval/remediation.sh --check-env` first; ≥ 10 fixes with patches). Fix rate < 50 % → WO-G.13 prompt tuning.
 - Brant: OWASP Benchmark run (E.1 numbers vs NFR-4).
 - Coordinator: WO-D.6 oral demo kit after the real E.6 run (freeze Jan 20).
+
+## 2026-11-22 — Review and re-plan "first real runs" (wave 14)
+
+- Review findings: no real-LLM or Benchmark evidence yet; stale default model ids; `ollama` accepted with no provider; CI logs show no test counts; multi-module adequacy half done; `CLAUDE.md` stale; a direct push to `main` on 2026-11-20 (`ebe6b4b`, UML docs, no PR) because branch protection is still off.
+- Decision (Brant): run a wave for these and start the Benchmark. Wave 14: L.9, 0.3, E.11, M.5.
+- Environment: the coordinator machine has no Docker, cannot reach Maven Central and cannot download Actions artifacts (blob storage is blocked), so the AI-off Benchmark runs in Actions (`eval/**` branches) and is read from the job log. `api.anthropic.com` is reachable but no API key exists in the session; a Claude subscription does not include one. AI-on runs stay with Brant.
