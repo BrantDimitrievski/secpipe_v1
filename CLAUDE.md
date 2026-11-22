@@ -9,8 +9,8 @@ A Java 21 / Maven multi-module engine that scans Java/Maven projects. Determinis
 find candidate vulnerabilities. A fresh adversarial disprover tries to refute each one. A generated JUnit 5
 regression test in a network-less Docker sandbox supplies the evidence. A remediation loop proposes and
 verifies fixes. Reports render only from schema-validated JSON (`findings.json`, `coverage-ledger.json`,
-`run-metadata.json`). It ships as a CLI (`secpipe-cli` → `secpipe.jar`) and a composite GitHub Action
-(`action.yml`). Several design ideas are adapted from Cloudflare's MIT-licensed `security-audit-skill` (see
+`run-metadata.json`). It ships as a CLI (`secpipe-cli` → `secpipe.jar`). The composite GitHub Action (`action.yml`)
+is a frozen contract file only; the Action itself is not built (stretch). Several design ideas are adapted from Cloudflare's MIT-licensed `security-audit-skill` (see
 `THIRD_PARTY_NOTICES.md`).
 
 ## 1a. Reference repositories (read-only, outside this repo)
@@ -141,3 +141,8 @@ Explain what you found and what change you recommend. **Do not improvise around 
 | `secpipe-github` | `.github` | GitHub REST helpers |
 | `secpipe-cli` | `.cli` | picocli, assembly |
 | `secpipe-eval` | `.eval` | evaluation harnesses |
+
+Not built (empty placeholder modules, stretch): `secpipe-sarif`, `secpipe-graph-langgraph4j`, `secpipe-llm-ollama`,
+`secpipe-github`, and the adapters other than `secpipe-adapter-builtin` and `secpipe-adapter-pmd`. Providers that
+exist: `secpipe-llm-anthropic`, `secpipe-llm-openai` (also serves `openai-compatible`). Agents that exist: refuter,
+disprover, testgen, evidence, remediation. Do not add code to a placeholder module unless your work order says so.

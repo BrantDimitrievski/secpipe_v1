@@ -3903,3 +3903,37 @@ graph LR
 - Unchanged: FR-7, `secpipe diff`, the GitHub Action and `--enable-fixes pr` stay out (WO-D.5 keeps them in the guide's Limitations).
 - The demo storyboard in Part 10 is superseded by WO-D.6 once written: no Action, no `demo-shop`, no incremental re-run, no `--print-prompts`.
 - Module removed: `secpipe-llm-copilot` (Part 3's layout still lists it; it is historical).
+
+## Re-plan 2026-11-22 (first real runs)
+
+**Reason.** A review on 2026-11-22 found that SecPipe has no result from a real LLM or from the OWASP Benchmark: every check so far used the fake LLM in CI. The owner (Brant) approved a small wave to prepare and start the real runs. **No contract change.**
+
+### Changelog
+
+| Work order | Decision | Wave | Reason |
+|---|---|---|---|
+| WO-L.9 | new | 14 | default Claude ids → `claude-opus-5-5` / `claude-sonnet-5-5`; `--llm-provider ollama` exits 2 with a hint (no provider exists); `scripts/eval/smoke.sh` checks a real key cheaply |
+| WO-0.3 | new | 14 | CI prints test counts (Maven runs with `-q`, so reviewers could not see which tests ran) |
+| WO-E.11 | new | 14 | `eval-benchmark` workflow runs the Benchmark AI-off on `eval/**` branches and prints the scorecard; first SecPipe numbers against NFR-4, no API key |
+| WO-M.5 | new | 14 | JaCoCo `--classfiles` per touched module; wave-13 review minors (tests) |
+| WO-G.13 | planned, not written | — | remediation prompt tuning, only if the real E.6 fix rate is < 50 % |
+| WO-D.6 | planned, not written | — | oral demo kit after the real E.6 run; due before the Jan 20 freeze |
+
+### Wave table
+
+| Wave | Work orders (parallel) | Notes |
+|---|---|---|
+| 0–13 | as in the earlier re-plans | merged |
+| 14 | L.9, 0.3, E.11, M.5 | 4; files disjoint (anthropic factory + `ScanCommand` + guide + `smoke.sh`; `ci.yml` + `wave-integration.yml` + `ci-test-summary.sh`; `eval-benchmark.yml` + `benchmark.sh`; agents adequacy/loop + tests in agents, eval, report) |
+
+### Human-only steps after this wave (Brant; an API key never goes into CI or chat)
+
+1. S.3 laptop probes.
+2. `bash scripts/eval/smoke.sh --provider anthropic` with the key in the environment.
+3. `bash scripts/eval/remediation.sh` (E.6; ≥ 10 fixes with patches).
+4. Optional: `bash scripts/eval/benchmark.sh --provider anthropic` (AI-on Benchmark; cost grows with the number of candidates, so run it after the AI-off numbers are known).
+
+### Other changes in this re-plan
+
+- `CLAUDE.md` §1 and §12 now say which modules are placeholders and that the Action is not built.
+- Work-order index: WO-R.5 (merged as #126) was missing; the 13 folded stretch files are named.
