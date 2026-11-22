@@ -88,3 +88,23 @@ G.12 (#156) · R.6 (#157) · M.4 (#155, second review round) · D.5 (#154, secon
 - Review findings: no real-LLM or Benchmark evidence yet; stale default model ids; `ollama` accepted with no provider; CI logs show no test counts; multi-module adequacy half done; `CLAUDE.md` stale; a direct push to `main` on 2026-11-20 (`ebe6b4b`, UML docs, no PR) because branch protection is still off.
 - Decision (Brant): run a wave for these and start the Benchmark. Wave 14: L.9, 0.3, E.11, M.5.
 - Environment: the coordinator machine has no Docker, cannot reach Maven Central and cannot download Actions artifacts (blob storage is blocked), so the AI-off Benchmark runs in Actions (`eval/**` branches) and is read from the job log. `api.anthropic.com` is reachable but no API key exists in the session; a Claude subscription does not include one. AI-on runs stay with Brant.
+
+## 2026-11-22 — Wave 14 complete; first Benchmark numbers
+
+### Merged (Sonnet builders, independent Sonnet reviewers, `ci` + `sandbox` green)
+0.3 (#161) · L.9 (#162) · E.11 (#160) · M.5 (#164) · CC.3 (#163)
+
+- CC.3 is a contract order, proposed by the coordinator and flagged to Brant: one default method `LlmClient.usageSnapshot()`, and `ledger.schema.json` `maxItems` 10000 → 100000 (the Benchmark seeds 27,422 ledger units; the first E.11 run failed on the old cap). Ownership was extended twice (recorded in the WO).
+- CI now prints `== test summary ==` (955 tests in `ci` at CC.3).
+- **First SecPipe Benchmark result (AI off): TPR 82.4 %, FPR 43.1 %, score 39.3** (`docs/eval/benchmark.md`). NFR-4 is not met without AI; false positives are concentrated in CWE-78 and CWE-89.
+
+### Tracked minors
+- `smoke.sh` success relies on the text "LLM unavailable"; switch to `ai.usage` now that CC.3 fills it.
+- `eval-benchmark.yml` does not fail on a scan that ends `incomplete` but still writes findings.
+- `usageSnapshot()` reads the ledger in three separate locked calls; no dedicated secret-leak test for the snapshot.
+- M.5: the hostile-module note path in `RemediationLoopNode` has no test; multi-module adequacy has no sandbox fixture.
+- Branches left on the remote: `eval/wo-e.11-proof`, `eval/benchmark-no-ai`.
+
+### Next
+- Brant: S.3 probes; `smoke.sh`; E.6 run; AI-on Benchmark run; branch protection.
+- Coordinator proposal (needs Brant's go): a false-positive wave for CWE-78/89 (refuter `CollectionTrickRule` from stretch, measured with the `eval/**` workflow), and detection gaps in CWE-22/328.
