@@ -9,7 +9,7 @@
 | **C** Contracts | C.1–C.5 [W1] (merged); CC.1 [W2] (merged) |
 | **P** MVP ports | P.0 [W1] (merged); P.2 (+P.8) [W2]; P.6 [W4] |
 | **V** Validators | V.1 [W2] |
-| **K** Core | K.1 [W2]; K.4, K.5 (+V.2 invariants), K.6, K.8 [W3]; K.9 (+K.11) [W4]; K.13 (+K.3, +0.2) [W6]; K.15 [W8] |
+| **K** Core | K.1 [W2]; K.4, K.5 (+V.2 invariants), K.6, K.8 [W3]; K.9 (+K.11) [W4]; K.13 (+K.3, +0.2) [W6]; K.15 [W8]; K.16 [W14] |
 | **L** LLM | L.1 (+L.7, +K.10, redaction) [W3]; L.2 (+L.3) [W4]; L.5 closed; L.9 [W14] |
 | **G** Agents | G.1 [W4]; G.5 [W4]; G.4, G.6 [W5]; G.7 [W6]; G.10, G.11 [W8]; G.12 [W13] |
 | **X** Sandbox | X.1 (+X.3, +X.4) [W2]; X.2 [W4] |

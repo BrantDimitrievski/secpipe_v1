@@ -3916,6 +3916,7 @@ graph LR
 | WO-0.3 | new | 14 | CI prints test counts (Maven runs with `-q`, so reviewers could not see which tests ran) |
 | WO-E.11 | new | 14 | `eval-benchmark` workflow runs the Benchmark AI-off on `eval/**` branches and prints the scorecard; first SecPipe numbers against NFR-4, no API key |
 | WO-M.5 | new | 14 | JaCoCo `--classfiles` per touched module; wave-13 review minors (tests) |
+| WO-K.16 | new | 14 | `run-metadata.json` `ai` block is always empty; wire `UsageLedger` (calls, tokens, models, effective mode) into it without a contract change, or stop |
 | WO-G.13 | planned, not written | — | remediation prompt tuning, only if the real E.6 fix rate is < 50 % |
 | WO-D.6 | planned, not written | — | oral demo kit after the real E.6 run; due before the Jan 20 freeze |
 
@@ -3924,7 +3925,7 @@ graph LR
 | Wave | Work orders (parallel) | Notes |
 |---|---|---|
 | 0–13 | as in the earlier re-plans | merged |
-| 14 | L.9, 0.3, E.11, M.5 | 4; files disjoint (anthropic factory + `ScanCommand` + guide + `smoke.sh`; `ci.yml` + `wave-integration.yml` + `ci-test-summary.sh`; `eval-benchmark.yml` + `benchmark.sh`; agents adequacy/loop + tests in agents, eval, report) |
+| 14 | L.9, 0.3, E.11, M.5, K.16 | 5; files disjoint (core finalize + `RunMetadataAssembler` + llm usage classes + `PipelineAssembly`; anthropic factory + `ScanCommand` + guide + `smoke.sh`; `ci.yml` + `wave-integration.yml` + `ci-test-summary.sh`; `eval-benchmark.yml` + `benchmark.sh`; agents adequacy/loop + tests in agents, eval, report) |
 
 ### Human-only steps after this wave (Brant; an API key never goes into CI or chat)
 
