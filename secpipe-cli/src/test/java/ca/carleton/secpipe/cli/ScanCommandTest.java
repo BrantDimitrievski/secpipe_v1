@@ -96,6 +96,78 @@ class ScanCommandTest {
     }
 
     @Test
+    void ollamaProviderIsRefusedWithTheWorkingRouteBeforeAnyWork() {
+        Path out = tmp.resolve("o");
+        Res r = cli("scan", FIXTURE.toString(), "--llm-provider", "ollama", "-o", out.toString());
+        assertUsageError(r, "ollama");
+        assertThat(r.err()).contains("hint: use --llm-provider openai-compatible --llm-base-url "
+                + "http://localhost:11434/v1 --model <name>");
+        assertUsageError(cli("scan", FIXTURE.toString(), "--offline", "--llm-provider", "ollama", "-o",
+                out.toString()), "ollama");
+        assertThat(out.resolve("findings.json")).doesNotExist();
+    }
+
+    @Test
+    void noAiStillOverridesOllamaAndTheScanRuns() {
+        Path out = tmp.resolve("o");
+        Res r = cli("scan", FIXTURE.toString(), "--no-ai", "--llm-provider", "ollama", "--no-sandbox", "--fail-on",
+                "none", "-o", out.toString());
+        assertThat(r.exit()).isZero();
+        assertThat(out.resolve("findings.json")).exists();
+    }
+
+    @Test
+    void helpNoLongerListsOllamaAsAWorkingProvider() {
+        Res sh = cli("scan", "--help");
+        assertThat(sh.out()).contains("none|anthropic|openai|openai-compatible").contains("not built")
+                .doesNotContain("openai-compatible|ollama").doesNotContain("unless ollama")
+                .contains("No network (implies --llm-provider none)");
+    }
+
+    private static Path smokeScript() {
+        Path dir = Path.of("").toAbsolutePath();
+        for (int i = 0; i < 4 && dir != null; i++, dir = dir.getParent()) {
+            Path candidate = dir.resolve("scripts/eval/smoke.sh");
+            if (Files.isRegularFile(candidate)) {
+                return candidate;
+            }
+        }
+        throw new IllegalStateException("scripts/eval/smoke.sh not found");
+    }
+
+    private Res smoke(Map<String, String> env, String... args) throws IOException, InterruptedException {
+        List<String> cmd = new java.util.ArrayList<>(List.of("bash", smokeScript().toString()));
+        cmd.addAll(List.of(args));
+        ProcessBuilder pb = new ProcessBuilder(cmd);
+        pb.environment().clear();
+        pb.environment().put("PATH", System.getenv("PATH"));
+        pb.environment().putAll(env);
+        Path o = Files.createTempFile(tmp, "smoke", ".out");
+        Path e = Files.createTempFile(tmp, "smoke", ".err");
+        pb.redirectOutput(o.toFile()).redirectError(e.toFile());
+        Process p = pb.start();
+        assertThat(p.waitFor(60, java.util.concurrent.TimeUnit.SECONDS)).as("script finished").isTrue();
+        return new Res(p.exitValue(), Files.readString(o, StandardCharsets.UTF_8),
+                Files.readString(e, StandardCharsets.UTF_8));
+    }
+
+    @Test
+    void smokeCheckEnvFailsWithoutAKeyAndPassesWithOneWithoutEchoingIt() throws Exception {
+        Res none = smoke(Map.of(), "--provider", "anthropic", "--check-env");
+        assertThat(none.exit()).isEqualTo(2);
+        assertThat(none.err()).contains("error: ").contains("\nhint: ");
+
+        Res ok = smoke(Map.of("ANTHROPIC_API_KEY", "sk-ant-secret-value"), "--provider", "anthropic", "--check-env");
+        assertThat(ok.exit()).isZero();
+        assertThat(ok.out() + ok.err()).doesNotContain("sk-ant-secret-value");
+
+        Res ollama = smoke(Map.of(), "--provider", "ollama", "--check-env");
+        assertThat(ollama.exit()).isEqualTo(2);
+        assertThat(ollama.err()).contains("hint: use --provider openai-compatible --llm-base-url "
+                + "http://localhost:11434/v1 --model <name>");
+    }
+
+    @Test
     void optionsReachTheResolverAsTyped() {
         CommandLine cl = SecPipeCli.commandLine(System.out, System.err, Map.of());
         CommandLine.ParseResult parsed = cl.parseArgs("scan", "proj", "-o", "out", "--deny-path", "**/a,b/**",

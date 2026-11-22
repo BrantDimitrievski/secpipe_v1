@@ -13,8 +13,8 @@ import java.util.Optional;
 public final class AnthropicProviderFactory implements LlmProviderFactory {
 
     static final String DEFAULT_BASE_URL = "https://api.anthropic.com";
-    /** Default ids, unverified against the live model list on 2026-11-17 (no network); override with --model. */
-    static final Map<AgentRole, String> DEFAULTS = defaults("claude-opus-4-5", "claude-sonnet-4-5");
+    /** Default ids (owner decision 2026-11-22): large tier claude-opus-5-5, small tier claude-sonnet-5-5; --model overrides. */
+    static final Map<AgentRole, String> DEFAULTS = defaults("claude-opus-5-5", "claude-sonnet-5-5");
 
     private static Map<AgentRole, String> defaults(String strong, String standard) {
         Map<AgentRole, String> m = new EnumMap<>(AgentRole.class);

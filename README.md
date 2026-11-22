@@ -34,7 +34,7 @@ API key is needed.
 | `secpipe-contracts/` | Frozen contracts: JSON schemas, records, interfaces, ids |
 | `secpipe-validators/`, `secpipe-sarif/` | Validators, grounding, SARIF ingest |
 | `secpipe-core/`, `secpipe-graph-langgraph4j/` | Pipeline engine and deterministic nodes; optional LangGraph4j runner |
-| `secpipe-llm*/` | LLM routing and providers (OpenAI, Anthropic, Ollama) |
+| `secpipe-llm*/` | LLM routing and providers (OpenAI, Anthropic) |
 | `secpipe-agents/` | Prompt framework and LLM agents |
 | `secpipe-sandbox/` | Docker sandbox runner |
 | `secpipe-adapter-*/` | Analyzer adapters (built-in rules, PMD, Semgrep, SpotBugs, Joern, CodeQL, OSV, Grype, Trivy) |
