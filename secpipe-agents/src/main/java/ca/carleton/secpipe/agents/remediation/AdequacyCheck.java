@@ -20,6 +20,7 @@ import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
@@ -70,6 +71,8 @@ public final class AdequacyCheck {
     private static final Pattern FQCN = Pattern.compile("[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_$]*)*");
     private static final Pattern JAVA_NAME = Pattern.compile("[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*");
     private static final Pattern INCLUDE = Pattern.compile("[A-Za-z0-9_.$]+(\\.\\*|\\$\\*)?");
+    private static final Pattern MODULE_SEGMENT = Pattern.compile("[A-Za-z0-9._-]+");
+    private static final List<String> ROOT_ONLY = List.of("");
     private static final int SNIPPET_CONTEXT = 5;
     private static final int OUTPUT_TAIL = 600;
 
@@ -214,11 +217,21 @@ public final class AdequacyCheck {
      */
     public static CoverageRun run(SandboxRunner runner, MavenWorkspace ws, Path copy, List<String> classes,
                                   List<String> includes, String purpose) throws InterruptedException {
+        return run(runner, ws, copy, classes, includes, ROOT_ONLY, purpose);
+    }
+
+    /**
+     * As {@link #run(SandboxRunner, MavenWorkspace, Path, List, List, String)}, building the JaCoCo report from the
+     * {@code target/classes} of each module in {@code modules} (WO-M.5; see {@link #modules}).
+     */
+    public static CoverageRun run(SandboxRunner runner, MavenWorkspace ws, Path copy, List<String> classes,
+                                  List<String> includes, List<String> modules, String purpose)
+            throws InterruptedException {
         if (classes.isEmpty()) {
             throw new IllegalArgumentException("at least one test class");
         }
         classes.forEach(AdequacyCheck::requireFqcn);
-        Spec base = ws.offlineSpec(command(classes, includes), purpose);
+        Spec base = ws.offlineSpec(command(classes, includes, modules), purpose);
         List<Promotion> promote = new ArrayList<>();
         SuiteBaseline.REPORTS.forEach(r -> promote.add(new Promotion(r, SuiteBaseline.REPORT_MAX_BYTES)));
         promote.add(new Promotion(XML, XML_MAX_BYTES));
@@ -276,6 +289,54 @@ public final class AdequacyCheck {
      * empty), then the XML report.
      */
     static List<String> command(List<String> classes, List<String> includes) {
+        return command(classes, includes, ROOT_ONLY);
+    }
+
+    /**
+     * The module directories (path before {@code src/main/java/}, no trailing slash, empty for the root) of the
+     * production files in {@code changedPaths}, sorted. Empty when any module directory has a segment outside
+     * {@code [A-Za-z0-9._-]+} (or is {@code .} / {@code ..}): the paths come from a model's patch and must never
+     * reach a shell command.
+     */
+    public static Optional<List<String>> modules(Collection<String> changedPaths) {
+        TreeSet<String> out = new TreeSet<>();
+        for (String path : changedPaths) {
+            if (productionSource(path).isEmpty()) {
+                continue;
+            }
+            int at = path.startsWith(PRODUCTION_ROOT) ? 0 : path.indexOf("/" + PRODUCTION_ROOT) + 1;
+            String module = at == 0 ? "" : path.substring(0, at - 1);
+            if (!validModule(module)) {
+                return Optional.empty();
+            }
+            out.add(module);
+        }
+        return Optional.of(List.copyOf(out));
+    }
+
+    private static boolean validModule(String module) {
+        if (module.isEmpty()) {
+            return true;
+        }
+        for (String seg : module.split("/", -1)) {
+            if (!MODULE_SEGMENT.matcher(seg).matches() || seg.equals(".") || seg.equals("..")) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * The shell command with one {@code --classfiles <module>/target/classes} per module (root:
+     * {@code target/classes}). A single root module gives the exact WO-M.2 command; otherwise a directory missing in
+     * the container is skipped by a shell test, and the report is skipped when none exists.
+     */
+    static List<String> command(List<String> classes, List<String> includes, List<String> modules) {
+        for (String module : modules) {
+            if (!validModule(module)) {
+                throw new IllegalArgumentException("not a module directory: " + module);
+            }
+        }
         for (String inc : includes) {
             if (!INCLUDE.matcher(inc).matches()) {
                 throw new IllegalArgumentException("not a JaCoCo include pattern: " + inc);
@@ -298,13 +359,28 @@ public final class AdequacyCheck {
                 + " --class-path \"target/test-classes:target/classes:$(cat target/secpipe-cp.txt)\""
                 + select + " --reports-dir " + SuiteBaseline.REPORT_DIR + "\n"
                 + "rc=$?\n"
-                + "if [ -f " + EXEC + " ] && [ -f " + CLI + " ]; then java -jar " + CLI + " report " + EXEC
-                + " --classfiles target/classes --xml " + XML + " >/dev/null 2>&1"
-                + " || echo 'secpipe: jacoco report failed' >&2; fi\n"
+                + reportStep(modules)
                 + "exit $rc\n";
         List<String> cmd = new ArrayList<>(List.of("bash", "-c", script, "secpipe-regression-coverage"));
         cmd.addAll(classes);
         return List.copyOf(cmd);
+    }
+
+    private static String reportStep(List<String> modules) {
+        if (modules.equals(ROOT_ONLY) || modules.isEmpty()) {
+            return "if [ -f " + EXEC + " ] && [ -f " + CLI + " ]; then java -jar " + CLI + " report " + EXEC
+                    + " --classfiles target/classes --xml " + XML + " >/dev/null 2>&1"
+                    + " || echo 'secpipe: jacoco report failed' >&2; fi\n";
+        }
+        StringBuilder dirs = new StringBuilder();
+        for (String module : new TreeSet<>(modules)) {
+            dirs.append(" '").append(module.isEmpty() ? "" : module + "/").append("target/classes'");
+        }
+        return "cf=\"\"\n"
+                + "for d in" + dirs + "; do [ -d \"$d\" ] && cf=\"$cf --classfiles $d\"; done\n"
+                + "if [ -f " + EXEC + " ] && [ -f " + CLI + " ] && [ -n \"$cf\" ]; then java -jar " + CLI + " report "
+                + EXEC + " $cf --xml " + XML + " >/dev/null 2>&1"
+                + " || echo 'secpipe: jacoco report failed' >&2; fi\n";
     }
 
     /**

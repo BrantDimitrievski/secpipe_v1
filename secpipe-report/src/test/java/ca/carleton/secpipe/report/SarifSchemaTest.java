@@ -1,13 +1,18 @@
 package ca.carleton.secpipe.report;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URISyntaxException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
 /** WO-R.6: SARIF tests use the official OASIS schema, and the vendored copy is the pinned one. */
@@ -25,9 +30,18 @@ class SarifSchemaTest {
     }
 
     @Test
-    void everyGoldenSarifFileValidatesAgainstTheOfficialSchema() {
-        for (String golden : List.of("golden/secpipe.sarif", "remediation/golden/secpipe.sarif")) {
-            assertEquals(List.of(), SarifSchema.errors(Fixtures.resource(golden)), golden);
+    void everySarifFileUnderTheReportTestResourcesValidatesAgainstTheOfficialSchema() throws IOException,
+            URISyntaxException {
+        Path root = Path.of(SarifSchemaTest.class.getResource(Fixtures.BASE).toURI());
+        List<String> found;
+        try (Stream<Path> files = Files.walk(root)) {
+            found = files.filter(Files::isRegularFile).filter(f -> f.getFileName().toString().endsWith(".sarif"))
+                    .map(f -> root.relativize(f).toString().replace('\\', '/')).sorted().toList();
+        }
+        assertTrue(found.contains("golden/secpipe.sarif"), found.toString());
+        assertTrue(found.contains("remediation/golden/secpipe.sarif"), found.toString());
+        for (String sarif : found) {
+            assertEquals(List.of(), SarifSchema.errors(Fixtures.resource(sarif)), sarif);
         }
     }
 }
