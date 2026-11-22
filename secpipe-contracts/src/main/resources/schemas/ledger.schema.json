@@ -4,7 +4,7 @@
   "title": "SecPipe coverage-ledger.json (contract v1)",
   "$comment": "Unit shape adapted from cloudflare/security-audit-skill RECONNAISSANCE.md (MIT). coverage_id = 'cov:' + first 32 hex of SHA-256(canonical refs) (ADR-06). State invariants that JSON Schema cannot express are enforced by LedgerValidator (WO-V.2).",
   "type": "array",
-  "maxItems": 10000,
+  "maxItems": 100000,
   "items": { "$ref": "#/$defs/unit" },
   "$defs": {
     "text": { "type": "string", "minLength": 1, "pattern": "\\S" },

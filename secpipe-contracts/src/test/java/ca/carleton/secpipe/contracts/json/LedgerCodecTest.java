@@ -316,6 +316,27 @@ class LedgerCodecTest {
                 .getSchema(SchemaLocation.of(id));
     }
 
+    /** WO-CC.3: the ledger cap is 100000 units (a full OWASP Benchmark scan seeds 27k). */
+    @Test
+    void ledgerSchemaAcceptsMoreThanTenThousandUnitsUpToTheCap() {
+        JsonNode unit = tree(resource("/examples/ledger-valid.json")).get(0);
+        assertValid(LEDGER_SCHEMA, repeated(unit, 10_001));
+        assertValid(LEDGER_SCHEMA, repeated(unit, 100_000));
+        assertInvalid(LEDGER_SCHEMA, repeated(unit, 100_001));
+    }
+
+    private static String repeated(JsonNode unit, int count) {
+        String one = unit.toString();
+        StringBuilder sb = new StringBuilder(count * (one.length() + 1) + 2).append('[');
+        for (int i = 0; i < count; i++) {
+            if (i > 0) {
+                sb.append(',');
+            }
+            sb.append(one);
+        }
+        return sb.append(']').toString();
+    }
+
     private static void assertValid(Schema schema, String json) {
         List<Error> errors = schema.validate(json, InputFormat.JSON);
         assertTrue(errors.isEmpty(), () -> "schema errors: " + errors);
