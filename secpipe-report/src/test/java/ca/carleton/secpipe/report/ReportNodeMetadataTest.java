@@ -26,7 +26,7 @@ class ReportNodeMetadataTest {
 
     private record Ctx(Path outDir) implements RunContext {
         @Override public Path workDir() { return outDir.resolve(".work"); }
-        @Override public LlmClient llm() { throw new UnsupportedOperationException(); }
+        @Override public LlmClient llm() { return Fixtures.llm(Fixtures.ai()); }
         @Override public Optional<SandboxRunner> sandbox() { return Optional.empty(); }
         @Override public Budget budget() { return new FixedBudget(); }
         @Override public List<AnalyzerAdapter> adapters() { return List.of(); }
@@ -44,7 +44,7 @@ class ReportNodeMetadataTest {
     /** Finalize-style metadata: incomplete with a cause, and a failed ledger validator. */
     private static RunMetadata frozen() {
         RunMetadata m = RunMetadataAssembler.assemble(Fixtures.state(), Instant.parse("2026-11-17T14:59:00Z"),
-                new FixedBudget(), false);
+                new FixedBudget(), false, Fixtures.ai());
         RunMetadata inc = ReportNode.amended(m, "budget exhausted");
         return new RunMetadata(inc.schemaVersion(), inc.runId(), inc.secpipeVersion(), inc.startedAt(),
                 inc.finishedAt(), inc.terminalState(), inc.incompleteReason(), inc.profile(), inc.scope(),

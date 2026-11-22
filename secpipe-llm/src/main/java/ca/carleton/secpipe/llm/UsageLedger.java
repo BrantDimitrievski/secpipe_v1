@@ -71,6 +71,22 @@ public final class UsageLedger {
         return List.copyOf(out);
     }
 
+    /** True when at least one provider attempt succeeded. */
+    public synchronized boolean anySuccess() {
+        return attempts.stream().anyMatch(a -> a.outcome() == Outcome.OK);
+    }
+
+    /** Per role, the model id of its last successful attempt (roles with no success are absent). */
+    public synchronized Map<AgentRole, String> modelsUsed() {
+        Map<AgentRole, String> out = new EnumMap<>(AgentRole.class);
+        for (Attempt a : attempts) {
+            if (a.outcome() == Outcome.OK) {
+                out.put(a.role(), a.modelId());
+            }
+        }
+        return out;
+    }
+
     public synchronized List<Attempt> attempts() {
         return List.copyOf(attempts);
     }

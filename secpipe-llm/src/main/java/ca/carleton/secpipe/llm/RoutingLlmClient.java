@@ -168,6 +168,12 @@ public final class RoutingLlmClient implements SecPipeLlmClient {
     }
 
     @Override
+    public ModelInfo modelUsed(AgentRole role, String modelId) {
+        return routing.chainFor(role).stream().filter(m -> m.modelId().equals(modelId)).findFirst()
+                .orElseGet(() -> SecPipeLlmClient.super.modelUsed(role, modelId));
+    }
+
+    @Override
     public ProviderMode requestedMode() {
         return routing.provider();
     }

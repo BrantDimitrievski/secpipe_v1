@@ -18,7 +18,7 @@ import java.util.TreeMap;
 
 /**
  * Derives {@code run-metadata.json} content from the final {@link PipelineState} when no earlier node froze one.
- * Facts the state does not carry (per-model usage, fallbacks, sandbox image) are reported as empty rather than
+ * Facts the state does not carry (sandbox image) are reported as empty rather than
  * guessed. Counts always come from the records and the ledger.
  */
 public final class RunMetadataAssembler {
@@ -33,8 +33,10 @@ public final class RunMetadataAssembler {
      * @param now        the finish time, from {@code RunContext.clock()}
      * @param budget     the run's call budget, for the budget block
      * @param sandbox    whether a sandbox runner was available
+     * @param ai         the run's {@code ai} block, from {@code RunContext.llm().usageSnapshot()}
      */
-    public static RunMetadata assemble(PipelineState state, Instant now, Budget budget, boolean sandbox) {
+    public static RunMetadata assemble(PipelineState state, Instant now, Budget budget, boolean sandbox,
+                                       RunMetadata.Ai ai) {
         SecPipeConfig config = state.config();
         long elapsedMs = state.stageTimingsMs().values().stream().mapToLong(Long::longValue).sum();
         Instant started = now.minus(Duration.ofMillis(elapsedMs));
@@ -56,8 +58,7 @@ public final class RunMetadataAssembler {
                 config.profile(),
                 scope,
                 target(state),
-                new RunMetadata.Ai(config.llmProvider(), config.llmProvider(), List.of(), List.of(), List.of(), 0,
-                        Optional.empty()),
+                ai,
                 new RunMetadata.BudgetSnapshot(config.maxAgentCalls(), budget.used(), Map.of(), budget.exhausted(),
                         config.maxSandboxRuns(), 0),
                 state.toolRuns().stream().sorted(java.util.Comparator.comparing(RunMetadata.ToolRun::id)).toList(),

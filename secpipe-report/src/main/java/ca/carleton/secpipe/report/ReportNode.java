@@ -55,7 +55,8 @@ public final class ReportNode implements PipelineNode {
         if (Files.isRegularFile(file)) {
             return RunMetadataCodec.read(file);
         }
-        return RunMetadataAssembler.assemble(state, ctx.clock().instant(), ctx.budget(), ctx.sandbox().isPresent());
+        return RunMetadataAssembler.assemble(state, ctx.clock().instant(), ctx.budget(), ctx.sandbox().isPresent(),
+                ctx.llm().usageSnapshot());
     }
 
     @Override
