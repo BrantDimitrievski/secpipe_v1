@@ -37,6 +37,9 @@ jobs:
           fi
       - name: Build, unit tests, validators (schema + ledger tests run inside verify)
         run: ./mvnw -B -q verify
+      - name: Test summary
+        if: always()
+        run: bash scripts/ci-test-summary.sh
       - name: E2E fixture scan (fake LLM)
         run: bash scripts/ci-fixture-scan.sh
       - name: Lint workflows and scripts
@@ -70,6 +73,9 @@ jobs:
       - name: Sandbox tests
         env: { SECPIPE_RUNNER_IMAGE: "secpipe-runner:ci" }
         run: ./mvnw -B -q -Psandbox verify
+      - name: Test summary
+        if: always()
+        run: bash scripts/ci-test-summary.sh
       - name: Demo (step 4 verifies a fix in the sandbox)
         env: { SECPIPE_RUNNER_IMAGE: "secpipe-runner:ci" }
         run: bash scripts/demo/demo.sh
