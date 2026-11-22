@@ -164,4 +164,14 @@ class AnthropicProviderTest {
         assertThat(found).extracting(LlmProviderFactory::mode).containsExactly(ProviderMode.ANTHROPIC);
         assertThat(found.get(0).defaultModels()).containsOnlyKeys(AgentRole.values());
     }
+
+    @Test
+    void defaultsAreTheCurrentLargeAndSmallTierIds() {
+        Map<AgentRole, String> defaults = new AnthropicProviderFactory().defaultModels();
+
+        assertThat(defaults.values()).containsOnly("claude-opus-5-5", "claude-sonnet-5-5");
+        for (AgentRole role : AgentRole.values()) {
+            assertThat(defaults.get(role)).isEqualTo(role.strongByDefault() ? "claude-opus-5-5" : "claude-sonnet-5-5");
+        }
+    }
 }

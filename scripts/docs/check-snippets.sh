@@ -53,6 +53,19 @@ if [ "$rc" -ne 2 ] || ! grep -q '^hint:' <<<"$pr_err"; then
     echo "error: --enable-fixes pr should exit 2 with a hint (exit $rc): $pr_err" >&2
     exit 1
 fi
+# ollama is not built: exits 2 with a hint naming the openai-compatible route; --no-ai still wins and runs.
+rc=0
+ol_err="$(java -jar "$JAR" scan "$FIXTURE" --llm-provider ollama --no-sandbox -o "$TMP/ollama" 2>&1 >/dev/null)" || rc=$?
+if [ "$rc" -ne 2 ] || ! grep -q '^hint: .*openai-compatible' <<<"$ol_err"; then
+    echo "error: --llm-provider ollama should exit 2 with a hint (exit $rc): $ol_err" >&2
+    exit 1
+fi
+rc=0
+java -jar "$JAR" scan "$FIXTURE" --no-ai --llm-provider ollama --no-sandbox -o "$TMP/ollama-noai" || rc=$?
+if [ "$rc" -ne 0 ]; then
+    echo "error: --no-ai --llm-provider ollama exited $rc, expected 0" >&2
+    exit 1
+fi
 # The guide tells users to run "git apply secpipe-fixes.patch" from the project root: check that form on a copy.
 cp -r "$ROOT/fixtures/remediation/sqli-fixable" "$TMP/fixable"
 (cd "$TMP/fixable" && git apply --check fix/prepared-statement.patch)

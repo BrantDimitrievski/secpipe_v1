@@ -81,14 +81,29 @@ class RemediationScriptTest {
     }
 
     @Test
-    void noneAndOllamaNeedNoKeyAndFakeNeedsItsTwoVariables() throws Exception {
+    void noneNeedsNoKeyOllamaIsNotBuiltAndFakeNeedsItsTwoVariables() throws Exception {
         assertThat(run(Map.of(), "--provider", "none", "--check-env").exit()).isZero();
-        assertThat(run(Map.of(), "--provider", "ollama", "--check-env").exit()).isZero();
+        Outcome ollama = run(Map.of(), "--provider", "ollama", "--check-env");
+        assertThat(ollama.exit()).isEqualTo(2);
+        assertThat(ollama.stderr()).contains("hint: use --provider openai-compatible --llm-base-url "
+                + "http://localhost:11434/v1 --model <name>");
         assertThat(run(Map.of(), "--provider", "fake", "--check-env").exit()).isEqualTo(2);
         assertThat(run(Map.of("SECPIPE_ALLOW_FAKE_LLM", "1"), "--provider", "fake", "--check-env").exit())
                 .isEqualTo(2);
         assertThat(run(Map.of("SECPIPE_ALLOW_FAKE_LLM", "1", "SECPIPE_FAKE_LLM_DIR", "/tmp/fixtures"), "--provider",
                 "fake", "--check-env").exit()).isZero();
+    }
+
+    @Test
+    void checkEnvWithFromSkipsTheKeyCheck() throws Exception {
+        Path findings = Files.createTempFile("findings", ".json");
+        try {
+            Outcome o = run(Map.of(), "--check-env", "--from", findings.toString());
+            assertThat(o.exit()).isZero();
+            assertThat(o.stdout()).contains("check-env: ok");
+        } finally {
+            Files.deleteIfExists(findings);
+        }
     }
 
     @Test

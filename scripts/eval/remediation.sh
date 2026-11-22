@@ -7,11 +7,12 @@
 #        bash scripts/eval/remediation.sh --from <findings.json>... [--patch-base PREFIX]
 #   --provider P   --llm-provider value (default: anthropic); the API key is read from the environment, never a flag
 #   --model ID     --model value (use a frontier model for the real run)
-#   --llm-base-url U  --llm-base-url value (required for openai-compatible, optional for openai and ollama)
+#   --llm-base-url U  --llm-base-url value (required for openai-compatible, optional for openai)
 #   --check-env    run only the argument and API-key checks for the chosen provider, then exit 0 (ok) or 2; needs no
 #                  Docker, jar or network. Keys: anthropic = SECPIPE_API_KEY | ANTHROPIC_API_KEY | SECPIPE_LLM_KEY;
-#                  openai, openai-compatible = SECPIPE_API_KEY | OPENAI_API_KEY | SECPIPE_LLM_KEY; none and ollama
-#                  need no key; fake needs SECPIPE_ALLOW_FAKE_LLM=1 and SECPIPE_FAKE_LLM_DIR
+#                  openai, openai-compatible = SECPIPE_API_KEY | OPENAI_API_KEY | SECPIPE_LLM_KEY; none needs no
+#                  key; ollama is not built (use openai-compatible); fake needs SECPIPE_ALLOW_FAKE_LLM=1 and
+#                  SECPIPE_FAKE_LLM_DIR
 #   --out DIR      per-app scan output (default: ./secpipe-eval-out/remediation/<app>/)
 #   --from FILES   skip the scans and re-render the scorecard from existing findings.json files; each file's
 #                  parent directory name is its app name
@@ -56,7 +57,7 @@ while [ $# -gt 0 ]; do
       shift
       while [ $# -gt 0 ] && [[ "$1" != --* ]]; do FROM+=("$1"); shift; done
       [ ${#FROM[@]} -gt 0 ] || die "--from needs at least one findings.json" "bash scripts/eval/remediation.sh --from out/app/findings.json" ;;
-    -h|--help) sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) die "unknown option $1" "usage: bash scripts/eval/remediation.sh [--provider P] [--model ID] [--llm-base-url URL] [--out DIR] [--dry-run] [--check-env] | --from FILE..." ;;
   esac
 done
@@ -75,12 +76,15 @@ check_env() {
       if [ "$PROVIDER" = "openai-compatible" ] && [ -z "$BASE_URL" ]; then
         die "provider openai-compatible needs a base URL" "pass --llm-base-url URL"
       fi ;;
-    none|ollama) ;;
+    ollama)
+      die "provider ollama is not built" \
+          "use --provider openai-compatible --llm-base-url http://localhost:11434/v1 --model <name>" ;;
+    none) ;;
     fake)
       [ "${SECPIPE_ALLOW_FAKE_LLM:-}" = "1" ] && [ -n "${SECPIPE_FAKE_LLM_DIR:-}" ] \
         || die "provider fake needs SECPIPE_ALLOW_FAKE_LLM=1 and SECPIPE_FAKE_LLM_DIR" \
                "export SECPIPE_ALLOW_FAKE_LLM=1 and SECPIPE_FAKE_LLM_DIR=<llm-fixtures dir>" ;;
-    *) die "unknown provider $PROVIDER" "use one of: anthropic, openai, openai-compatible, ollama, none, fake" ;;
+    *) die "unknown provider $PROVIDER" "use one of: anthropic, openai, openai-compatible, none, fake" ;;
   esac
 }
 

@@ -2,6 +2,7 @@ package ca.carleton.secpipe.cli;
 
 import ca.carleton.secpipe.contracts.config.ConfigException;
 import ca.carleton.secpipe.contracts.config.ConfigResolver;
+import ca.carleton.secpipe.contracts.config.ProviderMode;
 import ca.carleton.secpipe.contracts.config.SecPipeConfig;
 import ca.carleton.secpipe.contracts.pipeline.PipelineState;
 
@@ -49,8 +50,10 @@ final class ScanCommand implements Callable<Integer> {
     @Option(names = "--base-ref", paramLabel = "REF") private String baseRef;
     @Option(names = "--head-ref", paramLabel = "REF") private String headRef;
     @Option(names = "--llm-provider", paramLabel = "PROVIDER",
-            description = "none|anthropic|openai|openai-compatible|ollama (default none). The API key is read "
-                    + "only from SECPIPE_API_KEY (or ANTHROPIC_API_KEY, OPENAI_API_KEY, SECPIPE_LLM_KEY).")
+            description = "none|anthropic|openai|openai-compatible (default none); 'ollama' is accepted by the "
+                    + "parser but not built (use openai-compatible with --llm-base-url http://localhost:11434/v1). "
+                    + "The API key is read only from SECPIPE_API_KEY (or ANTHROPIC_API_KEY, OPENAI_API_KEY, "
+                    + "SECPIPE_LLM_KEY).")
     private String llmProvider;
     @Option(names = "--model", paramLabel = "ID") private String model;
     @Option(names = "--model-for", paramLabel = "ROLE=ID") private List<String> modelFor;
@@ -64,7 +67,7 @@ final class ScanCommand implements Callable<Integer> {
     @Option(names = "--enable-fixes", paramLabel = "false|suggest|pr") private String enableFixes;
     @Option(names = "--no-sandbox", description = "Do not use Docker; findings stay needs_validation")
     private boolean noSandbox;
-    @Option(names = "--offline", description = "No network (implies --llm-provider none unless ollama)")
+    @Option(names = "--offline", description = "No network (implies --llm-provider none)")
     private boolean offline;
     @Option(names = "--no-ai", description = "Same as --llm-provider none") private boolean noAi;
     @Option(names = "--fail-on", paramLabel = "SEVERITY",
@@ -115,6 +118,10 @@ final class ScanCommand implements Callable<Integer> {
         if (cfg.printPrompts()) {
             return usage("--print-prompts is not implemented in this build",
                     "omit --print-prompts; use --no-ai to make sure no prompt is sent");
+        }
+        if (cfg.llmProvider() == ProviderMode.OLLAMA) {
+            return usage("--llm-provider ollama is not built in this build",
+                    "use --llm-provider openai-compatible --llm-base-url http://localhost:11434/v1 --model <name>");
         }
         if (!Files.isDirectory(cfg.target())) {
             return usage("scan target is not a directory: " + cfg.target(),

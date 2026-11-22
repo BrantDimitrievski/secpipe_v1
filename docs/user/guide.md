@@ -37,7 +37,7 @@ anything that executes it goes through the Docker sandbox.
 | `-o, --out DIR` | Output directory (default `secpipe-out`) |
 | `--no-ai` | No LLM at all (same as `--llm-provider none`) |
 | `--no-sandbox` | Do not use Docker; findings that need evidence stay `needs_validation` |
-| `--llm-provider P` | `none` (default), `fake`, `openai`, `openai-compatible`, `anthropic` |
+| `--llm-provider P` | `none` (default), `fake`, `openai`, `openai-compatible`, `anthropic` (`ollama` is not built, see section 3) |
 | `--model ID`, `--llm-base-url URL` | Model id; base URL for `openai-compatible` |
 | `--profile quick\|standard\|deep` | Effort and budget (default `standard`) |
 | `--fail-on SEVERITY` | `critical\|high\|medium\|low\|informational\|none` (default `high`) |
@@ -62,8 +62,11 @@ secpipe validate findings secpipe-out/findings.json --root PATH
 | `none` | Deterministic analyzers only (`--no-ai`) | none |
 | `fake` | CI and demos: canned responses, no network. Needs `SECPIPE_ALLOW_FAKE_LLM=1` and `SECPIPE_FAKE_LLM_DIR=<dir>` | none |
 | `openai` | OpenAI API | env |
-| `openai-compatible` | Any OpenAI-style endpoint; set `--llm-base-url` | env |
-| `anthropic` | Anthropic API | env |
+| `openai-compatible` | Any OpenAI-style endpoint, including a local server such as Ollama: `--llm-base-url http://localhost:11434/v1 --model <name>` | env (any non-empty value for a local server) |
+| `anthropic` | Anthropic API; defaults `claude-opus-5-5` (large tier) and `claude-sonnet-5-5` (small tier), override with `--model` | env |
+
+`--llm-provider ollama` is accepted by the parser but there is no Ollama provider: it exits 2 with a hint that names
+the `openai-compatible` route above.
 
 The API key is read **only from the environment**, never from a flag or config file: `SECPIPE_API_KEY`, or one of
 `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `SECPIPE_LLM_KEY`.
@@ -72,6 +75,17 @@ The API key is read **only from the environment**, never from a flag or config f
 export ANTHROPIC_API_KEY=...        # your key
 secpipe scan PATH --llm-provider anthropic --model <model-id>
 ```
+
+### Check your key first
+
+Before a long AI-on run, spend one cheap call to confirm the key, model and endpoint work:
+
+```bash
+bash scripts/eval/smoke.sh                      # anthropic, provider default model
+bash scripts/eval/smoke.sh --check-env          # key check only, no network
+```
+
+It scans `fixtures/remediation/sqli-fixable` with the real provider and passes only if the model was actually called.
 
 With an LLM provider, repository text is sent to that provider. Use `--no-ai` or `--offline` when it must not be.
 
@@ -194,6 +208,8 @@ Not delivered in this build (see `docs/PLAN.md`, "Re-plan 2026-11-17 (lean)"):
 - **No GitHub Action.** `action.yml` and PR comments/suggestions are not built; `--enable-fixes pr` exits 2. SecPipe
   is a CLI only.
 - No HTML report (`report.md` and SARIF only), no `secpipe doctor` or `secpipe report`.
+- `--llm-provider ollama` exits 2 with a hint (no Ollama provider is built); use `--llm-provider openai-compatible
+  --llm-base-url http://localhost:11434/v1 --model <name>`.
 - `--scope diff` falls back to a full scan with a note; `--print-prompts` and `--engine langgraph4j` exit 2 with a
   hint.
 - Fixes are verified only for `confirmed` findings with a working Docker sandbox; a fix is as strong as its
