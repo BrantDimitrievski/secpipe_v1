@@ -1,0 +1,55 @@
+# Scores SecPipe (AI off) on the OWASP Benchmark v1.2 and prints the scorecard into the job log (WO-E.11).
+# No secrets, no API keys. The job fails only if the scan or scoring step fails, never because the score is low.
+name: eval-benchmark
+on:
+  workflow_dispatch:
+  push:
+    branches: ["eval/**"]
+permissions:
+  contents: read
+concurrency:
+  group: eval-benchmark-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  benchmark:
+    name: benchmark
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with: { distribution: temurin, java-version: "21", cache: maven }
+      - name: Scan the OWASP Benchmark (AI off) and score it
+        run: |
+          start=$(date +%s)
+          if ! bash scripts/eval/benchmark.sh --no-ai --out secpipe-eval-out/benchmark; then
+            echo "::error::OWASP Benchmark scan or scoring failed (see the log above); the score itself is never a failure condition."
+            exit 1
+          fi
+          echo "$(( $(date +%s) - start ))" > benchmark-wall-seconds.txt
+      - name: Print scorecard
+        run: |
+          out=secpipe-eval-out/benchmark
+          for f in scorecard.md scorecard.json; do
+            if [ ! -f "$out/$f" ]; then
+              echo "::error::$out/$f was not produced by the scoring step."
+              exit 1
+            fi
+          done
+          echo "== benchmark scorecard =="
+          cat "$out/scorecard.md"
+          echo
+          python3 -B -c 'import json,sys; print(json.dumps(json.load(open(sys.argv[1])), sort_keys=True, separators=(",", ":")))' "$out/scorecard.json"
+          echo "== end scorecard =="
+          echo "scan and scoring wall-clock seconds: $(cat benchmark-wall-seconds.txt)"
+      - name: Upload scorecard
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: benchmark-scorecard-${{ github.run_id }}
+          path: |
+            secpipe-eval-out/benchmark/scorecard.json
+            secpipe-eval-out/benchmark/scorecard.md
+            secpipe-eval-out/benchmark/per-case.csv
+          if-no-files-found: warn
+          retention-days: 30
