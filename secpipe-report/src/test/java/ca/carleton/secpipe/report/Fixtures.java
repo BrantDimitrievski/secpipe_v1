@@ -10,6 +10,7 @@ import ca.carleton.secpipe.contracts.json.LedgerCodec;
 import ca.carleton.secpipe.contracts.json.RunMetadataCodec;
 import ca.carleton.secpipe.contracts.pipeline.PipelineState;
 import ca.carleton.secpipe.contracts.run.RunMetadata;
+import ca.carleton.secpipe.contracts.spi.LlmClient;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
@@ -87,5 +88,29 @@ final class Fixtures {
 
     static ReportInputs inputs() {
         return new ReportInputs(state(), metadata());
+    }
+
+    /** An LlmClient stub whose only job is to report {@code ai} from {@code usageSnapshot()}. */
+    static LlmClient llm(RunMetadata.Ai ai) {
+        return new LlmClient() {
+            @Override public ProviderMode mode() { return ai.effectiveMode(); }
+            @Override public ModelInfo modelFor(AgentRole role) { throw new UnsupportedOperationException(); }
+            @Override public Response complete(AgentRole role, Request request) {
+                throw new UnsupportedOperationException();
+            }
+            @Override public RunMetadata.Ai usageSnapshot() { return ai; }
+        };
+    }
+
+    /** Two roles with calls and tokens, as a fake-LLM run would report. */
+    static RunMetadata.Ai ai() {
+        return new RunMetadata.Ai(ProviderMode.FAKE, ProviderMode.FAKE, List.of(),
+                List.of(new RunMetadata.ModelAssignment(AgentRole.HUNTER, ProviderMode.FAKE, "fake-hunter",
+                                Finding.VerifierRef.CapabilityTier.STANDARD),
+                        new RunMetadata.ModelAssignment(AgentRole.DISPROVER, ProviderMode.FAKE, "fake-disprover",
+                                Finding.VerifierRef.CapabilityTier.STRONG)),
+                List.of(new RunMetadata.Usage(AgentRole.DISPROVER, 2, 0, 0, 30, 10, Optional.empty()),
+                        new RunMetadata.Usage(AgentRole.HUNTER, 3, 1, 1, 300, 90, Optional.empty())),
+                0, Optional.empty());
     }
 }

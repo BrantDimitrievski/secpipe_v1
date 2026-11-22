@@ -18,9 +18,10 @@ import java.util.Optional;
 import java.util.TreeMap;
 
 /**
- * Builds the frozen {@link RunMetadata} at finalize from the final state. Facts the state does not carry (per-model
- * usage, fallbacks, sandbox image) are empty rather than guessed. {@code terminal_state} is {@code complete} exactly
- * when {@code incompleteReason} is empty (schema {@code allOf} rule). Deterministic: maps sorted, tools sorted by id.
+ * Builds the frozen {@link RunMetadata} at finalize from the final state. The {@code ai} block comes from
+ * {@code RunContext.llm().usageSnapshot()}; facts the state does not carry (sandbox image) are empty rather than
+ * guessed. {@code terminal_state} is {@code complete} exactly when {@code incompleteReason} is empty (schema
+ * {@code allOf} rule). Deterministic: maps sorted, tools sorted by id.
  */
 public final class RunMetadataBuilder {
 
@@ -31,7 +32,8 @@ public final class RunMetadataBuilder {
     }
 
     public static RunMetadata build(PipelineState state, Instant finishedAt, Budget budget, boolean sandbox,
-                                    Optional<String> incompleteReason, RunMetadata.Validators validators) {
+                                    Optional<String> incompleteReason, RunMetadata.Validators validators,
+                                    RunMetadata.Ai ai) {
         SecPipeConfig config = state.config();
         long elapsedMs = state.stageTimingsMs().values().stream().mapToLong(Long::longValue).sum();
         Optional<String> reason = incompleteReason.filter(r -> !r.isBlank());
@@ -50,8 +52,7 @@ public final class RunMetadataBuilder {
                 config.profile(),
                 scope,
                 target(state),
-                new RunMetadata.Ai(config.llmProvider(), config.llmProvider(), List.of(), List.of(), List.of(), 0,
-                        Optional.empty()),
+                ai,
                 new RunMetadata.BudgetSnapshot(config.maxAgentCalls(), budget.used(), Map.of(), budget.exhausted(),
                         config.maxSandboxRuns(), 0),
                 state.toolRuns().stream().sorted(Comparator.comparing(RunMetadata.ToolRun::id)).toList(),

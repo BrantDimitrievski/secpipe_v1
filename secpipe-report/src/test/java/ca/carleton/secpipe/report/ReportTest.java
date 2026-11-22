@@ -213,7 +213,7 @@ class ReportTest {
         PipelineState state = Fixtures.state(Fixtures.findings(), Optional.of("validator rejected delta"),
                 List.of());
         RunMetadata meta = RunMetadataAssembler.assemble(state, java.time.Instant.parse("2026-11-17T15:00:00Z"),
-                new FixedBudget(), false);
+                new FixedBudget(), false, Fixtures.ai());
         assertEquals(RunMetadata.TerminalState.INCOMPLETE, meta.terminalState());
         assertEquals(Optional.of("validator rejected delta"), meta.incompleteReason());
         assertEquals(1, meta.counts().confirmed());

@@ -101,7 +101,7 @@ public final class FinalizeNode implements PipelineNode {
 
         RunMetadata.Validators validators = new RunMetadata.Validators(status(findings), status(ledgerResult));
         RunMetadata metadata = RunMetadataBuilder.build(state, ctx.clock().instant(), ctx.budget(),
-                ctx.sandbox().isPresent(), reason, validators);
+                ctx.sandbox().isPresent(), reason, validators, ctx.llm().usageSnapshot());
         write(ctx.outDir(), metadata);
         ctx.log().info("finalize: terminal state " + metadata.terminalState().name().toLowerCase(java.util.Locale.ROOT)
                 + reason.map(r -> " (" + r + ")").orElse(""));

@@ -3,7 +3,9 @@ package ca.carleton.secpipe.contracts.spi;
 import ca.carleton.secpipe.contracts.agent.AgentRole;
 import ca.carleton.secpipe.contracts.config.ProviderMode;
 import ca.carleton.secpipe.contracts.finding.Finding.VerifierRef.CapabilityTier;
+import ca.carleton.secpipe.contracts.run.RunMetadata;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -19,6 +21,15 @@ public interface LlmClient {
     ModelInfo modelFor(AgentRole role);
 
     Response complete(AgentRole role, Request request) throws LlmUnavailableException, BudgetExhaustedException;
+
+    /**
+     * What this client has done so far, as the run metadata {@code ai} block: models used, usage per role,
+     * fallbacks and the effective mode. The default reports no usage and {@code requestedMode == effectiveMode ==
+     * mode()}, so test doubles need not override it. Never contains keys, headers or prompts.
+     */
+    default RunMetadata.Ai usageSnapshot() {
+        return new RunMetadata.Ai(mode(), mode(), List.of(), List.of(), List.of(), 0, Optional.empty());
+    }
 
     record ModelInfo(ProviderMode provider, String modelId, CapabilityTier tier) { }
 

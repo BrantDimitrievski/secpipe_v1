@@ -32,7 +32,7 @@ class ReportNodeTest {
     /** A context that supports exactly what ReportNode touches. */
     private record Ctx(Path outDir, List<String> warnings) implements RunContext {
         @Override public Path workDir() { return outDir.resolve(".work"); }
-        @Override public LlmClient llm() { throw new UnsupportedOperationException(); }
+        @Override public LlmClient llm() { return Fixtures.llm(Fixtures.ai()); }
         @Override public Optional<SandboxRunner> sandbox() { return Optional.empty(); }
         @Override public Budget budget() { return new FixedBudget(); }
         @Override public List<AnalyzerAdapter> adapters() { return List.of(); }

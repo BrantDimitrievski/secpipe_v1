@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import ca.carleton.secpipe.cli.SecPipeCli;
 import ca.carleton.secpipe.contracts.json.ContractJson;
 import ca.carleton.secpipe.llm.SecretLeakAssertions;
+import ca.carleton.secpipe.validators.SchemaRegistry;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -90,6 +91,37 @@ class E2eFixtureScanTest {
         // the survivor of the fake disprover stays needs_validation without a sandbox (WO-G.7)
         assertThat(Files.readString(run.dir().resolve("findings.json"))).contains("sandbox unavailable");
         assertThat(run.out()).as("-q prints no summary").isEmpty();
+    }
+
+    @Test
+    void fakeLlmRunMetadataReportsUsageAndIsByteStable() throws IOException {
+        Run a = scan(fakeEnv(), "--profile", "quick", "--llm-provider", "fake", "-q");
+        Run b = scan(fakeEnv(), "--profile", "quick", "--llm-provider", "fake", "-q");
+
+        assertThat(a.exit()).as(a.err()).isZero();
+        String json = Files.readString(a.dir().resolve("run-metadata.json"));
+        assertThat(SchemaRegistry.shared().validate("run-metadata.schema.json", json).errors()).isEmpty();
+        JsonNode ai = ContractJson.mapper().readTree(json).get("ai");
+        assertThat(ai.get("requested_mode").asString()).isEqualTo("fake");
+        assertThat(ai.get("effective_mode").asString()).isEqualTo("fake");
+        assertThat(ai.get("usage")).isNotEmpty();
+        assertThat(ai.get("usage").get(0).get("calls").asInt()).isPositive();
+        assertThat(ai.get("models")).isNotEmpty();
+        // started/finished and stage timings vary with the wall clock; the ai block must not
+        assertThat(ai.toString()).isEqualTo(
+                ContractJson.mapper().readTree(Files.readString(b.dir().resolve("run-metadata.json"))).get("ai")
+                        .toString());
+    }
+
+    @Test
+    void noAiRunMetadataHasAnEmptyAiBlockAndEffectiveModeNone() throws IOException {
+        Run run = scan(Map.of(), "--no-ai");
+
+        JsonNode ai = ContractJson.mapper().readTree(Files.readString(run.dir().resolve("run-metadata.json")))
+                .get("ai");
+        assertThat(ai.get("effective_mode").asString()).isEqualTo("none");
+        assertThat(ai.get("usage")).isEmpty();
+        assertThat(ai.get("models")).isEmpty();
     }
 
     @Test
