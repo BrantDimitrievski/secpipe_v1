@@ -23,6 +23,9 @@ jobs:
         with: { distribution: temurin, java-version: "21", cache: maven }
       - name: Build
         run: ./mvnw -B -q verify
+      - name: Test summary
+        if: always()
+        run: bash scripts/ci-test-summary.sh
       - name: E2E slice
         run: bash scripts/ci-fixture-scan.sh | tee e2e.txt
       - name: NFR-2 timing smoke (no AI, < 10k LOC target 10 s)
