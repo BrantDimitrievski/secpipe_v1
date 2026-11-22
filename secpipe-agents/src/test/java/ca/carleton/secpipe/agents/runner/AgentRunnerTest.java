@@ -212,6 +212,44 @@ class AgentRunnerTest {
     }
 
     @Test
+    void callBudgetOfOneMakesExactlyOneCall() {
+        FakeLlmClient llm = fake();
+        AgentOutcome<HunterResult> out = new AgentRunner(llm)
+                .run(hunter("CASE_MALFORMED_THEN_OK"), SOURCE, GROUNDING, 1);
+
+        assertThat(out).isInstanceOf(AgentOutcome.Dropped.class);
+        assertThat(out.attempts()).isEqualTo(1);
+        assertThat(((AgentOutcome.Dropped<HunterResult>) out).reason())
+                .startsWith("agent output invalid 1 times; last: malformed output:");
+        assertThat(llm.calls()).hasSize(1);
+    }
+
+    @Test
+    void callBudgetOfTwoAllowsOneFreshReRunOnly() {
+        FakeLlmClient ok = fake();
+        assertThat(new AgentRunner(ok).run(hunter("CASE_MALFORMED_THEN_OK"), SOURCE, GROUNDING, 2))
+                .isInstanceOf(AgentOutcome.Ok.class);
+        assertThat(ok.calls()).hasSize(2);
+
+        FakeLlmClient never = fake();
+        assertThat(new AgentRunner(never).run(hunter("CASE_MALFORMED_ALWAYS"), SOURCE, GROUNDING, 2))
+                .isInstanceOf(AgentOutcome.Dropped.class);
+        assertThat(never.calls()).hasSize(2);
+    }
+
+    @Test
+    void callBudgetOutsideOneToMaxAttemptsIsRejectedBeforeAnyCall() {
+        FakeLlmClient llm = fake();
+        AgentRunner runner = new AgentRunner(llm);
+
+        assertThatThrownBy(() -> runner.run(hunter("CASE_OK"), SOURCE, GROUNDING, 0))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("1.." + AgentRunner.MAX_ATTEMPTS);
+        assertThatThrownBy(() -> runner.run(hunter("CASE_OK"), SOURCE, GROUNDING, AgentRunner.MAX_ATTEMPTS + 1))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("1.." + AgentRunner.MAX_ATTEMPTS);
+        assertThat(llm.calls()).isEmpty();
+    }
+
+    @Test
     void criticStartingPathMustBeIndexed() {
         TestAgent<CriticResult> ok = TestAgent.of(AgentRole.CRITIC, CriticResult.class,
                 "agent/critic-result.schema.json", "CASE_CRITIC_OK");

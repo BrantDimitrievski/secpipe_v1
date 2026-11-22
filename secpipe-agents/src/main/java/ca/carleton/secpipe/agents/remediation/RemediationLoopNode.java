@@ -462,8 +462,15 @@ public final class RemediationLoopNode implements PipelineNode {
                 sandboxBudgetOut = true;
                 return Optional.empty();
             }
+            Map<String, SortedSet<Integer>> changedNow = AdequacyCheck.changedLines(patch);
+            Optional<List<String>> modules = AdequacyCheck.modules(changedNow.keySet());
+            if (modules.isEmpty()) {
+                note("adequacy not measured for " + fp + " attempt " + n
+                        + ": a changed file has a module directory that is not a plain relative path");
+            }
             AdequacyCheck.CoverageRun covered = AdequacyCheck.run(runner, ws, regressionCopy, List.of(fqcn),
-                    AdequacyCheck.includes(AdequacyCheck.changedLines(patch)),
+                    modules.isPresent() ? AdequacyCheck.includes(changedNow) : List.of(),
+                    modules.orElse(List.of("")),
                     "regression test " + fqcn + " (fix attempt " + n + ")");
             SuiteBaseline.TestRun reg = covered.tests();
             if (reg instanceof SuiteBaseline.BuildFailed bf) {
@@ -583,6 +590,7 @@ public final class RemediationLoopNode implements PipelineNode {
             writeTest(copy, new RegressionTest(followPath, t.source()));
             AdequacyCheck.CoverageRun rerun = AdequacyCheck.run(svc.sandbox().orElseThrow(), ws, copy,
                     List.of(fqcn, followFqcn), AdequacyCheck.includes(changed),
+                    AdequacyCheck.modules(changed.keySet()).orElse(List.of("")),
                     "regression test " + fqcn + " with follow-up " + followFqcn
                             + " (adequacy, fix attempt " + n + ")");
             boolean allPassed = rerun.tests() instanceof SuiteBaseline.Completed done && !done.tests().isEmpty()
@@ -753,7 +761,6 @@ public final class RemediationLoopNode implements PipelineNode {
                 a.suitePassed(), a.rescanClean(), a.newFingerprints(), Optional.of(adequacy));
     }
 
-    /** {@code <family>-<first 12 hash chars>} for code fingerprints, else a file-name-safe form. */
     /**
      * Promotes {@code source} to {@code <outDir>/patches/<fp>-attempt<n>-adequacy-test.java} and returns the run note:
      * the success note, or a "not promoted" note naming the reason (rejection, I/O error, or a path that does not fit
@@ -773,6 +780,7 @@ public final class RemediationLoopNode implements PipelineNode {
         }
     }
 
+    /** {@code <family>-<first 12 hash chars>} for code fingerprints, else a file-name-safe form. */
     static String shortId(String fingerprint) {
         String[] parts = fingerprint.split(":");
         if (parts.length == 3 && parts[0].equals("code")) {

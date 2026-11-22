@@ -344,7 +344,8 @@ class AdequacyCheckTest {
 
         String big = "x".repeat((int) RemediationLoopNode.FOLLOW_UP_TEST_MAX_BYTES + 1);
         String oversize = RemediationLoopNode.promoteFollowUpTest(tmp.resolve("out2"), FP, 1, big);
-        assertTrue(oversize.contains("not promoted: oversize"), oversize);
+        assertEquals("adequacy follow-up test for " + FP + " attempt 1 not promoted: oversize ("
+                + big.length() + " > " + RemediationLoopNode.FOLLOW_UP_TEST_MAX_BYTES + " bytes)", oversize);
     }
 
     @Test
