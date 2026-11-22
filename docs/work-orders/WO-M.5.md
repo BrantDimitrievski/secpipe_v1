@@ -11,7 +11,7 @@ Context to read first (exact paths only): `secpipe-agents/src/main/java/ca/carle
 
 Files you own (create/modify — nothing else): `secpipe-agents/src/main/java/ca/carleton/secpipe/agents/remediation/{AdequacyCheck,RemediationLoopNode}.java`, `secpipe-agents/src/test/java/ca/carleton/secpipe/agents/remediation/{AdequacyCheck,RemediationLoopNode}*Test.java`, `secpipe-agents/src/test/resources/ca/carleton/secpipe/agents/remediation/jacoco/**`, `secpipe-agents/src/test/java/ca/carleton/secpipe/agents/runner/AgentRunnerTest.java`, `secpipe-report/src/test/java/ca/carleton/secpipe/report/SarifSchemaTest.java`, `secpipe-report/src/test/java/ca/carleton/secpipe/report/GoldenVerifiedFixTest.java` (new), `secpipe-report/src/test/resources/ca/carleton/secpipe/report/verified-fix/**` (new, only if needed), `docs/work-orders/WO-M.5.md` (this file, verbatim).
 
-Files you may read but not modify: everything else; in particular `secpipe-report/src/main/**`, the other report tests (WO-K.16 owns the run-metadata ones in this wave), `scripts/eval/**`, `secpipe-sandbox/**`, `secpipe-contracts/**`.
+Files you may read but not modify: everything else; in particular `secpipe-report/src/main/**`, the other report tests (WO-CC.3 owns the run-metadata and ReportNode ones in this wave), `scripts/eval/**`, `secpipe-sandbox/**`, `secpipe-contracts/**`.
 
 Interfaces consumed: `SandboxRunner`, `AgentRunner.run(agent, input, grounding, maxCalls)`, `ReportBundle`, `PatchSource`   Interfaces produced: unchanged signatures.
 
